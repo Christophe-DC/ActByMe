@@ -6,11 +6,8 @@ import {
   AgencyAccessResponse,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_URL) {
-  throw new Error("NEXT_PUBLIC_API_URL environment variable is not set");
-}
+// Use NEXT_PUBLIC_API_URL when provided; fall back to relative `/api` for local dev
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 class APIError extends Error {
   constructor(

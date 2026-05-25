@@ -27,6 +27,13 @@ import type { MockActor } from "../lib/mock-actors";
 export function ActorProfileExperience({ actor }: { actor: MockActor }) {
   const [shareLabel, setShareLabel] = useState("Share profile");
 
+  const aiTransformation = actor.aiTransformation ?? {
+    originalImage: actor.videoThumbnail ?? actor.profileImage ?? actor.heroImage,
+    originalLabel: "Original performance",
+    resultImage: actor.heroImage ?? actor.profileImage ?? actor.videoThumbnail,
+    resultLabel: "AI character result",
+  };
+
   async function shareProfile() {
     const shareUrl = window.location.href;
 
@@ -150,7 +157,7 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
             <p className="mt-5 text-sm leading-7 text-[#9CA3AF]">{actor.bio}</p>
           </Card>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {actor.topSkills.map((skill, index) => (
+            {(actor.topSkills ?? []).map((skill, index) => (
               <Card
                 className="group p-5 transition hover:border-[#6366F1]/70 hover:bg-[#111827]/78"
                 key={skill}
@@ -168,7 +175,7 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
 
       <ProfileBand title="Video Portfolio" icon={<Video className="size-5" />}>
         <div className="grid gap-5 md:grid-cols-3">
-          {actor.videos.map((video) => (
+          {(actor.videos ?? []).map((video) => (
             <article className="group" key={video.title}>
               <div className="relative overflow-hidden rounded-md border border-[#1F2937] bg-[#111827]">
                 <img
@@ -193,7 +200,7 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
 
       <ProfileBand title="Motion Skills" icon={<Clapperboard className="size-5" />}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {actor.motionSkills.map((group) => (
+          {(actor.motionSkills ?? []).map((group) => (
             <Card className="p-5" key={group.category}>
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -219,9 +226,9 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
 
       <ProfileBand title="Voice And Accents" icon={<Mic2 className="size-5" />}>
         <div className="grid gap-5 lg:grid-cols-3">
-          <VoicePanel title="Voice skills" values={actor.voiceSkills} />
-          <VoicePanel title="Languages" values={actor.languages} />
-          <VoicePanel title="Accents" values={actor.accents} />
+          <VoicePanel title="Voice skills" values={actor.voiceSkills ?? []} />
+          <VoicePanel title="Languages" values={actor.languages ?? []} />
+          <VoicePanel title="Accents" values={actor.accents ?? []} />
         </div>
       </ProfileBand>
 
@@ -231,12 +238,12 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
       >
         <div className="grid gap-5 lg:grid-cols-2">
           <TransformationFrame
-            image={actor.aiTransformation.originalImage}
-            label={actor.aiTransformation.originalLabel}
+            image={aiTransformation.originalImage}
+            label={aiTransformation.originalLabel}
           />
           <TransformationFrame
-            image={actor.aiTransformation.resultImage}
-            label={actor.aiTransformation.resultLabel}
+            image={aiTransformation.resultImage}
+            label={aiTransformation.resultLabel}
             result
           />
         </div>
@@ -326,12 +333,14 @@ function ProfileBand({
 }
 
 function VoicePanel({ title, values }: { title: string; values: string[] }) {
+  const safeValues = Array.from(new Set((values ?? []).filter(Boolean)));
+
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold">{title}</h3>
       <div className="mt-5 flex flex-wrap gap-2">
-        {values.map((value) => (
-          <Badge className="normal-case" key={value}>
+        {safeValues.map((value, index) => (
+          <Badge className="normal-case" key={`${title}-${value}-${index}`}>
             {value}
           </Badge>
         ))}

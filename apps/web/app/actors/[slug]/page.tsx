@@ -1,7 +1,7 @@
 "use client";
 
-import { useActorDetail } from "../../lib/api/hooks";
-import { ActorProfileExperience } from "../../components/actor-profile-experience";
+import { ActorProfileExperience } from "../../../components/actor-profile-experience";
+import { useActorDetail } from "../../../lib/api/hooks";
 import { useParams } from "next/navigation";
 import { Loader2, AlertCircle, Home } from "lucide-react";
 import { Button } from "@actbyme/ui";
@@ -53,16 +53,16 @@ export default function ActorProfilePage() {
     location: `${actor.city || ""}, ${actor.country || ""}`.trim() || "Location TBA",
     city: actor.city,
     country: actor.country,
-    languages: actor.languages.map((l) => l.language),
-    accents: actor.accents.map((a) => a.name),
-    skills: actor.skills.map((s) => s.category),
+    languages: actor.languages.map((l: any) => l.language),
+    accents: actor.accents.map((a: any) => a.name),
+    skills: actor.skills.map((s: any) => s.category),
     score: actor.actAiScore || 0,
     isDemo: actor.isDemo,
     isFeatured: !actor.isDemo,
     profileImageUrl: actor.profileImageUrl,
     videoThumbnail: actor.heroVideoUrl || "",
-    topSkills: actor.skills.slice(0, 4).map((s) => s.category),
-    videos: actor.videos.map((v) => ({
+    topSkills: actor.skills.slice(0, 4).map((s: any) => s.category),
+    videos: actor.videos.map((v: any) => ({
       id: v.id,
       title: v.title,
       description: v.description || "",
