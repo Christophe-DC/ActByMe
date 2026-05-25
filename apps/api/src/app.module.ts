@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { resolve } from "node:path";
 import { AdminModule } from "./admin/admin.module.js";
 import { AgencyAccessModule } from "./agency-access/agency-access.module.js";
 import { ActorsModule } from "./actors/actors.module.js";
@@ -15,6 +16,7 @@ import { VideosModule } from "./videos/videos.module.js";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")],
     }),
     AuthModule,
     DatabaseModule,
