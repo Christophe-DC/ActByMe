@@ -48,7 +48,69 @@ export const agencyAccessRequestSchema = z.object({
 
 export const profileStatusSchema = z.enum(ActorProfileStatus);
 
-export type ActorProfileDraft = z.infer<typeof actorProfileDraftSchema>;
-export type ActorSkillInput = z.infer<typeof actorSkillSchema>;
-export type ActorVideoInput = z.infer<typeof actorVideoSchema>;
-export type AgencyAccessRequestInput = z.infer<typeof agencyAccessRequestSchema>;
+// API Response DTOs
+export const actorSkillResponseSchema = z.object({
+  id: z.string(),
+  category: z.enum(SkillCategory),
+  label: z.string().nullable(),
+  yearsExperience: z.number().nullable(),
+});
+
+export const actorLanguageResponseSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  proficiency: z.string().nullable(),
+});
+
+export const actorAccentResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export const actorVideoResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  type: z.enum(VideoType),
+  videoUrl: z.string(),
+  thumbnailUrl: z.string().nullable(),
+  durationSeconds: z.number().nullable(),
+  visibility: z.enum(Visibility),
+  createdAt: z.string().datetime(),
+});
+
+export const actorListItemResponseSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  stageName: z.string(),
+  profileImageUrl: z.string().nullable(),
+  bio: z.string().nullable(),
+  city: z.string().nullable(),
+  country: z.string().nullable(),
+  actAiScore: z.number().nullable(),
+  isDemo: z.boolean(),
+  status: z.enum(ActorProfileStatus),
+  skills: z.array(actorSkillResponseSchema),
+  languages: z.array(actorLanguageResponseSchema),
+  accents: z.array(actorAccentResponseSchema),
+});
+
+export const actorDetailResponseSchema = actorListItemResponseSchema.extend({
+  heroVideoUrl: z.string().nullable(),
+  videos: z.array(actorVideoResponseSchema),
+});
+
+export const listActorsResponseSchema = z.object({
+  data: z.array(actorListItemResponseSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+});
+
+export type ActorSkillResponse = z.infer<typeof actorSkillResponseSchema>;
+export type ActorLanguageResponse = z.infer<typeof actorLanguageResponseSchema>;
+export type ActorAccentResponse = z.infer<typeof actorAccentResponseSchema>;
+export type ActorVideoResponse = z.infer<typeof actorVideoResponseSchema>;
+export type ActorListItemResponse = z.infer<typeof actorListItemResponseSchema>;
+export type ActorDetailResponse = z.infer<typeof actorDetailResponseSchema>;
+export type ListActorsResponse = z.infer<typeof listActorsResponseSchema>;

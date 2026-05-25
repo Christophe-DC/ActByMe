@@ -13,6 +13,7 @@
   "dependencies": {
     "@actbyme/shared": "workspace:*",
     "@actbyme/ui": "workspace:*",
+    "@tanstack/react-query": "^5.48.0",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.16.0",
     "next": "^16.2.6",

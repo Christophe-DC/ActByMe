@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -19,6 +20,7 @@ import { AddActorAccentsDto, AddActorLanguagesDto } from "./dto/actor-language.d
 import { UpsertActorProfileDto, UpdateActorProfileDto } from "./dto/actor-profile.dto.js";
 import { AddActorSkillsDto } from "./dto/actor-skill.dto.js";
 import { AddActorVideoDto } from "./dto/actor-video.dto.js";
+import { ListActorsQueryDto } from "./dto/list-actors.dto.js";
 import { ActorsService } from "./actors.service.js";
 
 @ApiTags("actors")
@@ -27,9 +29,9 @@ export class ActorsController {
   constructor(private readonly actors: ActorsService) {}
 
   @Get()
-  @ApiOperation({ summary: "List public approved actor profiles" })
-  findPublicActors(): Promise<unknown> {
-    return this.actors.findPublicActors();
+  @ApiOperation({ summary: "List public approved actor profiles with optional filters" })
+  findPublicActors(@Query() query: ListActorsQueryDto): Promise<unknown> {
+    return this.actors.listPublicActorsWithFilters(query);
   }
 
   @Get("me")

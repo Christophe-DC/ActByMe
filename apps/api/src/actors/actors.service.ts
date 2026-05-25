@@ -225,6 +225,99 @@ export class ActorsService {
     return consent;
   }
 
+  async listPublicActorsWithFilters(filters: {
+    search?: string;
+    language?: string;
+    accent?: string;
+    skill?: string;
+    motionSkill?: string;
+    sort?: "featured" | "score" | "newest";
+    limit?: number;
+    offset?: number;
+  }) {
+    const limit = Math.min(filters.limit || 20, 100);
+    const offset = filters.offset || 0;
+
+    let where: any = {
+      status: ActorProfileStatus.Approved,
+    };
+
+    // Search by name or bio
+    if (filters.search) {
+      where = {
+        ...where,
+        OR: [
+          { stageName: { contains: filters.search, mode: "insensitive" } },
+          { bio: { contains: filters.search, mode: "insensitive" } },
+        ],
+      };
+    }
+
+    // Filter by language
+    if (filters.language) {
+      where = {
+        ...where,
+        languages: {
+          some: {
+            code: filters.language,
+          },
+        },
+      };
+    }
+
+    // Filter by accent
+    if (filters.accent) {
+      where = {
+        ...where,
+        accents: {
+          some: {
+            name: filters.accent,
+          },
+        },
+      };
+    }
+
+    // Filter by skill
+    if (filters.skill) {
+      where = {
+        ...where,
+        skills: {
+          some: {
+            category: filters.skill,
+          },
+        },
+      };
+    }
+
+    // Determine sort order
+    let orderBy: any = { createdAt: "desc" };
+    if (filters.sort === "score") {
+      orderBy = { actAiScore: "desc" };
+    } else if (filters.sort === "newest") {
+      orderBy = { createdAt: "desc" };
+    } else if (filters.sort === "featured") {
+      orderBy = [{ isDemo: "asc" }, { actAiScore: "desc" }, { createdAt: "desc" }];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.client.actorProfile.findMany({
+        where,
+        include: publicActorInclude,
+        orderBy,
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.client.actorProfile.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      limit,
+      offset,
+    };
+  }
+
   private async ensureUser(user: AuthenticatedUser) {
     return this.prisma.client.user.upsert({
       create: {
