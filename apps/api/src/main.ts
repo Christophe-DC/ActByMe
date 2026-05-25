@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module.js";
 
 async function bootstrap() {
@@ -13,10 +14,38 @@ async function bootstrap() {
   });
   app.useGlobalPipes(
     new ValidationPipe({
+      forbidNonWhitelisted: true,
       transform: true,
       whitelist: true,
     }),
   );
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle("ActByMe API")
+    .setDescription(
+      "Actor-first MVP API for public profiles, onboarding, agency access, and admin review.",
+    )
+    .setVersion("0.1.0")
+    .addBearerAuth()
+    .addApiKey(
+      {
+        in: "header",
+        name: "x-user-id",
+        type: "apiKey",
+      },
+      "x-user-id",
+    )
+    .addApiKey(
+      {
+        in: "header",
+        name: "x-user-role",
+        type: "apiKey",
+      },
+      "x-user-role",
+    )
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup("docs", app, document);
 
   const port = config.get<number>("API_PORT", 4000);
   await app.listen(port);

@@ -6,8 +6,16 @@ import type { PresignedUpload, PresignedUploadRequest, StorageClient } from "./s
 export class S3CompatibleStorageService implements StorageClient {
   constructor(private readonly config: ConfigService) {}
 
-  async createPresignedUpload(_request: PresignedUploadRequest): Promise<PresignedUpload> {
-    throw new Error("S3-compatible upload signing is not implemented yet.");
+  async createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload> {
+    const key = `${request.namespace}/${Date.now()}-${sanitizeFileName(request.fileName)}`;
+    const endpoint = this.config.get<string>("S3_PUBLIC_ENDPOINT", "https://storage.actbyme.local");
+
+    return {
+      assetUrl: this.getPublicUrl(key),
+      key,
+      method: "PUT",
+      uploadUrl: `${endpoint.replace(/\/$/, "")}/placeholder-upload/${key}`,
+    };
   }
 
   async deleteObject(_key: string): Promise<void> {
@@ -24,4 +32,12 @@ export class S3CompatibleStorageService implements StorageClient {
 
     return `${endpoint.replace(/\/$/, "")}/${bucket}/${key}`;
   }
+}
+
+function sanitizeFileName(fileName: string) {
+  return fileName
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 120);
 }

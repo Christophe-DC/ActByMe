@@ -1,23 +1,51 @@
-export enum ActorSkillCategory {
-  Acting = "acting",
-  Voice = "voice",
-  Dance = "dance",
-  MartialArts = "martial_arts",
-  Stunts = "stunts",
-  Singing = "singing",
-  Accents = "accents",
-  Motion = "motion",
+export enum UserRole {
+  Admin = "ADMIN",
+  Actor = "ACTOR",
+  Client = "CLIENT",
 }
 
 export enum ActorProfileStatus {
-  Draft = "draft",
-  Published = "published",
-  Suspended = "suspended",
+  Draft = "DRAFT",
+  PendingReview = "PENDING_REVIEW",
+  Approved = "APPROVED",
+  Rejected = "REJECTED",
+  Suspended = "SUSPENDED",
 }
 
-export enum AccessRequestStatus {
-  New = "new",
-  Contacted = "contacted",
-  Approved = "approved",
-  Rejected = "rejected",
+export enum SkillCategory {
+  Acting = "ACTING",
+  Voice = "VOICE",
+  Singing = "SINGING",
+  Dance = "DANCE",
+  MartialArts = "MARTIAL_ARTS",
+  Stunts = "STUNTS",
+  Sports = "SPORTS",
+  Comedy = "COMEDY",
+  Drama = "DRAMA",
+  UgcAds = "UGC_ADS",
+  Corporate = "CORPORATE",
+  BodyMovement = "BODY_MOVEMENT",
+  EmotionalPerformance = "EMOTIONAL_PERFORMANCE",
+}
+
+export enum VideoType {
+  Intro = "INTRO",
+  ActingTest = "ACTING_TEST",
+  MotionTest = "MOTION_TEST",
+  VoiceSample = "VOICE_SAMPLE",
+  Portfolio = "PORTFOLIO",
+  BeforeAfterAi = "BEFORE_AFTER_AI",
+}
+
+export enum Visibility {
+  Public = "PUBLIC",
+  Private = "PRIVATE",
+  Unlisted = "UNLISTED",
+}
+
+export enum AgencyRequestStatus {
+  New = "NEW",
+  Contacted = "CONTACTED",
+  Approved = "APPROVED",
+  Rejected = "REJECTED",
 }
