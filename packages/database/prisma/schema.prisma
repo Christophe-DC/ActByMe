@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ActorProfileStatus {
+  DRAFT
+  PUBLISHED
+  SUSPENDED
+}
+
+enum ActorSkillCategory {
+  ACTING
+  VOICE
+  DANCE
+  MARTIAL_ARTS
+  STUNTS
+  SINGING
+  ACCENTS
+  MOTION
+}
+
+enum AccessRequestStatus {
+  NEW
+  CONTACTED
+  APPROVED
+  REJECTED
+}
+
+model Actor {
+  id              String             @id @default(uuid()) @db.Uuid
+  email           String             @unique
+  displayName     String
+  slug            String             @unique
+  headline        String?
+  bio             String?            @db.Text
+  location        String?
+  profileImageUrl String?            @db.Text
+  websiteUrl      String?            @db.Text
+  linkedinUrl     String?            @db.Text
+  instagramUrl    String?            @db.Text
+  status          ActorProfileStatus @default(DRAFT)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  skills          ActorSkill[]
+  videos          ActorVideo[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ActorSkill {
+  id        String             @id @default(uuid()) @db.Uuid
+  actorId   String             @db.Uuid
+  category  ActorSkillCategory
+  label     String?
+  createdAt DateTime           @default(now())
+  actor     Actor              @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, category])
+}
+
+model ActorVideo {
+  id              String             @id @default(uuid()) @db.Uuid
+  actorId         String             @db.Uuid
+  category        ActorSkillCategory
+  title           String
+  description     String?            @db.Text
+  storageKey      String             @db.Text
+  playbackUrl     String?            @db.Text
+  thumbnailUrl    String?            @db.Text
+  durationSeconds Int?
+  sortOrder       Int                @default(0)
+  isFeatured      Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  actor           Actor              @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, sortOrder])
+  @@index([category])
+}
+
+model AccessRequest {
+  id          String              @id @default(uuid()) @db.Uuid
+  companyName String
+  contactName String
+  email       String
+  role        String?
+  useCase     String              @db.Text
+  status      AccessRequestStatus @default(NEW)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
