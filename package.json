@@ -12,7 +12,8 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @actbyme/database db:generate",
     "db:migrate": "pnpm --filter @actbyme/database db:migrate",
-    "db:seed": "pnpm --filter @actbyme/database db:seed"
+    "db:seed": "pnpm --filter @actbyme/database db:seed",
+    "db:studio": "pnpm --filter @actbyme/database db:studio"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

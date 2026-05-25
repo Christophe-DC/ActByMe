@@ -7,94 +7,221 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ADMIN
+  ACTOR
+  CLIENT
+}
+
 enum ActorProfileStatus {
   DRAFT
-  PUBLISHED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
   SUSPENDED
 }
 
-enum ActorSkillCategory {
+enum SkillCategory {
   ACTING
   VOICE
+  SINGING
   DANCE
   MARTIAL_ARTS
   STUNTS
-  SINGING
-  ACCENTS
-  MOTION
+  SPORTS
+  COMEDY
+  DRAMA
+  UGC_ADS
+  CORPORATE
+  BODY_MOVEMENT
+  EMOTIONAL_PERFORMANCE
 }
 
-enum AccessRequestStatus {
+enum VideoType {
+  INTRO
+  ACTING_TEST
+  MOTION_TEST
+  VOICE_SAMPLE
+  PORTFOLIO
+  BEFORE_AFTER_AI
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+enum AgencyRequestStatus {
   NEW
   CONTACTED
   APPROVED
   REJECTED
 }
 
-model Actor {
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
+  name         String?
+  role         UserRole      @default(ACTOR)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  actorProfile ActorProfile?
+  auditLogs    AuditLog[]
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model ActorProfile {
   id              String             @id @default(uuid()) @db.Uuid
-  email           String             @unique
-  displayName     String
+  userId          String             @unique @db.Uuid
   slug            String             @unique
-  headline        String?
+  stageName       String
   bio             String?            @db.Text
-  location        String?
+  country         String?
+  city            String?
   profileImageUrl String?            @db.Text
-  websiteUrl      String?            @db.Text
-  linkedinUrl     String?            @db.Text
-  instagramUrl    String?            @db.Text
+  heroVideoUrl    String?            @db.Text
+  actAiScore      Int?
+  isDemo          Boolean            @default(false)
   status          ActorProfileStatus @default(DRAFT)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   skills          ActorSkill[]
+  languages       ActorLanguage[]
+  accents         ActorAccent[]
   videos          ActorVideo[]
+  consent         ActorConsent?
+  demoProfile     DemoProfile?
+  auditLogs       AuditLog[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([isDemo])
+  @@index([createdAt])
+}
+
+model ActorSkill {
+  id              String        @id @default(uuid()) @db.Uuid
+  actorProfileId  String        @db.Uuid
+  category        SkillCategory
+  label           String?
+  yearsExperience Int?
+  createdAt       DateTime      @default(now())
+  actorProfile    ActorProfile  @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([actorProfileId, category, label])
+  @@index([category])
+  @@index([actorProfileId])
+}
+
+model ActorLanguage {
+  id             String       @id @default(uuid()) @db.Uuid
+  actorProfileId String       @db.Uuid
+  language       String
+  proficiency    String?
+  createdAt      DateTime     @default(now())
+  actorProfile   ActorProfile @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([actorProfileId, language])
+  @@index([language])
+  @@index([actorProfileId])
+}
+
+model ActorAccent {
+  id             String       @id @default(uuid()) @db.Uuid
+  actorProfileId String       @db.Uuid
+  accent         String
+  createdAt      DateTime     @default(now())
+  actorProfile   ActorProfile @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([actorProfileId, accent])
+  @@index([accent])
+  @@index([actorProfileId])
+}
+
+model ActorVideo {
+  id              String         @id @default(uuid()) @db.Uuid
+  actorProfileId  String         @db.Uuid
+  title           String
+  description     String?        @db.Text
+  videoUrl        String         @db.Text
+  thumbnailUrl    String?        @db.Text
+  type            VideoType
+  visibility      Visibility     @default(PUBLIC)
+  durationSeconds Int?
+  skillCategory   SkillCategory?
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  actorProfile    ActorProfile   @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([visibility])
+  @@index([skillCategory])
+  @@index([actorProfileId, sortOrder])
+}
+
+model ActorConsent {
+  id                                     String       @id @default(uuid()) @db.Uuid
+  actorProfileId                         String       @unique @db.Uuid
+  publicProfileConsent                   Boolean      @default(false)
+  marketingUsageConsent                  Boolean      @default(false)
+  ownsUploadedContentConfirmation        Boolean      @default(false)
+  futurePaidWorkRequiresSeparateApproval Boolean      @default(false)
+  acceptedAt                             DateTime?
+  createdAt                              DateTime     @default(now())
+  updatedAt                              DateTime     @updatedAt
+  actorProfile                           ActorProfile @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
+}
+
+model AgencyAccessRequest {
+  id                    String              @id @default(uuid()) @db.Uuid
+  name                  String
+  companyName           String
+  role                  String?
+  email                 String
+  website               String?             @db.Text
+  country               String?
+  needs                 String              @db.Text
+  expectedMonthlyVolume String?
+  interestedSkills      String[]
+  status                AgencyRequestStatus @default(NEW)
+  message               String?             @db.Text
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   @@index([status])
   @@index([createdAt])
 }
 
-model ActorSkill {
-  id        String             @id @default(uuid()) @db.Uuid
-  actorId   String             @db.Uuid
-  category  ActorSkillCategory
-  label     String?
-  createdAt DateTime           @default(now())
-  actor     Actor              @relation(fields: [actorId], references: [id], onDelete: Cascade)
-
-  @@unique([actorId, category])
+model DemoProfile {
+  id             String       @id @default(uuid()) @db.Uuid
+  actorProfileId String       @unique @db.Uuid
+  label          String       @default("Demo profile")
+  description    String?      @db.Text
+  source         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  actorProfile   ActorProfile @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
 }
 
-model ActorVideo {
-  id              String             @id @default(uuid()) @db.Uuid
-  actorId         String             @db.Uuid
-  category        ActorSkillCategory
-  title           String
-  description     String?            @db.Text
-  storageKey      String             @db.Text
-  playbackUrl     String?            @db.Text
-  thumbnailUrl    String?            @db.Text
-  durationSeconds Int?
-  sortOrder       Int                @default(0)
-  isFeatured      Boolean            @default(false)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  actor           Actor              @relation(fields: [actorId], references: [id], onDelete: Cascade)
+model AuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  userId         String?       @db.Uuid
+  actorProfileId String?       @db.Uuid
+  createdAt      DateTime      @default(now())
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorProfile   ActorProfile? @relation(fields: [actorProfileId], references: [id], onDelete: SetNull)
 
-  @@index([actorId, sortOrder])
-  @@index([category])
-}
-
-model AccessRequest {
-  id          String              @id @default(uuid()) @db.Uuid
-  companyName String
-  contactName String
-  email       String
-  role        String?
-  useCase     String              @db.Text
-  status      AccessRequestStatus @default(NEW)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  @@index([status])
+  @@index([userId])
+  @@index([actorProfileId])
+  @@index([action])
   @@index([createdAt])
 }
