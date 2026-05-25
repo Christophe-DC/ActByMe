@@ -1,241 +1,307 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, Zap } from "lucide-react";
-import { Badge, Button } from "@actbyme/ui";
-import { Card } from "../../../packages/ui/src/components/card";
-import { DemoProfileBadge } from "../../../packages/ui/src/components/demo-profile-badge";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowUpDown,
+  BadgeCheck,
+  ChevronRight,
+  Clapperboard,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Zap,
+} from "lucide-react";
+import { Badge, Button, Card, DemoProfileBadge } from "@actbyme/ui";
+import {
+  filterActors,
+  getFilterOptions,
   MOCK_ACTORS,
   searchActors,
-  filterActors,
   sortActors,
-  ALL_LANGUAGES,
-  ALL_ACCENTS,
-  ALL_SKILLS,
-  ALL_MOTION_CATEGORIES,
+  type ActorFilters,
+  type MockActor,
+  type SortOption,
 } from "../../lib/mock-actors";
 
-type SortOption = "featured" | "score" | "newest";
+const FILTERS: Array<{
+  key: keyof ActorFilters;
+  label: string;
+  placeholder: string;
+  optionsKey: keyof ReturnType<typeof getFilterOptions>;
+}> = [
+  { key: "language", label: "Language", placeholder: "Any language", optionsKey: "languages" },
+  { key: "accent", label: "Accent", placeholder: "Any accent", optionsKey: "accents" },
+  { key: "country", label: "Country", placeholder: "Any country", optionsKey: "countries" },
+  {
+    key: "actingStyle",
+    label: "Acting style",
+    placeholder: "Any style",
+    optionsKey: "actingStyles",
+  },
+  {
+    key: "motionSkill",
+    label: "Motion skills",
+    placeholder: "Any motion skill",
+    optionsKey: "motionSkills",
+  },
+  {
+    key: "voiceSkill",
+    label: "Voice skills",
+    placeholder: "Any voice skill",
+    optionsKey: "voiceSkills",
+  },
+  { key: "dance", label: "Dance", placeholder: "Any dance", optionsKey: "dance" },
+  {
+    key: "martialArt",
+    label: "Martial arts",
+    placeholder: "Any martial art",
+    optionsKey: "martialArts",
+  },
+  { key: "singing", label: "Singing", placeholder: "Any singing", optionsKey: "singing" },
+  { key: "stunt", label: "Stunts", placeholder: "Any stunt", optionsKey: "stunts" },
+  {
+    key: "availability",
+    label: "Availability",
+    placeholder: "Any availability",
+    optionsKey: "availability",
+  },
+];
+
+const sortLabels: Record<SortOption, string> = {
+  featured: "Featured",
+  score: "Highest score",
+  newest: "Newest",
+};
 
 export default function ActorsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("featured");
-  const [selectedLanguage, setSelectedLanguage] = useState<string>("");
-  const [selectedAccent, setSelectedAccent] = useState<string>("");
-  const [selectedSkill, setSelectedSkill] = useState<string>("");
-  const [selectedMotionCategory, setSelectedMotionCategory] = useState<string>("");
+  const [filters, setFilters] = useState<ActorFilters>({});
+  const options = useMemo(() => getFilterOptions(), []);
 
-  const results = useMemo(() => {
-    let filtered = searchQuery ? searchActors(searchQuery) : MOCK_ACTORS;
-
-    filtered = filterActors(filtered, {
-      language: selectedLanguage || undefined,
-      accent: selectedAccent || undefined,
-      skill: selectedSkill || undefined,
-      motionSkill: selectedMotionCategory || undefined,
-    });
-
+  const actors = useMemo(() => {
+    const searched = searchActors(MOCK_ACTORS, query);
+    const filtered = filterActors(searched, filters);
     return sortActors(filtered, sortBy);
-  }, [
-    searchQuery,
-    sortBy,
-    selectedLanguage,
-    selectedAccent,
-    selectedSkill,
-    selectedMotionCategory,
-  ]);
+  }, [filters, query, sortBy]);
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  function updateFilter(key: keyof ActorFilters, value: string) {
+    setFilters((current) => ({
+      ...current,
+      [key]: value || undefined,
+    }));
+  }
 
   return (
-    <main className="w-full py-12 px-6">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-[#F9FAFB] mb-2">Discover actors</h1>
-          <p className="text-lg text-[#9CA3AF]">
-            Find talented performers ready for AI video production
-          </p>
-        </div>
+    <main className="min-h-screen overflow-hidden bg-[#09090B] text-[#F9FAFB]">
+      <section className="relative border-b border-[#1F2937] px-5 py-10 md:px-8 md:py-14">
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(99,102,241,0.18),transparent_32%),radial-gradient(circle_at_78%_20%,rgba(20,184,166,0.14),transparent_28%),linear-gradient(180deg,rgba(17,24,39,0.88),rgba(9,9,11,1))]" />
+        <div className="relative mx-auto max-w-7xl">
+          <nav className="mb-10 flex items-center justify-between">
+            <Link className="flex items-center gap-3" href="/">
+              <span className="flex size-10 items-center justify-center rounded-md bg-[#6366F1]">
+                <Clapperboard className="size-5" />
+              </span>
+              <span className="text-lg font-semibold">ActByMe</span>
+            </Link>
+            <Button variant="outline" size="sm">
+              Request agency access
+            </Button>
+          </nav>
 
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative">
-            <Search className="absolute left-4 top-3.5 size-5 text-[#9CA3AF]" />
+          <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr] lg:items-end">
+            <div>
+              <Badge className="mb-5 border-[#6366F1]/50 bg-[#6366F1]/10 text-[#C7D2FE]">
+                Mock discovery data
+              </Badge>
+              <h1 className="max-w-4xl text-5xl font-semibold leading-none tracking-normal md:text-7xl">
+                Discover AI-ready actor profiles.
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-8 text-[#9CA3AF] md:text-lg">
+                Search cinematic performer profiles across acting, voice, dance, martial arts,
+                stunts, accents, motion capture, and action-scene capability.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[#1F2937] bg-[#111827]/80 p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[#9CA3AF]">Act AI score range</span>
+                <Sparkles className="size-5 text-[#14B8A6]" />
+              </div>
+              <div className="mt-5 text-5xl font-semibold">86-94</div>
+              <p className="mt-3 text-sm leading-6 text-[#9CA3AF]">
+                Placeholder score for discovery ranking. Real scoring is not implemented yet.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-8 md:px-8">
+        <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+          <label className="relative block">
+            <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-[#9CA3AF]" />
             <input
-              type="text"
-              placeholder="Search by name, skill, or style..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#111827] border border-[#1F2937] rounded-lg pl-12 pr-4 py-3 text-[#F9FAFB] placeholder-[#9CA3AF] focus:outline-none focus:border-[#6366F1]"
+              className="h-14 w-full rounded-md border border-[#1F2937] bg-[#111827] pl-12 pr-4 text-base text-[#F9FAFB] outline-none transition focus:border-[#6366F1]"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search name, skill, accent, style, or country"
+              type="search"
+              value={query}
             />
-          </div>
-        </div>
-
-        {/* Filters & Sort */}
-        <div className="grid md:grid-cols-5 gap-4 mb-8">
-          {/* Language Filter */}
-          <div>
-            <label className="block text-sm font-semibold text-[#F9FAFB] mb-2">Language</label>
+          </label>
+          <label className="relative block">
+            <ArrowUpDown className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#9CA3AF]" />
             <select
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="w-full bg-[#111827] border border-[#1F2937] rounded-md px-3 py-2 text-[#F9FAFB] text-sm focus:outline-none focus:border-[#6366F1]"
-            >
-              <option value="">All languages</option>
-              {ALL_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Accent Filter */}
-          <div>
-            <label className="block text-sm font-semibold text-[#F9FAFB] mb-2">Accent</label>
-            <select
-              value={selectedAccent}
-              onChange={(e) => setSelectedAccent(e.target.value)}
-              className="w-full bg-[#111827] border border-[#1F2937] rounded-md px-3 py-2 text-[#F9FAFB] text-sm focus:outline-none focus:border-[#6366F1]"
-            >
-              <option value="">All accents</option>
-              {ALL_ACCENTS.map((accent: string) => (
-                <option key={accent} value={accent}>
-                  {accent}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Skill Filter */}
-          <div>
-            <label className="block text-sm font-semibold text-[#F9FAFB] mb-2">Skill</label>
-            <select
-              value={selectedSkill}
-              onChange={(e) => setSelectedSkill(e.target.value)}
-              className="w-full bg-[#111827] border border-[#1F2937] rounded-md px-3 py-2 text-[#F9FAFB] text-sm focus:outline-none focus:border-[#6366F1]"
-            >
-              <option value="">All skills</option>
-              {ALL_SKILLS.map((skill: string) => (
-                <option key={skill} value={skill}>
-                  {skill}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Motion Category Filter */}
-          <div>
-            <label className="block text-sm font-semibold text-[#F9FAFB] mb-2">Motion</label>
-            <select
-              value={selectedMotionCategory}
-              onChange={(e) => setSelectedMotionCategory(e.target.value)}
-              className="w-full bg-[#111827] border border-[#1F2937] rounded-md px-3 py-2 text-[#F9FAFB] text-sm focus:outline-none focus:border-[#6366F1]"
-            >
-              <option value="">All motion</option>
-              {ALL_MOTION_CATEGORIES.map((cat: string) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort */}
-          <div>
-            <label className="block text-sm font-semibold text-[#F9FAFB] mb-2">Sort</label>
-            <select
+              className="h-14 w-full appearance-none rounded-md border border-[#1F2937] bg-[#111827] pl-11 pr-4 text-sm text-[#F9FAFB] outline-none transition focus:border-[#6366F1]"
+              onChange={(event) => setSortBy(event.target.value as SortOption)}
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="w-full bg-[#111827] border border-[#1F2937] rounded-md px-3 py-2 text-[#F9FAFB] text-sm focus:outline-none focus:border-[#6366F1]"
             >
-              <option value="featured">Featured</option>
-              <option value="score">Highest score</option>
-              <option value="newest">Newest</option>
+              {Object.entries(sortLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
+          </label>
+        </div>
+
+        <div className="mt-5 rounded-lg border border-[#1F2937] bg-[#111827]/72 p-4">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <SlidersHorizontal className="size-4 text-[#6366F1]" />
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="rounded-md bg-[#6366F1]/20 px-2 py-1 text-xs text-[#C7D2FE]">
+                  {activeFilterCount} active
+                </span>
+              ) : null}
+            </div>
+            <button
+              className="text-sm text-[#9CA3AF] transition hover:text-[#F9FAFB]"
+              onClick={() => setFilters({})}
+              type="button"
+            >
+              Clear filters
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            {FILTERS.map((filter) => (
+              <label className="block" key={filter.key}>
+                <span className="mb-2 block text-xs font-medium uppercase text-[#9CA3AF]">
+                  {filter.label}
+                </span>
+                <select
+                  className="h-11 w-full rounded-md border border-[#1F2937] bg-[#09090B] px-3 text-sm text-[#F9FAFB] outline-none transition focus:border-[#6366F1]"
+                  onChange={(event) => updateFilter(filter.key, event.target.value)}
+                  value={filters[filter.key] ?? ""}
+                >
+                  <option value="">{filter.placeholder}</option>
+                  {options[filter.optionsKey].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
           </div>
         </div>
 
-        {/* Results Count */}
-        <div className="mb-6 text-sm text-[#9CA3AF]">
-          Showing {results.length} actor{results.length !== 1 ? "s" : ""}
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[#9CA3AF]">
+            Showing <span className="font-semibold text-[#F9FAFB]">{actors.length}</span> demo
+            profile{actors.length === 1 ? "" : "s"}
+          </p>
+          <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+            <BadgeCheck className="size-4 text-[#14B8A6]" />
+            Demo badges mark non-registered sample profiles.
+          </div>
         </div>
 
-        {/* Actor Grid */}
-        {results.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {results.map((actor: any) => (
-              <Link key={actor.id} href={`/actors/${actor.slug}`}>
-                <Card className="group cursor-pointer hover:border-[#6366F1] transition-all hover:shadow-lg h-full flex flex-col">
-                  {/* Profile Image/Video Placeholder */}
-                  <div className="aspect-square rounded-md bg-gradient-to-br from-[#0b0b0d] to-[#111827] mb-4 flex items-center justify-center overflow-hidden">
-                    <div className="text-center">
-                      <div className="h-12 w-12 rounded-full bg-[#6366F1]/20 mx-auto mb-2" />
-                      <p className="text-xs text-[#9CA3AF]">{actor.name}</p>
-                    </div>
-                  </div>
-
-                  {/* Name & Location */}
-                  <h3 className="font-semibold text-[#F9FAFB] mb-1">{actor.name}</h3>
-                  <p className="text-xs text-[#9CA3AF] mb-3">{actor.location}</p>
-
-                  {/* Languages */}
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {actor.languages.slice(0, 2).map((lang: string) => (
-                      <Badge key={lang} className="text-xs px-2 py-0.5">
-                        {lang}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {/* Top Skills */}
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {actor.skills.slice(0, 2).map((skill: string) => (
-                      <span
-                        key={skill}
-                        className="inline-flex items-center gap-1 text-xs bg-[#6366F1]/10 text-[#6366F1] px-2 py-1 rounded"
-                      >
-                        <Zap className="size-3" />
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Act AI Score */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 h-2 bg-[#1F2937] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#6366F1] rounded-full"
-                        style={{ width: `${actor.score}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-semibold text-[#6366F1]">{actor.score}</span>
-                  </div>
-
-                  {/* Demo Badge */}
-                  {actor.isDemo && (
-                    <div className="mb-3">
-                      <DemoProfileBadge />
-                    </div>
-                  )}
-
-                  {/* CTA */}
-                  <Button variant="outline" size="sm" className="w-full mt-auto">
-                    View profile
-                  </Button>
-                </Card>
-              </Link>
+        {actors.length > 0 ? (
+          <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {actors.map((actor) => (
+              <ActorDiscoveryCard actor={actor} key={actor.id} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-[#9CA3AF]">
-              No actors found matching your criteria. Try adjusting your filters.
+          <div className="mt-8 rounded-lg border border-[#1F2937] bg-[#111827] p-10 text-center">
+            <p className="text-lg font-semibold">No matching profiles</p>
+            <p className="mt-2 text-sm text-[#9CA3AF]">
+              Try a broader search or clear one of the filters.
             </p>
           </div>
         )}
-      </div>
+      </section>
     </main>
+  );
+}
+
+function ActorDiscoveryCard({ actor }: { actor: MockActor }) {
+  return (
+    <Card className="group overflow-hidden p-0 transition duration-300 hover:-translate-y-1 hover:border-[#6366F1]/70 hover:shadow-2xl hover:shadow-[#6366F1]/10">
+      <div className="relative aspect-[16/11] overflow-hidden bg-[#111827]">
+        <img
+          alt={`${actor.name} profile thumbnail`}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          src={actor.videoThumbnail}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-[#09090B]/20 to-transparent" />
+        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          {actor.isDemo ? <DemoProfileBadge /> : null}
+          {actor.isFeatured ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[#14B8A6]/40 bg-[#14B8A6]/15 px-2 py-1 text-xs font-semibold text-[#A7F3D0]">
+              <Star className="size-3" />
+              Featured
+            </span>
+          ) : null}
+        </div>
+        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-semibold">{actor.name}</h2>
+            <p className="mt-1 flex items-center gap-1 text-sm text-[#D1D5DB]">
+              <MapPin className="size-4 text-[#14B8A6]" />
+              {actor.location}
+            </p>
+          </div>
+          <div className="rounded-md border border-[#6366F1]/40 bg-[#6366F1]/20 px-3 py-2 text-right">
+            <p className="text-[10px] uppercase text-[#C7D2FE]">Act AI</p>
+            <p className="text-xl font-semibold text-white">{actor.score}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-5">
+        <p className="min-h-12 text-sm leading-6 text-[#9CA3AF]">{actor.headline}</p>
+        <div className="flex flex-wrap gap-2">
+          {actor.languages.slice(0, 3).map((language) => (
+            <Badge className="normal-case" key={language}>
+              {language}
+            </Badge>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {actor.topSkills.slice(0, 4).map((skill) => (
+            <span
+              className="inline-flex items-center gap-1 rounded-md bg-[#6366F1]/12 px-2 py-1 text-xs text-[#C7D2FE]"
+              key={skill}
+            >
+              <Zap className="size-3" />
+              {skill}
+            </span>
+          ))}
+        </div>
+        <Button asChild className="w-full" variant="outline">
+          <Link href={`/actors/${actor.slug}`}>
+            View profile
+            <ChevronRight className="size-4" />
+          </Link>
+        </Button>
+      </div>
+    </Card>
   );
 }

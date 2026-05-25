@@ -22,7 +22,6 @@ export function VideoCard({
     >
       <div className="aspect-video rounded-md bg-[#0f1724]">
         {thumbnail ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={thumbnail} alt={title} className="h-full w-full object-cover" />
         ) : null}
       </div>

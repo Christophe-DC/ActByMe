@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Clapperboard } from "lucide-react";
-import { Button } from "./button";
+import { Button } from "./button.js";
 
 export function PublicHeader() {
   return (

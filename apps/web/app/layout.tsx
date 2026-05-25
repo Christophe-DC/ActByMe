@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { AppShell } from "@actbyme/ui";
 import "./globals.css";
-import { AppShell } from "../../../packages/ui/src/components/app-shell";
 
 export const metadata: Metadata = {
   title: "ActByMe",

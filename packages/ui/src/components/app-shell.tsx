@@ -1,6 +1,6 @@
 import * as React from "react";
-import { PublicHeader } from "./public-header";
-import { PublicFooter } from "./public-footer";
+import { PublicHeader } from "./public-header.js";
+import { PublicFooter } from "./public-footer.js";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (

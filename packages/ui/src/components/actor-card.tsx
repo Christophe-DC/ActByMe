@@ -1,14 +1,12 @@
 import * as React from "react";
-import { Card } from "./card";
+import { Card } from "./card.js";
 
 export function ActorCard({
   name,
-  slug,
   headline,
   avatar,
 }: {
   name: string;
-  slug?: string;
   headline?: string;
   avatar?: string;
 }) {

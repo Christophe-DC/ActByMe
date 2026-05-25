@@ -1,19 +1,8 @@
 "use client";
 
-import {
-  ArrowRight,
-  CheckCircle,
-  Music,
-  Users,
-  Shield,
-  Zap,
-  Play,
-  MessageSquare,
-} from "lucide-react";
-import { Badge, Button } from "@actbyme/ui";
-import { Card } from "../../../packages/ui/src/components/card";
+import { ArrowRight, CheckCircle, Users, Shield, Zap, Play, MessageSquare } from "lucide-react";
+import { Badge, Button, Card, VideoPresentationModal } from "@actbyme/ui";
 import { useState } from "react";
-import { VideoPresentationModal } from "../../../packages/ui/src/components/video-presentation-modal";
 
 const MOTION_SKILLS = [
   { title: "Acting", description: "Dramatic range, character work, emotional depth" },
