@@ -37,11 +37,11 @@ export default function AgencyAccessPage() {
             <div className="rounded-lg border border-[#1F2937] bg-[#111827]/80 p-5">
               <div className="flex items-center gap-3">
                 <BadgeCheck className="size-5 text-[#14B8A6]" />
-                <h2 className="font-semibold">Frontend mock submission</h2>
+                <h2 className="font-semibold">Early access intake</h2>
               </div>
               <p className="mt-3 text-sm leading-6 text-[#9CA3AF]">
-                No backend is connected yet. Submitting stores a local mock request and opens the
-                thank-you page.
+                Submitting sends your request to the ActByMe API and keeps a local copy for this MVP
+                preview.
               </p>
             </div>
           </div>

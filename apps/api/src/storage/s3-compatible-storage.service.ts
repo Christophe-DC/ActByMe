@@ -12,8 +12,10 @@ export class S3CompatibleStorageService implements StorageClient {
 
     return {
       assetUrl: this.getPublicUrl(key),
+      bucket: "s3-placeholder",
       key,
       method: "PUT",
+      path: key,
       uploadUrl: `${endpoint.replace(/\/$/, "")}/placeholder-upload/${key}`,
     };
   }

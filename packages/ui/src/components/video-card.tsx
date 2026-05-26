@@ -8,10 +8,12 @@ export function VideoCard({
   title,
   duration,
   thumbnail,
+  onPlay,
 }: {
   title: string;
   duration?: string;
   thumbnail?: string;
+  onPlay?: () => void;
 }) {
   return (
     <motion.article
@@ -30,7 +32,12 @@ export function VideoCard({
           <h3 className="text-sm font-semibold text-[#F9FAFB]">{title}</h3>
           <p className="text-xs text-[#9CA3AF]">{duration ?? "—"}</p>
         </div>
-        <button className="inline-flex items-center rounded-md bg-[#6366F1] p-2 text-white">
+        <button
+          aria-label={`Play ${title}`}
+          className="inline-flex items-center rounded-md bg-[#6366F1] p-2 text-white"
+          onClick={onPlay}
+          type="button"
+        >
           <Play className="size-4" />
         </button>
       </div>

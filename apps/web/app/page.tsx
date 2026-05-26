@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight, CheckCircle, Users, Shield, Zap, Play, MessageSquare } from "lucide-react";
 import { Badge, Button, Card, VideoPresentationModal } from "@actbyme/ui";
 import { useState } from "react";
@@ -60,12 +61,14 @@ export default function HomePage() {
                 and get discovered by agencies building the next generation of AI video.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="w-full sm:w-auto">
-                  Join as actor — free
-                  <ArrowRight className="size-4" />
+                <Button asChild size="lg" className="w-full sm:w-auto">
+                  <Link href="/signup">
+                    Join as actor - free
+                    <ArrowRight className="size-4" />
+                  </Link>
                 </Button>
-                <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                  Request agency access
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                  <Link href="/agency-access">Request agency access</Link>
                 </Button>
               </div>
             </div>
@@ -209,9 +212,11 @@ export default function HomePage() {
                 commission actor performances. Build relationships with talented performers
                 directly.
               </p>
-              <Button variant="outline" size="lg">
-                <MessageSquare className="size-4" />
-                Request agency access
+              <Button asChild variant="outline" size="lg">
+                <Link href="/agency-access">
+                  <MessageSquare className="size-4" />
+                  Request agency access
+                </Link>
               </Button>
             </div>
           </div>
@@ -269,12 +274,14 @@ export default function HomePage() {
             and start uploading your skills.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg">
-              Join as actor — free
-              <ArrowRight className="size-4" />
+            <Button asChild size="lg">
+              <Link href="/signup">
+                Join as actor - free
+                <ArrowRight className="size-4" />
+              </Link>
             </Button>
-            <Button variant="outline" size="lg">
-              Learn more
+            <Button asChild variant="outline" size="lg">
+              <Link href="/actors">Browse demo actors</Link>
             </Button>
           </div>
           <p className="text-sm text-[#9CA3AF] mt-8">No credit card required. Cancel anytime.</p>

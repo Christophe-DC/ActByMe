@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,6 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge, Button, Card } from "@actbyme/ui";
+import { actorsApi, storageApi } from "@/lib/api/client";
 import {
   accentOptions,
   actingStyleOptions,
@@ -65,8 +67,7 @@ const stepCopy: Record<
   videos: {
     eyebrow: "Step 4",
     title: "Prepare your reel placeholders.",
-    description:
-      "For now this saves filenames only. Real upload storage and processing will come later.",
+    description: "Upload intro, acting, motion, and voice samples to your actor media library.",
   },
   consent: {
     eyebrow: "Step 5",
@@ -78,7 +79,7 @@ const stepCopy: Record<
     eyebrow: "Complete",
     title: "Your actor page is ready to preview.",
     description:
-      "This is a frontend-only draft. The next version can save it to the API and publish a real public profile.",
+      "Your media and profile draft can now be saved to the API for review before publication.",
   },
 };
 
@@ -103,6 +104,10 @@ const previousRoute: Record<OnboardingStep, string> = {
 export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
   const router = useRouter();
   const { draft, toggleArrayValue, updateConsent, updateDraft, updateVideo } = useActorOnboarding();
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string>("");
+  const [submitError, setSubmitError] = useState<string>("");
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
   const currentIndex = onboardingSteps.findIndex((item) => item.id === step);
   const progress = Math.max(((currentIndex + 1) / onboardingSteps.length) * 100, 12);
 
@@ -283,22 +288,34 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
                 <div>
                   <h3 className="font-semibold">Profile photo placeholder</h3>
                   <p className="text-sm text-[#9CA3AF]">
-                    Store a filename for now. Real image upload comes later.
+                    Upload a public profile image to the actor-public bucket.
                   </p>
                 </div>
               </div>
               <input
+                accept="image/*"
                 className="max-w-full text-sm text-[#9CA3AF] file:mr-4 file:rounded-md file:border-0 file:bg-[#6366F1] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
-                onChange={(event) =>
-                  updateDraft({ profilePhotoName: event.target.files?.[0]?.name ?? "" })
-                }
+                disabled={uploadingId === "profile-photo"}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+
+                  if (file) {
+                    void uploadProfilePhoto(file);
+                  }
+                }}
                 type="file"
               />
             </div>
             {draft.profilePhotoName ? (
-              <p className="mt-3 text-sm text-[#C7D2FE]">{draft.profilePhotoName}</p>
+              <p className="mt-3 text-sm text-[#C7D2FE]">
+                {uploadingId === "profile-photo" ? "Uploading..." : draft.profilePhotoName}
+              </p>
+            ) : null}
+            {draft.profilePhotoUrl ? (
+              <p className="mt-2 break-all text-xs text-[#9CA3AF]">{draft.profilePhotoUrl}</p>
             ) : null}
           </div>
+          <UploadErrorMessage message={uploadError} />
           <StepActions step={step} />
         </StepLayout>
       );
@@ -330,6 +347,11 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
     if (step === "videos") {
       return (
         <StepLayout icon={<FileVideo className="size-6" />} title="Video uploads placeholder">
+          <div className="rounded-lg border border-[#14B8A6]/30 bg-[#0F172A] p-4 text-sm leading-6 text-[#D1D5DB]">
+            Uploads are stored in Supabase Storage under <strong>actor-public</strong> for public
+            actor profile media. Private review and delivery buckets are reserved for later
+            production flows.
+          </div>
           <div className="grid gap-4">
             {videoSlots.map((slot) => (
               <div className="rounded-lg border border-[#1F2937] bg-[#09090B] p-5" key={slot.id}>
@@ -344,17 +366,33 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
                     </div>
                   </div>
                   <input
+                    accept="video/*,audio/*"
                     className="max-w-full text-sm text-[#9CA3AF] file:mr-4 file:rounded-md file:border-0 file:bg-[#111827] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[#F9FAFB]"
-                    onChange={(event) => updateVideo(slot.id, event.target.files?.[0]?.name ?? "")}
+                    disabled={uploadingId === slot.id}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+
+                      if (file) {
+                        void uploadVideo(slot.id, file);
+                      }
+                    }}
                     type="file"
                   />
                 </div>
                 {draft.videos[slot.id] ? (
-                  <p className="mt-3 text-sm text-[#C7D2FE]">{draft.videos[slot.id]}</p>
+                  <p className="mt-3 text-sm text-[#C7D2FE]">
+                    {uploadingId === slot.id ? "Uploading..." : draft.videos[slot.id]}
+                  </p>
+                ) : null}
+                {draft.videoUrls[slot.id] ? (
+                  <p className="mt-2 break-all text-xs text-[#9CA3AF]">
+                    {draft.videoUrls[slot.id]}
+                  </p>
                 ) : null}
               </div>
             ))}
           </div>
+          <UploadErrorMessage message={uploadError} />
           <StepActions step={step} />
         </StepLayout>
       );
@@ -388,6 +426,7 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
               </label>
             ))}
           </div>
+          <UploadErrorMessage message={submitError} />
           <StepActions step={step} />
         </StepLayout>
       );
@@ -440,6 +479,8 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
   }
 
   function StepActions({ step: currentStep }: { step: OnboardingStep }) {
+    const isFinalStep = currentStep === "consent";
+
     return (
       <div className="flex flex-col-reverse gap-3 border-t border-[#1F2937] pt-5 sm:flex-row sm:items-center sm:justify-between">
         <Button asChild variant="ghost">
@@ -448,13 +489,192 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
             Back
           </Link>
         </Button>
-        <Button onClick={() => router.push(nextRoute[currentStep])} size="lg">
-          {currentStep === "consent" ? "Finish onboarding" : "Continue"}
+        <Button
+          disabled={isSubmittingProfile}
+          onClick={() => {
+            if (isFinalStep) {
+              void submitActorProfile();
+              return;
+            }
+
+            router.push(nextRoute[currentStep]);
+          }}
+          size="lg"
+        >
+          {isSubmittingProfile ? "Saving..." : isFinalStep ? "Finish onboarding" : "Continue"}
           <ArrowRight className="size-4" />
         </Button>
       </div>
     );
   }
+
+  async function submitActorProfile() {
+    setSubmitError("");
+    setIsSubmittingProfile(true);
+
+    try {
+      await actorsApi.createProfile({
+        bio: draft.bio || undefined,
+        city: draft.city || undefined,
+        country: draft.country || undefined,
+        heroVideoUrl: firstUploadedVideoUrl(draft.videoUrls),
+        profileImageUrl: draft.profilePhotoUrl || undefined,
+        stageName: draft.stageName || "Untitled actor",
+      });
+
+      if (draft.languages.length > 0) {
+        await actorsApi.addLanguages(
+          draft.languages.map((language) => ({
+            language,
+            proficiency: "Listed",
+          })),
+        );
+      }
+
+      if (draft.accents.length > 0) {
+        await actorsApi.addAccents(draft.accents);
+      }
+
+      if (draft.skills.length > 0) {
+        await actorsApi.addSkills(
+          draft.skills.map((skill) => ({
+            category: skillToCategory(skill),
+            label: skill,
+          })),
+        );
+      }
+
+      for (const slot of videoSlots) {
+        const videoUrl = draft.videoUrls[slot.id];
+
+        if (!videoUrl) {
+          continue;
+        }
+
+        await actorsApi.addVideo({
+          description: slot.description,
+          skillCategory: videoSlotSkillCategory(slot.id),
+          sortOrder: videoSlots.findIndex((item) => item.id === slot.id),
+          title: slot.label,
+          type: videoSlotType(slot.id),
+          videoUrl,
+          visibility: "PUBLIC",
+        });
+      }
+
+      await actorsApi.acceptConsent({
+        futurePaidWorkRequiresSeparateApproval: Boolean(draft.consent.separateTerms),
+        marketingUsageConsent: Boolean(draft.consent.platformPromotion),
+        ownsUploadedContentConfirmation: Boolean(draft.consent.uploadRights),
+        publicProfileConsent: Boolean(draft.consent.publicProfile),
+      });
+
+      router.push(nextRoute.consent);
+    } catch (error) {
+      setSubmitError(getUploadErrorMessage(error));
+    } finally {
+      setIsSubmittingProfile(false);
+    }
+  }
+
+  async function uploadProfilePhoto(file: File) {
+    setUploadError("");
+    setUploadingId("profile-photo");
+    updateDraft({ profilePhotoName: file.name });
+
+    try {
+      const upload = await storageApi.uploadFile(file, "actor-profile-image");
+      updateDraft({
+        profilePhotoName: file.name,
+        profilePhotoUrl: upload.assetUrl,
+      });
+    } catch (error) {
+      setUploadError(getUploadErrorMessage(error));
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
+  async function uploadVideo(slotId: string, file: File) {
+    setUploadError("");
+    setUploadingId(slotId);
+    updateVideo(slotId, file.name);
+
+    try {
+      const upload = await storageApi.uploadFile(file, "actor-video");
+      updateVideo(slotId, file.name, upload.assetUrl);
+    } catch (error) {
+      setUploadError(getUploadErrorMessage(error));
+    } finally {
+      setUploadingId(null);
+    }
+  }
+}
+
+function firstUploadedVideoUrl(videoUrls: Record<string, string>) {
+  return Object.values(videoUrls).find(Boolean);
+}
+
+function skillToCategory(skill: string) {
+  const map: Record<string, string> = {
+    Acting: "ACTING",
+    "Body movement": "BODY_MOVEMENT",
+    Comedy: "COMEDY",
+    Corporate: "CORPORATE",
+    Dancing: "DANCE",
+    Drama: "DRAMA",
+    "Emotional performance": "EMOTIONAL_PERFORMANCE",
+    "Martial arts": "MARTIAL_ARTS",
+    Singing: "SINGING",
+    Sports: "SPORTS",
+    Stunts: "STUNTS",
+    "UGC ads": "UGC_ADS",
+    Voice: "VOICE",
+  };
+
+  return map[skill] ?? "ACTING";
+}
+
+function videoSlotType(slotId: string) {
+  const map: Record<string, string> = {
+    acting: "ACTING_TEST",
+    intro: "INTRO",
+    motion: "MOTION_TEST",
+    voice: "VOICE_SAMPLE",
+  };
+
+  return map[slotId] ?? "PORTFOLIO";
+}
+
+function videoSlotSkillCategory(slotId: string) {
+  const map: Record<string, string> = {
+    acting: "ACTING",
+    intro: "ACTING",
+    motion: "BODY_MOVEMENT",
+    voice: "VOICE",
+  };
+
+  return map[slotId] ?? "ACTING";
+}
+
+function getUploadErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Upload failed. Sign in again and retry.";
+}
+
+function UploadErrorMessage({ message }: { message: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+      {message}
+    </div>
+  );
 }
 
 function StepLayout({

@@ -12,9 +12,28 @@ export class UploadUrlRequestDto {
   @MaxLength(120)
   contentType!: string;
 
-  @ApiProperty({ enum: ["actor-video", "actor-image"] })
-  @IsIn(["actor-video", "actor-image"])
-  namespace!: "actor-video" | "actor-image";
+  @ApiProperty({
+    enum: [
+      "actor-profile-image",
+      "actor-video",
+      "actor-private-video",
+      "platform-asset",
+      "actor-delivery",
+    ],
+  })
+  @IsIn([
+    "actor-profile-image",
+    "actor-video",
+    "actor-private-video",
+    "platform-asset",
+    "actor-delivery",
+  ])
+  namespace!:
+    | "actor-profile-image"
+    | "actor-video"
+    | "actor-private-video"
+    | "platform-asset"
+    | "actor-delivery";
 }
 
 export class ReadUrlRequestDto {

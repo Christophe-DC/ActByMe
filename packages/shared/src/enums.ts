@@ -2,6 +2,7 @@ export enum UserRole {
   Admin = "ADMIN",
   Actor = "ACTOR",
   Client = "CLIENT",
+  Agency = "AGENCY",
 }
 
 export enum ActorProfileStatus {

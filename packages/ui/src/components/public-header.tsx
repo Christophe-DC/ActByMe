@@ -12,8 +12,12 @@ export function PublicHeader() {
         <div className="text-lg font-semibold text-[#F9FAFB]">ActByMe</div>
       </div>
       <div className="flex items-center gap-3">
-        <Button variant="ghost">About</Button>
-        <Button variant="outline">Request access</Button>
+        <Button asChild variant="ghost">
+          <a href="/actors">Actors</a>
+        </Button>
+        <Button asChild variant="outline">
+          <a href="/agency-access">Request access</a>
+        </Button>
       </div>
     </header>
   );

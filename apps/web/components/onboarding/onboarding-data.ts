@@ -11,8 +11,10 @@ export type ActorOnboardingDraft = {
   actingStyles: string[];
   experienceLevel: string;
   profilePhotoName: string;
+  profilePhotoUrl: string;
   skills: string[];
   videos: Record<string, string>;
+  videoUrls: Record<string, string>;
   consent: Record<string, boolean>;
 };
 
@@ -27,8 +29,15 @@ export const defaultOnboardingDraft: ActorOnboardingDraft = {
   actingStyles: [],
   experienceLevel: "",
   profilePhotoName: "",
+  profilePhotoUrl: "",
   skills: [],
   videos: {
+    intro: "",
+    acting: "",
+    motion: "",
+    voice: "",
+  },
+  videoUrls: {
     intro: "",
     acting: "",
     motion: "",

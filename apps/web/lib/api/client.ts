@@ -1,19 +1,19 @@
-import {
+import type {
   ListActorsQuery,
   ListActorsResponse,
   ActorDetail,
   AgencyAccessRequest,
   AgencyAccessResponse,
+  UploadNamespace,
+  UploadUrlResponse,
 } from "./types";
-
-// Use NEXT_PUBLIC_API_URL when provided; fall back to relative `/api` for local dev
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+import { supabase } from "@/lib/supabase/client";
 
 class APIError extends Error {
   constructor(
     public status: number,
     public message: string,
-    public data?: any,
+    public data?: unknown,
   ) {
     super(message);
     this.name = "APIError";
@@ -21,28 +21,42 @@ class APIError extends Error {
 }
 
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   const url = `${API_URL}${endpoint}`;
+  const authHeaders = await getAuthHeaders();
+  const headers = new Headers(options?.headers);
+
+  headers.set("Content-Type", "application/json");
+
+  for (const [key, value] of Object.entries(authHeaders)) {
+    headers.set(key, value);
+  }
 
   const response = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      // Mock user header for development (will be replaced with real auth)
-      "X-User-Id": process.env.NEXT_PUBLIC_MOCK_USER_ID || "dev-user",
-      ...(options?.headers || {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new APIError(
-      response.status,
-      errorData.message || `API error: ${response.statusText}`,
-      errorData,
-    );
+    throw new Error(errorData.message || `API error: ${response.statusText}`);
   }
 
   return response.json();
+}
+
+async function getAuthHeaders() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${session.access_token}`,
+  };
 }
 
 export const actorsApi = {
@@ -83,6 +97,106 @@ export const actorsApi = {
       method: "POST",
       body: JSON.stringify(request),
     });
+  },
+
+  createProfile: async (request: {
+    bio?: string;
+    city?: string;
+    country?: string;
+    heroVideoUrl?: string;
+    profileImageUrl?: string;
+    stageName: string;
+  }) =>
+    apiFetch("/actors/profile", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+
+  addLanguages: async (languages: Array<{ language: string; proficiency?: string }>) =>
+    apiFetch("/actors/profile/languages", {
+      method: "POST",
+      body: JSON.stringify({ languages }),
+    }),
+
+  addAccents: async (accents: string[]) =>
+    apiFetch("/actors/profile/accents", {
+      method: "POST",
+      body: JSON.stringify({ accents }),
+    }),
+
+  addSkills: async (
+    skills: Array<{ category: string; label?: string; yearsExperience?: number }>,
+  ) =>
+    apiFetch("/actors/profile/skills", {
+      method: "POST",
+      body: JSON.stringify({ skills }),
+    }),
+
+  addVideo: async (video: {
+    description?: string;
+    durationSeconds?: number;
+    skillCategory?: string;
+    sortOrder?: number;
+    thumbnailUrl?: string;
+    title: string;
+    type: string;
+    videoUrl: string;
+    visibility?: "PUBLIC" | "PRIVATE" | "UNLISTED";
+  }) =>
+    apiFetch("/actors/profile/videos", {
+      method: "POST",
+      body: JSON.stringify(video),
+    }),
+
+  acceptConsent: async (consent: {
+    futurePaidWorkRequiresSeparateApproval: boolean;
+    marketingUsageConsent: boolean;
+    ownsUploadedContentConfirmation: boolean;
+    publicProfileConsent: boolean;
+  }) =>
+    apiFetch("/actors/profile/consent", {
+      method: "POST",
+      body: JSON.stringify(consent),
+    }),
+};
+
+export const storageApi = {
+  createUploadUrl: async (request: {
+    contentType: string;
+    fileName: string;
+    namespace: UploadNamespace;
+  }): Promise<UploadUrlResponse> =>
+    apiFetch("/storage/upload-url", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+
+  uploadFile: async (
+    file: File,
+    namespace: "actor-profile-image" | "actor-video" | "actor-private-video",
+  ) => {
+    const upload = await storageApi.createUploadUrl({
+      contentType: file.type || "application/octet-stream",
+      fileName: file.name,
+      namespace,
+    });
+
+    if (!upload.token) {
+      throw new Error("The API did not return a Supabase upload token.");
+    }
+
+    const { error } = await supabase.storage
+      .from(upload.bucket)
+      .uploadToSignedUrl(upload.path, upload.token, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return upload;
   },
 };
 

@@ -5,10 +5,12 @@ export function ActorHeroSection({
   name,
   headline,
   avatar,
+  onShare,
 }: {
   name: string;
   headline?: string;
   avatar?: string;
+  onShare?: () => void;
 }) {
   return (
     <section className="rounded-lg border border-[#1F2937] bg-gradient-to-b from-[#0b0b0d] to-[#111827] p-8">
@@ -21,7 +23,9 @@ export function ActorHeroSection({
           <p className="mt-1 text-sm text-[#9CA3AF]">{headline}</p>
         </div>
         <div className="ml-auto">
-          <Button variant="outline">Share profile</Button>
+          <Button onClick={onShare} type="button" variant="outline">
+            Share profile
+          </Button>
         </div>
       </div>
     </section>

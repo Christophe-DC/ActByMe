@@ -15,7 +15,8 @@ export interface ActorLanguage {
 
 export interface ActorAccent {
   id: string;
-  name: string;
+  accent?: string;
+  name?: string;
 }
 
 export interface ActorVideo {
@@ -75,9 +76,16 @@ export interface ListActorsResponse {
 }
 
 export interface AgencyAccessRequest {
-  actorProfileId: string;
-  agencyName: string;
+  companyName: string;
+  country?: string;
+  email: string;
+  expectedMonthlyVolume?: string;
+  interestedSkills: string[];
   message?: string;
+  name: string;
+  needs: string;
+  role?: string;
+  website?: string;
 }
 
 export interface AgencyAccessResponse {
@@ -85,3 +93,20 @@ export interface AgencyAccessResponse {
   status: string;
   createdAt: string;
 }
+
+export interface UploadUrlResponse {
+  assetUrl: string;
+  bucket: string;
+  key: string;
+  method: "PUT" | "POST";
+  path: string;
+  token?: string;
+  uploadUrl: string;
+}
+
+export type UploadNamespace =
+  | "actor-profile-image"
+  | "actor-video"
+  | "actor-private-video"
+  | "platform-asset"
+  | "actor-delivery";

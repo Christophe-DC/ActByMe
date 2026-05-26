@@ -9,7 +9,13 @@ export function AgencyAccessCTA({ onRequest }: { onRequest?: () => void }) {
         Request curated access to talent profiles and reels.
       </p>
       <div className="mt-3">
-        <Button onClick={onRequest}>Request access</Button>
+        {onRequest ? (
+          <Button onClick={onRequest}>Request access</Button>
+        ) : (
+          <Button asChild>
+            <a href="/agency-access">Request access</a>
+          </Button>
+        )}
       </div>
     </div>
   );

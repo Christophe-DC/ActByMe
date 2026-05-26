@@ -8,6 +8,7 @@ import {
   Clapperboard,
   Copy,
   Crown,
+  Mail,
   ExternalLink,
   Languages,
   MapPin,
@@ -21,11 +22,12 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
-import { Badge, Button, Card, DemoProfileBadge, type ButtonProps } from "@actbyme/ui";
+import { Badge, Button, Card, DemoProfileBadge, VideoPresentationModal } from "@actbyme/ui";
 import type { MockActor } from "../lib/mock-actors";
 
 export function ActorProfileExperience({ actor }: { actor: MockActor }) {
   const [shareLabel, setShareLabel] = useState("Share profile");
+  const [activeVideoTitle, setActiveVideoTitle] = useState<string | null>(null);
 
   const aiTransformation = actor.aiTransformation ?? {
     originalImage: actor.videoThumbnail ?? actor.profileImage ?? actor.heroImage,
@@ -50,6 +52,14 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
     setShareLabel("Link copied");
     window.setTimeout(() => setShareLabel("Share profile"), 1800);
   }
+
+  function copyProfileLink() {
+    void navigator.clipboard.writeText(window.location.href);
+    setShareLabel("Link copied");
+    window.setTimeout(() => setShareLabel("Share profile"), 1800);
+  }
+
+  const agencyAccessHref = `/agency-access?actor=${encodeURIComponent(actor.slug)}`;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#09090B] text-[#F9FAFB]">
@@ -104,12 +114,14 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
                 </span>
               </div>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button size="lg">
-                  Invite this actor
-                  <ExternalLink className="size-4" />
+                <Button asChild size="lg">
+                  <Link href={agencyAccessHref}>
+                    Invite this actor
+                    <ExternalLink className="size-4" />
+                  </Link>
                 </Button>
-                <Button size="lg" variant="outline">
-                  Request agency access
+                <Button asChild size="lg" variant="outline">
+                  <Link href={agencyAccessHref}>Request agency access</Link>
                 </Button>
               </div>
             </div>
@@ -123,6 +135,7 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
                 />
                 <button
                   className="absolute inset-0 flex items-center justify-center bg-black/20 transition hover:bg-black/8"
+                  onClick={() => setActiveVideoTitle(`${actor.name} intro reel`)}
                   type="button"
                 >
                   <span className="flex size-16 items-center justify-center rounded-full bg-[#6366F1] text-white shadow-2xl shadow-[#6366F1]/30">
@@ -188,7 +201,14 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
                   {video.category}
                 </span>
                 <span className="absolute bottom-3 right-3 flex size-10 items-center justify-center rounded-full bg-[#6366F1]">
-                  <Play className="ml-0.5 size-4" fill="currentColor" />
+                  <button
+                    aria-label={`Play ${video.title}`}
+                    className="flex size-10 items-center justify-center rounded-full"
+                    onClick={() => setActiveVideoTitle(video.title)}
+                    type="button"
+                  >
+                    <Play className="ml-0.5 size-4" fill="currentColor" />
+                  </button>
                 </span>
               </div>
               <h3 className="mt-3 text-lg font-semibold">{video.title}</h3>
@@ -287,14 +307,62 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
               implemented.
             </p>
             <div className="mt-6 flex flex-col gap-3">
-              <PlaceholderButton>Invite this actor</PlaceholderButton>
-              <Button size="lg" variant="outline">
-                Request agency access
+              <Button asChild size="lg">
+                <Link href={agencyAccessHref}>Invite this actor</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href={agencyAccessHref}>Request agency access</Link>
               </Button>
             </div>
           </Card>
         </div>
       </section>
+
+      <ProfileBand title="Share This Profile" icon={<Copy className="size-5" />}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <ShareAction onClick={copyProfileLink} icon={<Copy className="size-4" />}>
+            Copy profile link
+          </ShareAction>
+          <ShareAction
+            icon={<ExternalLink className="size-4" />}
+            onClick={() =>
+              openShareUrl(
+                `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`,
+              )
+            }
+          >
+            Share on LinkedIn
+          </ShareAction>
+          <ShareAction
+            icon={<ExternalLink className="size-4" />}
+            onClick={() =>
+              openShareUrl(
+                `https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(`${actor.name} on ActByMe - ${actor.headline}`)}`,
+              )
+            }
+          >
+            Share on X
+          </ShareAction>
+          <ShareAction
+            icon={<Mail className="size-4" />}
+            onClick={() => {
+              window.location.href = `mailto:?subject=${encodeURIComponent(`${actor.name} on ActByMe`)}&body=${encodeURIComponent(`${actor.name} on ActByMe - ${actor.headline}`)}%0A${encodeURIComponent(window.location.href)}`;
+            }}
+          >
+            Share by email
+          </ShareAction>
+        </div>
+      </ProfileBand>
+
+      <VideoPresentationModal
+        onClose={() => setActiveVideoTitle(null)}
+        open={Boolean(activeVideoTitle)}
+        title={activeVideoTitle ?? "Actor video"}
+      >
+        <div className="flex aspect-video items-center justify-center rounded-md bg-[#09090B] text-[#9CA3AF]">
+          Video playback placeholder
+        </div>
+      </VideoPresentationModal>
     </main>
   );
 }
@@ -375,10 +443,26 @@ function TransformationFrame({
   );
 }
 
-function PlaceholderButton(props: ButtonProps) {
+function openShareUrl(url: string) {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function ShareAction({
+  children,
+  icon,
+  onClick,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  onClick?: () => void;
+}) {
+  const className =
+    "inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[#1F2937] bg-[#111827] px-4 py-3 text-sm font-medium text-[#F9FAFB] transition hover:border-[#6366F1] hover:bg-[#151F32]";
+
   return (
-    <Button {...props} size="lg" type="button">
-      {props.children}
-    </Button>
+    <button className={className} onClick={onClick} type="button">
+      {icon}
+      {children}
+    </button>
   );
 }

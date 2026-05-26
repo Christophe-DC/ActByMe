@@ -321,11 +321,12 @@ export class ActorsService {
   private async ensureUser(user: AuthenticatedUser) {
     return this.prisma.client.user.upsert({
       create: {
-        email: `${user.id}@mock.actbyme.test`,
+        email: user.email ?? `${user.id}@mock.actbyme.test`,
         id: user.id,
         role: UserRole.Actor,
       },
       update: {
+        ...(user.email ? { email: user.email } : {}),
         role: user.role,
       },
       where: {

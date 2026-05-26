@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
+import { actorsApi } from "@/lib/api/client";
 
 const interestedSkills = [
   "UGC actors",
@@ -61,6 +62,8 @@ const initialDraft: AgencyAccessDraft = {
 export function AgencyAccessForm() {
   const router = useRouter();
   const [draft, setDraft] = useState<AgencyAccessDraft>(initialDraft);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function updateDraft(patch: Partial<AgencyAccessDraft>) {
     setDraft((current) => ({
@@ -78,8 +81,36 @@ export function AgencyAccessForm() {
     }));
   }
 
-  function submitMockRequest(event: React.FormEvent<HTMLFormElement>) {
+  async function submitRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    if (draft.interestedSkills.length === 0) {
+      setError("Select at least one interested skill.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (draft.whatLookingFor.trim().length < 10) {
+      setError("Tell us briefly what you are looking for.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const payload = {
+      companyName: draft.companyName,
+      country: draft.country || undefined,
+      email: draft.email,
+      expectedMonthlyVolume: draft.monthlyVolume || undefined,
+      interestedSkills: draft.interestedSkills,
+      message: draft.message || undefined,
+      name: draft.fullName,
+      needs: draft.whatLookingFor,
+      role: draft.role || undefined,
+      website: draft.website || undefined,
+    };
+
     window.localStorage.setItem(
       "actbyme.agencyAccessRequest",
       JSON.stringify({
@@ -87,14 +118,22 @@ export function AgencyAccessForm() {
         submittedAt: new Date().toISOString(),
       }),
     );
-    router.push("/agency-access/thank-you");
+
+    try {
+      await actorsApi.requestAgencyAccess(payload);
+      router.push("/agency-access/thank-you");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Agency request failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <form
       action="/agency-access/thank-you"
       className="grid gap-6 lg:grid-cols-[1fr_360px]"
-      onSubmit={submitMockRequest}
+      onSubmit={submitRequest}
     >
       <Card className="space-y-6 p-5 md:p-7">
         <div className="grid gap-4 md:grid-cols-2">
@@ -152,6 +191,7 @@ export function AgencyAccessForm() {
             What are you looking for?
           </span>
           <textarea
+            required
             className="min-h-28 w-full rounded-md border border-[#1F2937] bg-[#09090B] px-4 py-3 text-sm leading-6 text-[#F9FAFB] outline-none transition placeholder:text-[#6B7280] focus:border-[#6366F1]"
             onChange={(event) => updateDraft({ whatLookingFor: event.target.value })}
             placeholder="Tell us the type of actors, performances, productions, or AI video workflows you want to support."
@@ -212,8 +252,14 @@ export function AgencyAccessForm() {
           />
         </label>
 
-        <Button className="w-full sm:w-auto" size="lg" type="submit">
-          Request agency access
+        {error ? (
+          <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {error}
+          </div>
+        ) : null}
+
+        <Button className="w-full sm:w-auto" disabled={isSubmitting} size="lg" type="submit">
+          {isSubmitting ? "Submitting..." : "Request agency access"}
           <ArrowRight className="size-4" />
         </Button>
       </Card>

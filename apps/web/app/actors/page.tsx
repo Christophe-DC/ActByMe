@@ -109,8 +109,8 @@ export default function ActorsPage() {
               </span>
               <span className="text-lg font-semibold">ActByMe</span>
             </Link>
-            <Button variant="outline" size="sm">
-              Request agency access
+            <Button asChild variant="outline" size="sm">
+              <Link href="/agency-access">Request agency access</Link>
             </Button>
           </nav>
 

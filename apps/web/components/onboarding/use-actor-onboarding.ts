@@ -55,12 +55,16 @@ export function useActorOnboarding() {
     });
   }
 
-  function updateVideo(id: string, value: string) {
+  function updateVideo(id: string, value: string, url = "") {
     setDraft((current) => ({
       ...current,
       videos: {
         ...current.videos,
         [id]: value,
+      },
+      videoUrls: {
+        ...current.videoUrls,
+        [id]: url || current.videoUrls[id] || "",
       },
     }));
   }
