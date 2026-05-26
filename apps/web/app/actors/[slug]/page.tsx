@@ -61,8 +61,9 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
   const topSkills = actor.skills
     .slice(0, 6)
     .map((skill) => skill.label ?? titleCase(skill.category));
+  const firstVideoThumbnail = actor.videos.find((video) => video.thumbnailUrl)?.thumbnailUrl;
   const heroImage =
-    actor.heroVideoUrl ||
+    firstVideoThumbnail ||
     actor.profileImageUrl ||
     fallback?.heroImage ||
     "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=1800&auto=format&fit=crop";
@@ -91,7 +92,7 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
     id: actor.id,
     isDemo: actor.isDemo,
     isFeatured: !actor.isDemo,
-    joinedAt: fallback?.joinedAt ?? actor.status,
+    joinedAt: fallback?.joinedAt ?? actor.createdAt ?? actor.status,
     languages,
     location: [actor.city, actor.country].filter(Boolean).join(", ") || "Location TBA",
     martialArts: fallback?.martialArts ?? [],
@@ -103,19 +104,26 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
     slug: actor.slug,
     stunts: fallback?.stunts ?? [],
     topSkills,
-    videoThumbnail: actor.videos[0]?.thumbnailUrl || fallback?.videoThumbnail || heroImage,
-    videos: actor.videos.length > 0 ? actor.videos.map(mapVideoAsset) : (fallback?.videos ?? []),
+    videoThumbnail:
+      firstVideoThumbnail || actor.profileImageUrl || fallback?.videoThumbnail || heroImage,
+    videos:
+      actor.videos.length > 0
+        ? actor.videos.map((video) => mapVideoAsset(video, profileImage))
+        : (fallback?.videos ?? []),
     voiceSkills: fallback?.voiceSkills ?? accents,
   };
 }
 
-function mapVideoAsset(video: ActorVideo) {
+function mapVideoAsset(video: ActorVideo, fallbackImage: string) {
   return {
     category: titleCase(video.type),
-    duration: typeof video.duration === "number" ? `${video.duration}s` : "Uploaded sample",
-    thumbnail:
-      video.thumbnailUrl ||
-      "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=900&auto=format&fit=crop",
+    duration:
+      typeof video.durationSeconds === "number"
+        ? `${video.durationSeconds}s`
+        : typeof video.duration === "number"
+          ? `${video.duration}s`
+          : "Uploaded sample",
+    thumbnail: video.thumbnailUrl || fallbackImage,
     title: video.title,
   };
 }

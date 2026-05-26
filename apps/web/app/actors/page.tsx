@@ -15,6 +15,8 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge, Button, Card, DemoProfileBadge } from "@actbyme/ui";
+import { useActorsList } from "../../lib/api/hooks";
+import type { ActorListItem, ActorVideo } from "../../lib/api/types";
 import {
   filterActors,
   getFilterOptions,
@@ -23,6 +25,7 @@ import {
   sortActors,
   type ActorFilters,
   type MockActor,
+  type MotionGroup,
   type SortOption,
 } from "../../lib/mock-actors";
 
@@ -80,13 +83,19 @@ export default function ActorsPage() {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("featured");
   const [filters, setFilters] = useState<ActorFilters>({});
+  const { data: liveActors, error, isLoading } = useActorsList({ sort: sortBy, limit: 100 });
   const options = useMemo(() => getFilterOptions(), []);
 
+  const actorSource = useMemo(() => {
+    const apiActors = (liveActors?.data ?? []).map(mapApiActorToDiscoveryActor);
+    return mergeActors(apiActors, MOCK_ACTORS);
+  }, [liveActors]);
+
   const actors = useMemo(() => {
-    const searched = searchActors(MOCK_ACTORS, query);
+    const searched = searchActors(actorSource, query);
     const filtered = filterActors(searched, filters);
     return sortActors(filtered, sortBy);
-  }, [filters, query, sortBy]);
+  }, [actorSource, filters, query, sortBy]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
@@ -117,7 +126,7 @@ export default function ActorsPage() {
           <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr] lg:items-end">
             <div>
               <Badge className="mb-5 border-[#6366F1]/50 bg-[#6366F1]/10 text-[#C7D2FE]">
-                Mock discovery data
+                Live discovery + demo profiles
               </Badge>
               <h1 className="max-w-4xl text-5xl font-semibold leading-none tracking-normal md:text-7xl">
                 Discover AI-ready actor profiles.
@@ -213,14 +222,26 @@ export default function ActorsPage() {
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-[#9CA3AF]">
-            Showing <span className="font-semibold text-[#F9FAFB]">{actors.length}</span> demo
-            profile{actors.length === 1 ? "" : "s"}
+            Showing <span className="font-semibold text-[#F9FAFB]">{actors.length}</span> profile
+            {actors.length === 1 ? "" : "s"}
           </p>
           <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
             <BadgeCheck className="size-4 text-[#14B8A6]" />
-            Demo badges mark non-registered sample profiles.
+            Demo badges mark sample profiles. Actor profiles come from the database.
           </div>
         </div>
+
+        {error ? (
+          <div className="mt-5 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Live actor API is unavailable right now, so the page is showing demo profiles only.
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="mt-5 text-sm text-[#9CA3AF]">
+            Loading actor profiles from the database...
+          </div>
+        ) : null}
 
         {actors.length > 0 ? (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -241,6 +262,117 @@ export default function ActorsPage() {
   );
 }
 
+function mergeActors(primaryActors: MockActor[], fallbackActors: MockActor[]) {
+  const actorsBySlug = new Map<string, MockActor>();
+
+  for (const actor of fallbackActors) {
+    actorsBySlug.set(actor.slug, actor);
+  }
+
+  for (const actor of primaryActors) {
+    actorsBySlug.set(actor.slug, actor);
+  }
+
+  return Array.from(actorsBySlug.values());
+}
+
+function mapApiActorToDiscoveryActor(actor: ActorListItem): MockActor {
+  const languages = actor.languages.map((language) => language.language).filter(Boolean);
+  const accents = actor.accents.map((accent) => accent.accent ?? accent.name ?? "").filter(Boolean);
+  const topSkills = actor.skills
+    .map((skill) => skill.label ?? titleCase(skill.category))
+    .filter(Boolean)
+    .slice(0, 8);
+  const firstVideoThumbnail = actor.videos?.find((video) => video.thumbnailUrl)?.thumbnailUrl;
+  const image =
+    firstVideoThumbnail ||
+    actor.profileImageUrl ||
+    "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=1200&auto=format&fit=crop";
+
+  return {
+    accents,
+    actingStyles: topSkills.length > 0 ? topSkills.slice(0, 3) : ["AI-ready performance"],
+    aiTransformation: {
+      originalImage: image,
+      originalLabel: "Original actor motion",
+      resultImage: actor.profileImageUrl || image,
+      resultLabel: "AI character result",
+    },
+    availability: statusLabel(actor.status),
+    bio: actor.bio || "Actor profile created on ActByMe.",
+    country: actor.country || "Country TBA",
+    dance: skillsMatching(topSkills, ["dance", "movement"]),
+    headline: actor.bio || "Actor profile with public media and skills stored in ActByMe.",
+    heroImage: image,
+    id: actor.id,
+    isDemo: actor.isDemo,
+    isFeatured: actor.status === "APPROVED" && !actor.isDemo,
+    joinedAt: actor.createdAt ?? actor.status,
+    languages,
+    location: [actor.city, actor.country].filter(Boolean).join(", ") || "Location TBA",
+    martialArts: skillsMatching(topSkills, ["martial", "combat", "fight"]),
+    motionSkills: buildMotionGroups(topSkills),
+    name: actor.stageName,
+    profileImage: actor.profileImageUrl || image,
+    score: actor.actAiScore ?? 0,
+    singing: skillsMatching(topSkills, ["singing", "voice"]),
+    slug: actor.slug,
+    stunts: skillsMatching(topSkills, ["stunt", "action", "fall"]),
+    topSkills: topSkills.length > 0 ? topSkills : ["Public actor profile"],
+    videoThumbnail: image,
+    videos:
+      actor.videos && actor.videos.length > 0
+        ? actor.videos.map((video) => mapVideoAsset(video, image))
+        : [],
+    voiceSkills: accents.length > 0 ? accents : skillsMatching(topSkills, ["voice", "accent"]),
+  };
+}
+
+function mapVideoAsset(video: ActorVideo, fallbackImage: string) {
+  return {
+    category: titleCase(video.type),
+    duration:
+      typeof video.durationSeconds === "number"
+        ? `${video.durationSeconds}s`
+        : typeof video.duration === "number"
+          ? `${video.duration}s`
+          : "Uploaded sample",
+    thumbnail: video.thumbnailUrl || fallbackImage,
+    title: video.title,
+  };
+}
+
+function buildMotionGroups(skills: string[]): MotionGroup[] {
+  return [
+    {
+      category: "Action scenes",
+      description: "Motion and performance skills stored on this actor profile.",
+      items: skills.length > 0 ? skills : ["Performance sample"],
+    },
+  ];
+}
+
+function skillsMatching(skills: string[], terms: string[]) {
+  return skills.filter((skill) =>
+    terms.some((term) => skill.toLowerCase().includes(term.toLowerCase())),
+  );
+}
+
+function statusLabel(status: string) {
+  if (status === "APPROVED") return "Available now";
+  if (status === "PENDING_REVIEW") return "Profile pending review";
+  if (status === "DRAFT") return "Draft actor profile";
+  return titleCase(status);
+}
+
+function titleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function ActorDiscoveryCard({ actor }: { actor: MockActor }) {
   return (
     <Card className="group overflow-hidden p-0 transition duration-300 hover:-translate-y-1 hover:border-[#6366F1]/70 hover:shadow-2xl hover:shadow-[#6366F1]/10">
@@ -253,6 +385,12 @@ function ActorDiscoveryCard({ actor }: { actor: MockActor }) {
         <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-[#09090B]/20 to-transparent" />
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">
           {actor.isDemo ? <DemoProfileBadge /> : null}
+          {!actor.isDemo ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[#6366F1]/40 bg-[#6366F1]/15 px-2 py-1 text-xs font-semibold text-[#C7D2FE]">
+              <BadgeCheck className="size-3" />
+              Actor profile
+            </span>
+          ) : null}
           {actor.isFeatured ? (
             <span className="inline-flex items-center gap-1 rounded-md border border-[#14B8A6]/40 bg-[#14B8A6]/15 px-2 py-1 text-xs font-semibold text-[#A7F3D0]">
               <Star className="size-3" />
@@ -295,6 +433,7 @@ function ActorDiscoveryCard({ actor }: { actor: MockActor }) {
             </span>
           ))}
         </div>
+        <p className="text-xs uppercase tracking-normal text-[#9CA3AF]">{actor.availability}</p>
         <Button asChild className="w-full" variant="outline">
           <Link href={`/actors/${actor.slug}`}>
             View profile

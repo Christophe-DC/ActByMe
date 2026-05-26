@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { ActorProfileStatus, UserRole, Visibility } from "@actbyme/shared";
+import { Prisma } from "@actbyme/database";
+import { ActorProfileStatus, SkillCategory, UserRole, Visibility } from "@actbyme/shared";
 import type { AuthenticatedUser } from "../auth/auth.types.js";
 import { PrismaService } from "../database/prisma.service.js";
 import type { AcceptActorConsentDto } from "./dto/actor-consent.dto.js";
@@ -30,6 +31,12 @@ const publicActorInclude = {
   },
 };
 
+const publicDiscoveryStatuses = [
+  ActorProfileStatus.Approved,
+  ActorProfileStatus.PendingReview,
+  ActorProfileStatus.Draft,
+];
+
 @Injectable()
 export class ActorsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -39,7 +46,7 @@ export class ActorsService {
       include: publicActorInclude,
       orderBy: [{ isDemo: "desc" }, { actAiScore: "desc" }, { createdAt: "desc" }],
       where: {
-        status: ActorProfileStatus.Approved,
+        status: { in: publicDiscoveryStatuses },
       },
     });
   }
@@ -49,7 +56,7 @@ export class ActorsService {
       include: publicActorInclude,
       where: {
         slug,
-        status: ActorProfileStatus.Approved,
+        status: { in: publicDiscoveryStatuses },
       },
     });
   }
@@ -238,8 +245,8 @@ export class ActorsService {
     const limit = Math.min(filters.limit || 20, 100);
     const offset = filters.offset || 0;
 
-    let where: any = {
-      status: ActorProfileStatus.Approved,
+    let where: Prisma.ActorProfileWhereInput = {
+      status: { in: publicDiscoveryStatuses },
     };
 
     // Search by name or bio
@@ -249,6 +256,8 @@ export class ActorsService {
         OR: [
           { stageName: { contains: filters.search, mode: "insensitive" } },
           { bio: { contains: filters.search, mode: "insensitive" } },
+          { city: { contains: filters.search, mode: "insensitive" } },
+          { country: { contains: filters.search, mode: "insensitive" } },
         ],
       };
     }
@@ -259,7 +268,7 @@ export class ActorsService {
         ...where,
         languages: {
           some: {
-            code: filters.language,
+            language: { contains: filters.language, mode: "insensitive" },
           },
         },
       };
@@ -271,7 +280,7 @@ export class ActorsService {
         ...where,
         accents: {
           some: {
-            name: filters.accent,
+            accent: { contains: filters.accent, mode: "insensitive" },
           },
         },
       };
@@ -279,18 +288,21 @@ export class ActorsService {
 
     // Filter by skill
     if (filters.skill) {
+      const normalizedSkill = normalizeSkillCategory(filters.skill);
       where = {
         ...where,
         skills: {
-          some: {
-            category: filters.skill,
-          },
+          some: normalizedSkill
+            ? { category: normalizedSkill }
+            : { label: { contains: filters.skill, mode: "insensitive" } },
         },
       };
     }
 
     // Determine sort order
-    let orderBy: any = { createdAt: "desc" };
+    let orderBy:
+      | Prisma.ActorProfileOrderByWithRelationInput
+      | Prisma.ActorProfileOrderByWithRelationInput[] = { createdAt: "desc" };
     if (filters.sort === "score") {
       orderBy = { actAiScore: "desc" };
     } else if (filters.sort === "newest") {
@@ -356,4 +368,12 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
     .slice(0, 60);
+}
+
+function normalizeSkillCategory(value: string): SkillCategory | undefined {
+  const normalized = value
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+  return Object.values(SkillCategory).find((category) => category === normalized);
 }

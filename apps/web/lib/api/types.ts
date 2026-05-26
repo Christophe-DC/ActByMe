@@ -27,6 +27,7 @@ export interface ActorVideo {
   videoUrl: string;
   thumbnailUrl?: string;
   duration?: number;
+  durationSeconds?: number;
   visibility: string;
   createdAt: string;
 }
@@ -36,19 +37,22 @@ export interface ActorListItem {
   slug: string;
   stageName: string;
   profileImageUrl?: string;
+  heroVideoUrl?: string;
   bio?: string;
   city?: string;
   country?: string;
   actAiScore?: number;
   isDemo: boolean;
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
   skills: ActorSkill[];
   languages: ActorLanguage[];
   accents: ActorAccent[];
+  videos?: ActorVideo[];
 }
 
 export interface ActorDetail extends ActorListItem {
-  heroVideoUrl?: string;
   videos: ActorVideo[];
   consent?: {
     id: string;
