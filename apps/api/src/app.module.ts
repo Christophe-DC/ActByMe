@@ -36,6 +36,8 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../.
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(MockAuthMiddleware).forRoutes("*");
+    if (process.env.ENABLE_MOCK_AUTH === "true") {
+      consumer.apply(MockAuthMiddleware).forRoutes("*");
+    }
   }
 }
