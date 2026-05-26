@@ -6,10 +6,12 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Clapperboard, UserPlus } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+import { accountRoles, destinationForRole, type AccountRole } from "@/lib/auth/roles";
 
 export default function SignupPage() {
   const router = useRouter();
-  const [stageName, setStageName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [role, setRole] = useState<AccountRole>("ACTOR");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -33,8 +35,9 @@ export default function SignupPage() {
       password,
       options: {
         data: {
-          role: "ACTOR",
-          stageName,
+          name: displayName,
+          role,
+          ...(role === "ACTOR" ? { stageName: displayName } : {}),
         },
       },
     });
@@ -51,7 +54,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/onboarding/actor");
+    router.push(destinationForRole(role));
   }
 
   return (
@@ -65,11 +68,11 @@ export default function SignupPage() {
             <span className="text-lg font-semibold">ActByMe</span>
           </Link>
           <h1 className="mt-12 max-w-3xl text-5xl font-semibold leading-none tracking-normal md:text-7xl">
-            Create your actor account.
+            Create your ActByMe account.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-[#9CA3AF]">
-            Register for free, upload your public profile media, and build an AI-ready actor page
-            you can share with agencies and studios.
+            Choose your role, then access the right MVP flow: actor onboarding or agency access
+            request.
           </p>
           <div className="mt-8 flex items-center gap-3 text-sm text-[#C7D2FE]">
             <ArrowRight className="size-4" />
@@ -80,15 +83,16 @@ export default function SignupPage() {
         <Card className="p-6 md:p-8">
           <h2 className="text-3xl font-semibold">Actor registration</h2>
           <p className="mt-2 text-sm leading-6 text-[#9CA3AF]">
-            This creates a Supabase auth user with the ACTOR role in user metadata.
+            This creates a Supabase auth user with your selected role in user metadata.
           </p>
           <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
+            <RolePicker role={role} onChange={setRole} />
             <AuthField
-              label="Stage name"
-              onChange={setStageName}
-              placeholder="Maya Laurent"
+              label={role === "ACTOR" ? "Stage name" : "Full name"}
+              onChange={setDisplayName}
+              placeholder={role === "ACTOR" ? "Maya Laurent" : "Jordan Blake"}
               type="text"
-              value={stageName}
+              value={displayName}
             />
             <AuthField
               label="Email"
@@ -107,7 +111,7 @@ export default function SignupPage() {
             {error ? <AuthMessage tone="error" message={error} /> : null}
             {notice ? <AuthMessage tone="info" message={notice} /> : null}
             <Button className="w-full" disabled={isSubmitting} size="lg" type="submit">
-              {isSubmitting ? "Creating account..." : "Create actor account"}
+              {isSubmitting ? "Creating account..." : "Create account"}
               <UserPlus className="size-4" />
             </Button>
           </form>
@@ -120,6 +124,45 @@ export default function SignupPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+function RolePicker({
+  onChange,
+  role,
+}: {
+  onChange: (role: AccountRole) => void;
+  role: AccountRole;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-2 block text-sm font-medium text-[#D1D5DB]">Account role</legend>
+      <div className="grid gap-2">
+        {accountRoles.map((option) => (
+          <label
+            className={`cursor-pointer rounded-md border p-3 transition ${
+              role === option.value
+                ? "border-[#6366F1] bg-[#6366F1]/15"
+                : "border-[#1F2937] bg-[#09090B] hover:border-[#374151]"
+            }`}
+            key={option.value}
+          >
+            <input
+              checked={role === option.value}
+              className="sr-only"
+              name="role"
+              onChange={() => onChange(option.value)}
+              type="radio"
+              value={option.value}
+            />
+            <span className="block text-sm font-semibold text-[#F9FAFB]">{option.value}</span>
+            <span className="mt-1 block text-xs leading-5 text-[#9CA3AF]">
+              {option.description}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 

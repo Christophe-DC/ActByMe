@@ -1,5 +1,10 @@
+import { RoleGate } from "../../../../components/auth/role-gate";
 import { ActorOnboardingShell } from "../../../../components/onboarding/actor-onboarding-shell";
 
 export default function ActorCompleteOnboardingPage() {
-  return <ActorOnboardingShell step="complete" />;
+  return (
+    <RoleGate allowedRoles={["ACTOR"]}>
+      <ActorOnboardingShell step="complete" />
+    </RoleGate>
+  );
 }

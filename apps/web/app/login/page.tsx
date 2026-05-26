@@ -1,14 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, type FormEvent, type ReactNode } from "react";
 import { Clapperboard, LogIn } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+import { destinationForRole, normalizeAccountRole } from "@/lib/auth/roles";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -25,7 +35,7 @@ export default function LoginPage() {
       return;
     }
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -37,15 +47,23 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/onboarding/actor");
+    const role = normalizeAccountRole(data.user?.user_metadata?.role);
+    const requestedNext = searchParams.get("next");
+    const fallbackDestination = destinationForRole(role);
+    const destination =
+      requestedNext && isAllowedNextForRole(requestedNext, role)
+        ? requestedNext
+        : fallbackDestination;
+
+    router.push(destination);
   }
 
   return (
     <AuthShell
-      asideTitle="Continue building your actor page."
+      asideTitle="Continue to your ActByMe workspace."
       footer={
         <p>
-          No actor account yet?{" "}
+          No account yet?{" "}
           <Link className="font-medium text-[#C7D2FE]" href="/signup">
             Create one
           </Link>
@@ -78,6 +96,39 @@ export default function LoginPage() {
   );
 }
 
+function LoginFallback() {
+  return (
+    <AuthShell
+      asideTitle="Continue to your ActByMe workspace."
+      footer={
+        <p>
+          No account yet?{" "}
+          <Link className="font-medium text-[#C7D2FE]" href="/signup">
+            Create one
+          </Link>
+        </p>
+      }
+      title="Sign in"
+    >
+      <div className="rounded-md border border-[#1F2937] bg-[#09090B] px-4 py-3 text-sm text-[#9CA3AF]">
+        Loading sign-in form...
+      </div>
+    </AuthShell>
+  );
+}
+
+function isAllowedNextForRole(next: string | null, role: ReturnType<typeof normalizeAccountRole>) {
+  if (!next) {
+    return false;
+  }
+
+  if (role === "ACTOR") {
+    return next.startsWith("/onboarding/actor");
+  }
+
+  return next.startsWith("/agency-access");
+}
+
 function AuthShell({
   asideTitle,
   children,
@@ -103,8 +154,8 @@ function AuthShell({
             {asideTitle}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-[#9CA3AF]">
-            Upload public profile media, manage consent, and prepare a premium shareable actor
-            profile for AI video production.
+            Actors continue onboarding. Clients and agencies can request access to the ActByMe
+            marketplace preview.
           </p>
         </section>
 
