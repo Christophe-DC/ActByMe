@@ -4,7 +4,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
-import { destinationForRole, normalizeAccountRole, type AccountRole } from "@/lib/auth/roles";
+import {
+  canAccessRoleGate,
+  destinationForRole,
+  normalizeAccountRole,
+  type AccountRole,
+} from "@/lib/auth/roles";
 
 export function RoleGate({
   allowedRoles,
@@ -41,7 +46,7 @@ export function RoleGate({
 
       const role = normalizeAccountRole(user.user_metadata?.role);
 
-      if (allowedRoles.includes(role)) {
+      if (canAccessRoleGate(role, allowedRoles)) {
         setState("allowed");
         return;
       }

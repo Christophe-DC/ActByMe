@@ -122,6 +122,10 @@ function isAllowedNextForRole(next: string | null, role: ReturnType<typeof norma
     return false;
   }
 
+  if (role === "ADMIN") {
+    return next.startsWith("/") && !next.startsWith("//");
+  }
+
   if (role === "ACTOR") {
     return next.startsWith("/onboarding/actor");
   }

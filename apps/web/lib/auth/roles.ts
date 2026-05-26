@@ -1,4 +1,4 @@
-export type AccountRole = "ACTOR" | "CLIENT" | "AGENCY";
+export type AccountRole = "ADMIN" | "ACTOR" | "CLIENT" | "AGENCY";
 
 export const accountRoles: Array<{ label: string; value: AccountRole; description: string }> = [
   {
@@ -19,7 +19,7 @@ export const accountRoles: Array<{ label: string; value: AccountRole; descriptio
 ];
 
 export function normalizeAccountRole(value: unknown): AccountRole {
-  if (value === "CLIENT" || value === "AGENCY" || value === "ACTOR") {
+  if (value === "ADMIN" || value === "CLIENT" || value === "AGENCY" || value === "ACTOR") {
     return value;
   }
 
@@ -27,5 +27,13 @@ export function normalizeAccountRole(value: unknown): AccountRole {
 }
 
 export function destinationForRole(role: AccountRole) {
+  if (role === "ADMIN") {
+    return "/actors";
+  }
+
   return role === "ACTOR" ? "/onboarding/actor" : "/agency-access";
+}
+
+export function canAccessRoleGate(role: AccountRole, allowedRoles: AccountRole[]) {
+  return role === "ADMIN" || allowedRoles.includes(role);
 }

@@ -41,6 +41,10 @@ export class RolesGuard implements CanActivate {
       );
     }
 
+    if (request.user.role === UserRole.Admin) {
+      return true;
+    }
+
     if (!requiredRoles.includes(request.user.role)) {
       throw new ForbiddenException("This user role cannot access this resource.");
     }
