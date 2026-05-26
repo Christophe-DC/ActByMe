@@ -6,6 +6,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "start": "node dist/main.js",
+    "start:prod": "node dist/main.js",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
@@ -13,7 +15,10 @@
     "db:generate": "pnpm --filter @actbyme/database db:generate",
     "db:migrate": "pnpm --filter @actbyme/database db:migrate",
     "db:seed": "pnpm --filter @actbyme/database db:seed",
-    "db:studio": "pnpm --filter @actbyme/database db:studio"
+    "db:studio": "pnpm --filter @actbyme/database db:studio",
+    "db:deploy": "pnpm --filter @actbyme/database db:deploy",
+    "build:api": "pnpm --filter @actbyme/api build",
+    "start:api": "pnpm --filter @actbyme/api start:prod"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
