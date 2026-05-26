@@ -9,14 +9,22 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  const allowedOrigins = config
-    .get<string>("WEB_ORIGIN", "http://localhost:3000")
-    .split(",")
-    .map((origin) => origin.trim());
+  const allowedOrigins = getAllowedOrigins(config);
 
   app.enableCors({
-    origin: allowedOrigins,
+    allowedHeaders: ["Authorization", "Content-Type", "x-user-id", "x-user-role"],
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
+    origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+      if (!origin || isAllowedOrigin(origin, allowedOrigins)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS.`), false);
+    },
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   app.useGlobalPipes(
     new ValidationPipe({
@@ -58,3 +66,25 @@ async function bootstrap() {
 }
 
 void bootstrap();
+
+function getAllowedOrigins(config: ConfigService) {
+  return [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://actbyme-web.vercel.app",
+    config.get<string>("NEXT_PUBLIC_WEB_URL"),
+    config.get<string>("WEB_ORIGIN"),
+    config.get<string>("CORS_ORIGINS"),
+  ]
+    .flatMap((value) => (value ? value.split(",") : []))
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  return /^https:\/\/actbyme-web-[a-z0-9-]+\.vercel\.app$/i.test(origin);
+}
