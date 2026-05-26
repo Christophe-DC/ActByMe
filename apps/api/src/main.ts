@@ -12,7 +12,6 @@ async function bootstrap() {
   const allowedOrigins = getAllowedOrigins(config);
 
   app.enableCors({
-    allowedHeaders: ["Authorization", "Content-Type", "x-user-id", "x-user-role"],
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
     origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
