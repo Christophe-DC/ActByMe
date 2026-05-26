@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle, Users, Shield, Zap, Play, MessageSquare } from "lucide-react";
+import { ArrowRight, CheckCircle, Users, Shield, Zap, Play } from "lucide-react";
 import { Badge, Button, Card, VideoPresentationModal } from "@actbyme/ui";
 import { useState } from "react";
 
@@ -66,9 +66,6 @@ export default function HomePage() {
                     Join as actor - free
                     <ArrowRight className="size-4" />
                   </Link>
-                </Button>
-                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-                  <Link href="/agency-access">Request agency access</Link>
                 </Button>
               </div>
             </div>
@@ -212,12 +209,6 @@ export default function HomePage() {
                 commission actor performances. Build relationships with talented performers
                 directly.
               </p>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/agency-access">
-                  <MessageSquare className="size-4" />
-                  Request agency access
-                </Link>
-              </Button>
             </div>
           </div>
         </div>
