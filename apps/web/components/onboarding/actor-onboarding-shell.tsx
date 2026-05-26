@@ -210,8 +210,9 @@ export function ActorOnboardingShell({ step }: { step: OnboardingStep }) {
               value={draft.stageName}
             />
             <TextField
+              disabled
               label="Email"
-              onChange={(value) => updateDraft({ email: value })}
+              onChange={() => undefined}
               placeholder="you@example.com"
               type="email"
               value={draft.email}
@@ -700,12 +701,14 @@ function StepLayout({
 }
 
 function TextField({
+  disabled = false,
   label,
   onChange,
   placeholder,
   type = "text",
   value,
 }: {
+  disabled?: boolean;
   label: string;
   onChange: (value: string) => void;
   placeholder: string;
@@ -716,7 +719,8 @@ function TextField({
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-[#D1D5DB]">{label}</span>
       <input
-        className="h-12 w-full rounded-md border border-[#1F2937] bg-[#09090B] px-4 text-sm text-[#F9FAFB] outline-none transition placeholder:text-[#6B7280] focus:border-[#6366F1]"
+        className="h-12 w-full rounded-md border border-[#1F2937] bg-[#09090B] px-4 text-sm text-[#F9FAFB] outline-none transition placeholder:text-[#6B7280] focus:border-[#6366F1] disabled:cursor-not-allowed disabled:border-[#1F2937] disabled:bg-[#111827]/70 disabled:text-[#9CA3AF]"
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type={type}

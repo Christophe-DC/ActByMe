@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 import { defaultOnboardingDraft, type ActorOnboardingDraft } from "./onboarding-data";
 
 const storageKey = "actbyme.actorOnboardingDraft";
@@ -10,17 +11,29 @@ export function useActorOnboarding() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    let nextDraft = defaultOnboardingDraft;
     const stored = window.localStorage.getItem(storageKey);
 
     if (stored) {
       try {
-        setDraft({ ...defaultOnboardingDraft, ...JSON.parse(stored) });
+        nextDraft = { ...defaultOnboardingDraft, ...JSON.parse(stored) };
       } catch {
-        setDraft(defaultOnboardingDraft);
+        nextDraft = defaultOnboardingDraft;
       }
     }
 
-    setIsLoaded(true);
+    supabase.auth.getUser().then(({ data }) => {
+      const user = data.user;
+      const stageName =
+        typeof user?.user_metadata?.stageName === "string" ? user.user_metadata.stageName : "";
+
+      setDraft({
+        ...nextDraft,
+        email: user?.email ?? nextDraft.email,
+        stageName: nextDraft.stageName || stageName,
+      });
+      setIsLoaded(true);
+    });
   }, []);
 
   useEffect(() => {
