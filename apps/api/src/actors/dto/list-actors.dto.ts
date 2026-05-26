@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsNumber, Min, Max, IsIn } from "class-validator";
+import { Type } from "class-transformer";
+import { IsOptional, IsString, IsInt, Min, Max, IsIn } from "class-validator";
 
 export class ListActorsQueryDto {
   @IsOptional()
@@ -26,13 +27,15 @@ export class ListActorsQueryDto {
   sort?: "featured" | "score" | "newest";
 
   @IsOptional()
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
   @Max(100)
   limit?: number;
 
   @IsOptional()
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(0)
   offset?: number;
 }
