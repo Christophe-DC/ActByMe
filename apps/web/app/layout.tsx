@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { AppShell } from "@actbyme/ui";
+import { PublicFooter } from "@actbyme/ui";
+import { SiteHeader } from "../components/site-header";
 import { QueryClientProvider } from "../lib/providers";
 import "./globals.css";
 
@@ -18,7 +19,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         <QueryClientProvider>
-          <AppShell>{children}</AppShell>
+          <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+            <SiteHeader />
+            {children}
+            <PublicFooter />
+          </div>
         </QueryClientProvider>
       </body>
     </html>
