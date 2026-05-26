@@ -9,6 +9,11 @@ import Link from "next/link";
 import type { ActorDetail, ActorVideo } from "../../../lib/api/types";
 import { MOCK_ACTORS, type MockActor, type MotionGroup } from "../../../lib/mock-actors";
 
+const VIDEO_PLACEHOLDER_IMAGE =
+  "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=1200&auto=format&fit=crop";
+const AI_TRANSFORMATION_PLACEHOLDER =
+  "https://images.unsplash.com/photo-1535223289827-42f1e9919769?q=80&w=1200&auto=format&fit=crop";
+
 export default function ActorProfilePage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -63,8 +68,8 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
     .map((skill) => skill.label ?? titleCase(skill.category));
   const firstVideoThumbnail = actor.videos.find((video) => video.thumbnailUrl)?.thumbnailUrl;
   const heroImage =
-    firstVideoThumbnail ||
     actor.profileImageUrl ||
+    firstVideoThumbnail ||
     fallback?.heroImage ||
     "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=1800&auto=format&fit=crop";
   const profileImage =
@@ -76,9 +81,9 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
     accents,
     actingStyles: fallback?.actingStyles ?? ["Screen performance", "Commercial", "AI reference"],
     aiTransformation: fallback?.aiTransformation ?? {
-      originalImage: heroImage,
+      originalImage: firstVideoThumbnail || VIDEO_PLACEHOLDER_IMAGE,
       originalLabel: "Original actor motion",
-      resultImage: profileImage,
+      resultImage: AI_TRANSFORMATION_PLACEHOLDER,
       resultLabel: "AI character result",
     },
     availability: fallback?.availability ?? "Available for access requests",
@@ -104,17 +109,16 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
     slug: actor.slug,
     stunts: fallback?.stunts ?? [],
     topSkills,
-    videoThumbnail:
-      firstVideoThumbnail || actor.profileImageUrl || fallback?.videoThumbnail || heroImage,
+    videoThumbnail: firstVideoThumbnail || fallback?.videoThumbnail || VIDEO_PLACEHOLDER_IMAGE,
     videos:
       actor.videos.length > 0
-        ? actor.videos.map((video) => mapVideoAsset(video, profileImage))
+        ? actor.videos.map((video) => mapVideoAsset(video))
         : (fallback?.videos ?? []),
     voiceSkills: fallback?.voiceSkills ?? accents,
   };
 }
 
-function mapVideoAsset(video: ActorVideo, fallbackImage: string) {
+function mapVideoAsset(video: ActorVideo) {
   return {
     category: titleCase(video.type),
     duration:
@@ -123,7 +127,7 @@ function mapVideoAsset(video: ActorVideo, fallbackImage: string) {
         : typeof video.duration === "number"
           ? `${video.duration}s`
           : "Uploaded sample",
-    thumbnail: video.thumbnailUrl || fallbackImage,
+    thumbnail: video.thumbnailUrl || VIDEO_PLACEHOLDER_IMAGE,
     title: video.title,
   };
 }

@@ -25,14 +25,19 @@ import { useState } from "react";
 import { Badge, Button, Card, DemoProfileBadge, VideoPresentationModal } from "@actbyme/ui";
 import type { MockActor } from "../lib/mock-actors";
 
+const VIDEO_PLACEHOLDER_IMAGE =
+  "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=1200&auto=format&fit=crop";
+const AI_TRANSFORMATION_PLACEHOLDER =
+  "https://images.unsplash.com/photo-1535223289827-42f1e9919769?q=80&w=1200&auto=format&fit=crop";
+
 export function ActorProfileExperience({ actor }: { actor: MockActor }) {
   const [shareLabel, setShareLabel] = useState("Share profile");
   const [activeVideoTitle, setActiveVideoTitle] = useState<string | null>(null);
 
   const aiTransformation = actor.aiTransformation ?? {
-    originalImage: actor.videoThumbnail ?? actor.profileImage ?? actor.heroImage,
+    originalImage: actor.videoThumbnail ?? VIDEO_PLACEHOLDER_IMAGE,
     originalLabel: "Original performance",
-    resultImage: actor.heroImage ?? actor.profileImage ?? actor.videoThumbnail,
+    resultImage: AI_TRANSFORMATION_PLACEHOLDER,
     resultLabel: "AI character result",
   };
 
