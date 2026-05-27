@@ -10,7 +10,6 @@ import { accountRoles, destinationForRole, type AccountRole } from "@/lib/auth/r
 
 export default function SignupPage() {
   const router = useRouter();
-  const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<AccountRole>("ACTOR");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,9 +42,7 @@ export default function SignupPage() {
       password,
       options: {
         data: {
-          name: displayName,
           role,
-          ...(role === "ACTOR" ? { stageName: displayName } : {}),
         },
       },
     });
@@ -134,13 +131,6 @@ export default function SignupPage() {
               or
               <span className="h-px flex-1 bg-[#1F2937]" />
             </div>
-            <AuthField
-              label={role === "ACTOR" ? "Stage name" : "Full name"}
-              onChange={setDisplayName}
-              placeholder={role === "ACTOR" ? "Maya Laurent" : "Jordan Blake"}
-              type="text"
-              value={displayName}
-            />
             <AuthField
               label="Email"
               onChange={setEmail}

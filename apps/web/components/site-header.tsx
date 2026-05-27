@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Clapperboard } from "lucide-react";
-import { Button } from "@actbyme/ui";
+import { AuthModal } from "./auth/auth-modal";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import { isAccountRole, normalizeAccountRole, type AccountRole } from "@/lib/auth/roles";
 
@@ -13,6 +13,8 @@ type HeaderState =
 
 export function SiteHeader() {
   const [state, setState] = useState<HeaderState>({ isAuthenticated: false, role: null });
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -68,21 +70,42 @@ export function SiteHeader() {
   }, []);
 
   return (
-    <header className="flex items-center justify-between border-b border-[#1F2937] px-6 py-4">
-      <Link className="flex items-center gap-3" href="/">
-        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#6366F1]">
-          <Clapperboard className="size-5 text-white" />
-        </span>
-        <span className="text-lg font-semibold text-[#F9FAFB]">ActByMe</span>
-      </Link>
+    <>
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#09090B]/76 px-4 py-3 backdrop-blur-xl md:px-6">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <Link className="flex items-center gap-3" href="/">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#09090B]">
+              <Clapperboard className="size-5" />
+            </span>
+            <span className="text-lg font-semibold text-[#F9FAFB]">ActByMe</span>
+          </Link>
 
-      <nav className="flex items-center gap-2 sm:gap-3">
-        <Button asChild variant="ghost">
-          <Link href="/actors">Actors</Link>
-        </Button>
-        {state.isAuthenticated ? <AuthenticatedLinks role={state.role} /> : <AnonymousLinks />}
-      </nav>
-    </header>
+          <nav className="flex items-center gap-2">
+            <Link
+              className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/10"
+              href="/actors"
+            >
+              Actors
+            </Link>
+            {state.isAuthenticated ? (
+              <AuthenticatedLinks />
+            ) : (
+              <AnonymousLinks
+                onLogin={() => {
+                  setAuthMode("login");
+                  setAuthOpen(true);
+                }}
+                onSignup={() => {
+                  setAuthMode("signup");
+                  setAuthOpen(true);
+                }}
+              />
+            )}
+          </nav>
+        </div>
+      </header>
+      <AuthModal initialMode={authMode} onClose={() => setAuthOpen(false)} open={authOpen} />
+    </>
   );
 }
 
@@ -102,44 +125,34 @@ async function resolveSessionRole(metadataRole: unknown) {
   return normalizeAccountRole(metadataRole);
 }
 
-function AnonymousLinks() {
+function AnonymousLinks({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
   return (
     <>
-      <Button asChild variant="ghost">
-        <Link href="/join">I&apos;am an actor</Link>
-      </Button>
-      <Button asChild variant="outline">
-        <Link href="/login">Login</Link>
-      </Button>
+      <button
+        className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-transparent px-4 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/10"
+        onClick={onLogin}
+        type="button"
+      >
+        Login
+      </button>
+      <button
+        className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#09090B] transition hover:bg-[#E5E7EB]"
+        onClick={onSignup}
+        type="button"
+      >
+        Sign up
+      </button>
     </>
   );
 }
 
-function AuthenticatedLinks({ role }: { role: AccountRole }) {
-  if (role === "ACTOR") {
-    return (
-      <Button asChild variant="outline">
-        <Link href="/profile">Profile</Link>
-      </Button>
-    );
-  }
-
-  if (role === "CLIENT" || role === "AGENCY") {
-    return (
-      <Button asChild variant="outline">
-        <Link href="/agency-access">Request access</Link>
-      </Button>
-    );
-  }
-
+function AuthenticatedLinks() {
   return (
-    <>
-      <Button asChild variant="ghost">
-        <Link href="/profile">Profile</Link>
-      </Button>
-      <Button asChild variant="outline">
-        <Link href="/agency-access">Request access</Link>
-      </Button>
-    </>
+    <Link
+      className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold !text-[#09090B] transition hover:bg-[#E5E7EB]"
+      href="/profile"
+    >
+      Profile
+    </Link>
   );
 }
