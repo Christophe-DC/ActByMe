@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import {
   canAccessRoleGate,
   destinationForRole,
+  isAccountRole,
   normalizeAccountRole,
   type AccountRole,
 } from "@/lib/auth/roles";
@@ -44,7 +45,14 @@ export function RoleGate({
         return;
       }
 
-      const role = normalizeAccountRole(user.user_metadata?.role);
+      let role = normalizeAccountRole(user.user_metadata?.role);
+      const pendingRole = window.localStorage.getItem("actbyme.pendingRole");
+
+      if (!user.user_metadata?.role && isAccountRole(pendingRole)) {
+        await supabase.auth.updateUser({ data: { role: pendingRole } });
+        window.localStorage.removeItem("actbyme.pendingRole");
+        role = pendingRole;
+      }
 
       if (canAccessRoleGate(role, allowedRoles)) {
         setState("allowed");

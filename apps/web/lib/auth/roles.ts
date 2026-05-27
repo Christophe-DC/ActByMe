@@ -19,11 +19,15 @@ export const accountRoles: Array<{ label: string; value: AccountRole; descriptio
 ];
 
 export function normalizeAccountRole(value: unknown): AccountRole {
-  if (value === "ADMIN" || value === "CLIENT" || value === "AGENCY" || value === "ACTOR") {
+  if (isAccountRole(value)) {
     return value;
   }
 
   return "ACTOR";
+}
+
+export function isAccountRole(value: unknown): value is AccountRole {
+  return value === "ADMIN" || value === "CLIENT" || value === "AGENCY" || value === "ACTOR";
 }
 
 export function destinationForRole(role: AccountRole) {

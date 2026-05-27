@@ -58,6 +58,32 @@ function LoginContent() {
     router.push(destination);
   }
 
+  async function handleGoogleLogin() {
+    setError("");
+
+    if (!isSupabaseConfigured) {
+      setError("Supabase frontend environment variables are missing.");
+      return;
+    }
+
+    const requestedNext = searchParams.get("next");
+    const redirectTo =
+      requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+        ? `${window.location.origin}${requestedNext}`
+        : `${window.location.origin}/actors`;
+
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (authError) {
+      setError(authError.message);
+    }
+  }
+
   return (
     <AuthShell
       asideTitle="Continue to your ActByMe workspace."
@@ -72,6 +98,23 @@ function LoginContent() {
       title="Sign in"
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
+        <Button
+          className="w-full"
+          onClick={handleGoogleLogin}
+          size="lg"
+          type="button"
+          variant="outline"
+        >
+          <span className="flex size-5 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111827]">
+            G
+          </span>
+          Continue with Google
+        </Button>
+        <div className="flex items-center gap-3 text-xs uppercase text-[#6B7280]">
+          <span className="h-px flex-1 bg-[#1F2937]" />
+          or
+          <span className="h-px flex-1 bg-[#1F2937]" />
+        </div>
         <AuthField
           label="Email"
           onChange={setEmail}

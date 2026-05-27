@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Clapperboard, UserPlus } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
@@ -17,6 +17,14 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const requestedRole = new URLSearchParams(window.location.search).get("role");
+
+    if (requestedRole === "CLIENT" || requestedRole === "AGENCY" || requestedRole === "ACTOR") {
+      setRole(requestedRole);
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,6 +65,28 @@ export default function SignupPage() {
     router.push(destinationForRole(role));
   }
 
+  async function handleGoogleSignup() {
+    setError("");
+
+    if (!isSupabaseConfigured) {
+      setError("Supabase frontend environment variables are missing.");
+      return;
+    }
+
+    window.localStorage.setItem("actbyme.pendingRole", role);
+
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}${destinationForRole(role)}`,
+      },
+    });
+
+    if (authError) {
+      setError(authError.message);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#09090B] px-5 py-8 text-[#F9FAFB] md:px-8">
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-8 lg:grid-cols-[1fr_440px] lg:items-center">
@@ -81,12 +111,29 @@ export default function SignupPage() {
         </section>
 
         <Card className="p-6 md:p-8">
-          <h2 className="text-3xl font-semibold">Actor registration</h2>
+          <h2 className="text-3xl font-semibold">Create account</h2>
           <p className="mt-2 text-sm leading-6 text-[#9CA3AF]">
             This creates a Supabase auth user with your selected role in user metadata.
           </p>
           <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
             <RolePicker role={role} onChange={setRole} />
+            <Button
+              className="w-full"
+              onClick={handleGoogleSignup}
+              size="lg"
+              type="button"
+              variant="outline"
+            >
+              <span className="flex size-5 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111827]">
+                G
+              </span>
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3 text-xs uppercase text-[#6B7280]">
+              <span className="h-px flex-1 bg-[#1F2937]" />
+              or
+              <span className="h-px flex-1 bg-[#1F2937]" />
+            </div>
             <AuthField
               label={role === "ACTOR" ? "Stage name" : "Full name"}
               onChange={setDisplayName}

@@ -1,281 +1,184 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle, Users, Shield, Zap, Play } from "lucide-react";
-import { Badge, Button, Card, VideoPresentationModal } from "@actbyme/ui";
+import { ArrowRight, CheckCircle, Mic2, Shield, Video, Zap } from "lucide-react";
+import { Button, Card, VideoPresentationModal } from "@actbyme/ui";
 import { useState } from "react";
+import {
+  CinematicSection,
+  FeaturedActorRail,
+  SkillPill,
+  TrustSecurityPanel,
+  VideoHero,
+  VideoGrid,
+} from "../components/cinematic/video-platform";
+import { MOCK_ACTORS } from "../lib/mock-actors";
 
 const MOTION_SKILLS = [
-  { title: "Acting", description: "Dramatic range, character work, emotional depth" },
-  { title: "Voice Performance", description: "Accent variation, tone, emotional delivery" },
-  { title: "Dance & Movement", description: "Contemporary, ballet, hip-hop, choreography" },
-  { title: "Martial Arts", description: "Combat, stunts, fight choreography" },
-  { title: "Stunts & Action", description: "Precision timing, safety-first performance" },
-  { title: "Sports Skills", description: "Athletic movement, sports-specific actions" },
-  { title: "Accents & Dialects", description: "Regional and international vocal variation" },
-  { title: "Body Movement", description: "Physicality, posture, gait, gesture" },
-  { title: "Emotional Performance", description: "Microexpressions, vulnerability, authenticity" },
+  "Acting",
+  "Dance",
+  "Stunts",
+  "Martial arts",
+  "Accents",
+  "Singing",
+  "Voice",
+  "Body movement",
 ];
 
 const HOW_IT_WORKS = [
   {
-    step: 1,
-    title: "Create your free profile",
-    description: "Sign up in 5 minutes with your acting background and experience.",
-  },
-  {
-    step: 2,
-    title: "Upload your skills",
-    description: "Record and upload videos of your acting, voice, movement, and action skills.",
-  },
-  {
-    step: 3,
-    title: "Get discovered",
-    description: "Agencies and AI video directors can find and request access to your profile.",
-  },
-  {
-    step: 4,
-    title: "Future opportunities",
+    title: "Actors publish a video-first profile",
     description:
-      "Earn potential income as agencies commission performances via AI video production.",
+      "They show acting, motion, voice, language, and action skills in one shareable page.",
+  },
+  {
+    title: "Creators discover human reference",
+    description:
+      "AI video teams browse performance styles, skills, languages, and consent-ready media.",
+  },
+  {
+    title: "Access requires approval",
+    description:
+      "Public discovery never grants usage rights. Future work needs separate actor approval.",
   },
 ];
 
 export default function HomePage() {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const featuredActors = MOCK_ACTORS.slice(0, 6);
+  const actionActors = MOCK_ACTORS.filter((actor) =>
+    actor.topSkills.some((skill) => /stunt|martial|fight|action|combat/i.test(skill)),
+  ).slice(0, 5);
 
   return (
-    <main className="w-full">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-24 px-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid items-center gap-12 md:grid-cols-2">
-            {/* Left: Copy */}
-            <div>
-              <Badge className="mb-6">AI Video Production for Actors</Badge>
-              <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-[#F9FAFB] mb-6 leading-tight">
-                Turn your acting skills into AI-ready income.
-              </h1>
-              <p className="text-lg text-[#9CA3AF] mb-8 leading-relaxed">
-                Create a cinematic profile, showcase your acting, voice, motion and action skills,
-                and get discovered by agencies building the next generation of AI video.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button asChild size="lg" className="w-full sm:w-auto">
-                  <Link href="/signup">
-                    Join as actor - free
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
+    <main className="min-h-screen bg-[#09090B] text-[#F9FAFB]">
+      <VideoHero actors={featuredActors} onPreview={() => setVideoModalOpen(true)} />
 
-            {/* Right: Video Preview */}
-            <div className="relative">
-              <div className="aspect-video rounded-lg border border-[#1F2937] bg-gradient-to-br from-[#0b0b0d] to-[#111827] flex items-center justify-center overflow-hidden">
-                <button
-                  onClick={() => setVideoModalOpen(true)}
-                  className="group relative flex items-center justify-center"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#6366F1]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center justify-center h-16 w-16 rounded-full bg-[#6366F1] text-white group-hover:scale-110 transition-transform">
-                    <Play className="size-6 ml-0.5" fill="currentColor" />
-                  </div>
-                </button>
-              </div>
-              <p className="text-sm text-[#9CA3AF] text-center mt-3">
-                Watch how actors use ActByMe
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Video Presentation Modal */}
       <VideoPresentationModal
-        open={videoModalOpen}
         onClose={() => setVideoModalOpen(false)}
-        title="How ActByMe Works"
+        open={videoModalOpen}
+        title="ActByMe performance preview"
       >
-        <div className="aspect-video bg-[#0b0b0d] rounded-md flex items-center justify-center">
-          <p className="text-[#9CA3AF]">[Demo video placeholder]</p>
+        <div className="flex aspect-video items-center justify-center rounded-md bg-[#09090B] text-[#9CA3AF]">
+          Demo video placeholder
         </div>
       </VideoPresentationModal>
 
-      {/* How It Works Section */}
-      <section className="py-24 px-6 border-t border-[#1F2937]">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-[#F9FAFB] mb-4">
-              How it works for actors
-            </h2>
-            <p className="text-lg text-[#9CA3AF]">
-              Four simple steps to build your AI-ready profile
-            </p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {HOW_IT_WORKS.map((item) => (
-              <div key={item.step} className="group">
-                <Card className="h-full hover:border-[#6366F1] transition-colors">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6366F1] text-white font-bold">
-                      {item.step}
-                    </div>
-                    <h3 className="font-semibold text-[#F9FAFB]">{item.title}</h3>
+      <CinematicSection
+        eyebrow="Featured Performers"
+        intro="A scrollable feed of demo performers showing the direction for actor-led AI video discovery."
+        title="Browse actors like a creator video library"
+      >
+        <FeaturedActorRail actors={featuredActors} title="Featured performers" />
+        <div className="mt-10">
+          <VideoGrid actors={MOCK_ACTORS.slice(2, 8)} />
+        </div>
+      </CinematicSection>
+
+      <CinematicSection
+        eyebrow="Motion Skills"
+        intro="ActByMe is built for performance data that is hard to fake: movement, emotion, timing, language, and presence."
+        title="Find the human layer behind AI video"
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {MOTION_SKILLS.map((skill, index) => (
+            <Card className="group overflow-hidden p-0" key={skill}>
+              <div className="relative p-5">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(99,102,241,0.18),transparent_32%)] opacity-0 transition group-hover:opacity-100" />
+                <div className="relative">
+                  <div className="mb-8 flex size-12 items-center justify-center rounded-md bg-[#6366F1]/16 text-[#C7D2FE]">
+                    {index % 3 === 0 ? (
+                      <Zap className="size-6" />
+                    ) : index % 3 === 1 ? (
+                      <Video className="size-6" />
+                    ) : (
+                      <Mic2 className="size-6" />
+                    )}
                   </div>
-                  <p className="text-sm text-[#9CA3AF]">{item.description}</p>
-                </Card>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Motion Skills Section */}
-      <section className="py-24 px-6 border-t border-[#1F2937] bg-[#0f0f12]">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-[#F9FAFB] mb-4">
-              Showcase your motion skills
-            </h2>
-            <p className="text-lg text-[#9CA3AF]">
-              Upload videos demonstrating your unique talents and experience
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {MOTION_SKILLS.map((skill) => (
-              <Card key={skill.title}>
-                <div className="flex items-start gap-3 mb-2">
-                  <Zap className="size-5 text-[#6366F1] flex-shrink-0 mt-1" />
-                  <h3 className="font-semibold text-[#F9FAFB]">{skill.title}</h3>
+                  <h3 className="text-2xl font-semibold">{skill}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#9CA3AF]">
+                    Video samples, clear labels, and searchable profile metadata for AI creator
+                    workflows.
+                  </p>
                 </div>
-                <p className="text-sm text-[#9CA3AF]">{skill.description}</p>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Public Profile Showcase */}
-      <section className="py-24 px-6 border-t border-[#1F2937]">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-[#F9FAFB] mb-6">
-                Your beautiful, shareable profile
-              </h2>
-              <p className="text-lg text-[#9CA3AF] mb-6 leading-relaxed">
-                Every actor gets a unique, cinematic profile page. Share your profile link on social
-                media, in emails, or with industry contacts. Control exactly what's visible to the
-                public.
-              </p>
-              <ul className="space-y-3">
-                {[
-                  "Customizable profile with photo and headline",
-                  "Showcase your best videos and reel highlights",
-                  "Public portfolio for industry sharing",
-                  "View analytics on profile visits",
-                ].map((feature) => (
-                  <li key={feature} className="flex items-center gap-3">
-                    <CheckCircle className="size-5 text-[#6366F1] flex-shrink-0" />
-                    <span className="text-[#F9FAFB]">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-lg border border-[#1F2937] bg-[#111827] aspect-square flex items-center justify-center">
-              <div className="text-center">
-                <div className="h-24 w-24 rounded-full bg-[#0b0b0d] mx-auto mb-4" />
-                <p className="text-[#9CA3AF] text-sm">Sample profile preview</p>
               </div>
-            </div>
-          </div>
+            </Card>
+          ))}
         </div>
-      </section>
-
-      {/* Agency Early Access Section */}
-      <section className="py-24 px-6 border-t border-[#1F2937] bg-[#0f0f12]">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="rounded-lg border border-[#1F2937] bg-[#111827] aspect-square flex items-center justify-center">
-              <Users className="size-16 text-[#6366F1]/40" />
-            </div>
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-[#F9FAFB] mb-6">
-                For agencies & directors
-              </h2>
-              <p className="text-lg text-[#9CA3AF] mb-6 leading-relaxed">
-                AI video production studios and agencies can request early access to discover and
-                commission actor performances. Build relationships with talented performers
-                directly.
-              </p>
-            </div>
-          </div>
+        <div className="mt-8 flex flex-wrap gap-2">
+          {["dance", "stunts", "martial arts", "accents", "singing", "voice", "action scenes"].map(
+            (skill) => (
+              <SkillPill key={skill}>{skill}</SkillPill>
+            ),
+          )}
         </div>
-      </section>
+      </CinematicSection>
 
-      {/* Trust & Rights Section */}
-      <section className="py-24 px-6 border-t border-[#1F2937]">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-[#F9FAFB] mb-4">
-              Privacy, rights, and control
+      <CinematicSection
+        eyebrow="Action and Stunts"
+        intro="A premium discovery experience should make motion talent feel immediate and visual."
+        title="Performance cards built around video"
+      >
+        <FeaturedActorRail
+          actors={actionActors.length > 0 ? actionActors : featuredActors}
+          title="Motion and action performers"
+        />
+      </CinematicSection>
+
+      <CinematicSection eyebrow="How It Works" title="A simple actor-first marketplace path">
+        <div className="grid gap-5 md:grid-cols-3">
+          {HOW_IT_WORKS.map((item, index) => (
+            <Card className="p-6" key={item.title}>
+              <span className="flex size-10 items-center justify-center rounded-full bg-[#6366F1] text-sm font-semibold text-white">
+                {index + 1}
+              </span>
+              <h3 className="mt-6 text-2xl font-semibold">{item.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-[#9CA3AF]">{item.description}</p>
+            </Card>
+          ))}
+        </div>
+      </CinematicSection>
+
+      <CinematicSection
+        eyebrow="Security"
+        intro="The product should feel exciting without making actor rights feel casual."
+        title="Trust, consent, and identity protection"
+      >
+        <TrustSecurityPanel />
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {[
+            "Public portfolios are explicitly published",
+            "Private media stays private until access rules exist",
+            "No usage, cloning, or training rights are implied",
+          ].map((item) => (
+            <div
+              className="flex items-center gap-3 rounded-md border border-[#1F2937] bg-[#111827] p-4"
+              key={item}
+            >
+              <CheckCircle className="size-5 shrink-0 text-[#14B8A6]" />
+              <span className="text-sm text-[#D1D5DB]">{item}</span>
+            </div>
+          ))}
+        </div>
+      </CinematicSection>
+
+      <section className="border-t border-[#1F2937] px-5 py-16 md:px-8">
+        <div className="mx-auto grid max-w-7xl gap-6 rounded-lg border border-[#1F2937] bg-[linear-gradient(135deg,rgba(99,102,241,0.18),rgba(17,24,39,0.96))] p-7 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="flex items-center gap-2 text-sm text-[#C7D2FE]">
+              <Shield className="size-4" />
+              Actor-first MVP
+            </p>
+            <h2 className="mt-3 text-4xl font-semibold leading-none tracking-normal md:text-5xl">
+              Build a profile actors want to share.
             </h2>
-            <p className="text-lg text-[#9CA3AF]">Your profile, your rules</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: Shield,
-                title: "You control visibility",
-                description:
-                  "Choose which videos and profile details are public. Update privacy settings anytime.",
-              },
-              {
-                icon: CheckCircle,
-                title: "Explicit consent required",
-                description:
-                  "Agencies must request access. You approve every collaboration before it happens.",
-              },
-              {
-                icon: Users,
-                title: "Ownership remains yours",
-                description:
-                  "You own your content, likeness, and performance rights. Review usage agreements carefully.",
-              },
-            ].map((item) => (
-              <Card key={item.title}>
-                <item.icon className="size-8 text-[#6366F1] mb-4" />
-                <h3 className="font-semibold text-[#F9FAFB] mb-2">{item.title}</h3>
-                <p className="text-sm text-[#9CA3AF]">{item.description}</p>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA Section */}
-      <section className="py-24 px-6 border-t border-[#1F2937] bg-gradient-to-b from-[#0b0b0d] to-[#111827]">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-5xl md:text-6xl font-bold text-[#F9FAFB] mb-6">
-            Ready to get discovered?
-          </h2>
-          <p className="text-xl text-[#9CA3AF] mb-10 leading-relaxed">
-            Join hundreds of actors building their AI-ready profiles. It takes 5 minutes to sign up
-            and start uploading your skills.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg">
-              <Link href="/signup">
-                Join as actor - free
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href="/actors">Browse demo actors</Link>
-            </Button>
-          </div>
-          <p className="text-sm text-[#9CA3AF] mt-8">No credit card required. Cancel anytime.</p>
+          <Button asChild size="lg">
+            <Link href="/signup">
+              Join as actor
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
         </div>
       </section>
     </main>

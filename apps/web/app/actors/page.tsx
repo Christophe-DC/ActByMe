@@ -1,20 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { ArrowUpDown, BadgeCheck, Search, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Badge } from "@actbyme/ui";
 import {
-  ArrowUpDown,
-  BadgeCheck,
-  ChevronRight,
-  Clapperboard,
-  MapPin,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-  Star,
-  Zap,
-} from "lucide-react";
-import { Badge, Button, Card, DemoProfileBadge } from "@actbyme/ui";
+  CinematicSection,
+  FeaturedActorRail,
+  VIDEO_PLACEHOLDER_IMAGE,
+  VideoGrid,
+} from "../../components/cinematic/video-platform";
 import { useActorsList } from "../../lib/api/hooks";
 import type { ActorListItem, ActorVideo } from "../../lib/api/types";
 import {
@@ -108,32 +102,27 @@ export default function ActorsPage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#09090B] text-[#F9FAFB]">
-      <section className="relative border-b border-[#1F2937] px-5 py-10 md:px-8 md:py-14">
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(99,102,241,0.18),transparent_32%),radial-gradient(circle_at_78%_20%,rgba(20,184,166,0.14),transparent_28%),linear-gradient(180deg,rgba(17,24,39,0.88),rgba(9,9,11,1))]" />
+      <section className="relative min-h-[68vh] border-b border-[#1F2937] px-5 py-12 md:px-8 md:py-16">
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(99,102,241,0.22),transparent_34%),radial-gradient(circle_at_78%_20%,rgba(20,184,166,0.16),transparent_28%),linear-gradient(180deg,rgba(17,24,39,0.68),rgba(9,9,11,1))]" />
+        <img
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover opacity-24"
+          src={actors[0]?.heroImage ?? VIDEO_PLACEHOLDER_IMAGE}
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,#09090B_0%,rgba(9,9,11,0.74)_48%,rgba(9,9,11,0.35)),linear-gradient(180deg,rgba(9,9,11,0.12),#09090B)]" />
         <div className="relative mx-auto max-w-7xl">
-          <nav className="mb-10 flex items-center justify-between">
-            <Link className="flex items-center gap-3" href="/">
-              <span className="flex size-10 items-center justify-center rounded-md bg-[#6366F1]">
-                <Clapperboard className="size-5" />
-              </span>
-              <span className="text-lg font-semibold">ActByMe</span>
-            </Link>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/agency-access">Request agency access</Link>
-            </Button>
-          </nav>
-
-          <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr] lg:items-end">
+          <div className="grid min-h-[52vh] gap-8 lg:grid-cols-[1fr_0.42fr] lg:items-end">
             <div>
               <Badge className="mb-5 border-[#6366F1]/50 bg-[#6366F1]/10 text-[#C7D2FE]">
-                Live discovery + demo profiles
+                Video-first discovery
               </Badge>
-              <h1 className="max-w-4xl text-5xl font-semibold leading-none tracking-normal md:text-7xl">
-                Discover AI-ready actor profiles.
+              <h1 className="max-w-4xl text-5xl font-semibold leading-none tracking-normal md:text-7xl xl:text-8xl">
+                Find human performers for AI video.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-8 text-[#9CA3AF] md:text-lg">
-                Search cinematic performer profiles across acting, voice, dance, martial arts,
-                stunts, accents, motion capture, and action-scene capability.
+                Search cinematic profiles across acting, voice, dance, martial arts, stunts,
+                accents, motion capture, and action-scene capability.
               </p>
             </div>
             <div className="rounded-lg border border-[#1F2937] bg-[#111827]/80 p-5">
@@ -244,11 +233,41 @@ export default function ActorsPage() {
         ) : null}
 
         {actors.length > 0 ? (
-          <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {actors.map((actor) => (
-              <ActorDiscoveryCard actor={actor} key={actor.id} />
-            ))}
+          <div className="mt-8 space-y-10">
+            <FeaturedActorRail actors={actors.slice(0, 8)} title="Featured actors" />
+            <FeaturedActorRail
+              actors={actors.filter((actor) => actor.motionSkills.length > 0).slice(0, 8)}
+              title="Motion performers"
+            />
+            <FeaturedActorRail
+              actors={actors.filter((actor) => actor.voiceSkills.length > 0).slice(0, 8)}
+              title="Voice and accents"
+            />
+            <FeaturedActorRail
+              actors={actors
+                .filter((actor) =>
+                  [...actor.topSkills, ...actor.stunts, ...actor.martialArts].some((skill) =>
+                    /stunt|martial|fight|action|combat/i.test(skill),
+                  ),
+                )
+                .slice(0, 8)}
+              title="Action and stunts"
+            />
+            <FeaturedActorRail
+              actors={actors.filter((actor) => actor.languages.length > 1).slice(0, 8)}
+              title="Multilingual talent"
+            />
           </div>
+        ) : null}
+      </section>
+
+      <CinematicSection
+        eyebrow="All Profiles"
+        intro="Demo profiles are visibly labelled. Real actor profiles come from the database."
+        title="Visual discovery feed"
+      >
+        {actors.length > 0 ? (
+          <VideoGrid actors={actors} />
         ) : (
           <div className="mt-8 rounded-lg border border-[#1F2937] bg-[#111827] p-10 text-center">
             <p className="text-lg font-semibold">No matching profiles</p>
@@ -257,7 +276,7 @@ export default function ActorsPage() {
             </p>
           </div>
         )}
-      </section>
+      </CinematicSection>
     </main>
   );
 }
@@ -284,18 +303,16 @@ function mapApiActorToDiscoveryActor(actor: ActorListItem): MockActor {
     .filter(Boolean)
     .slice(0, 8);
   const firstVideoThumbnail = actor.videos?.find((video) => video.thumbnailUrl)?.thumbnailUrl;
-  const image =
-    firstVideoThumbnail ||
-    actor.profileImageUrl ||
-    "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=1200&auto=format&fit=crop";
+  const videoImage = firstVideoThumbnail || VIDEO_PLACEHOLDER_IMAGE;
+  const profileImage = actor.profileImageUrl || videoImage;
 
   return {
     accents,
     actingStyles: topSkills.length > 0 ? topSkills.slice(0, 3) : ["AI-ready performance"],
     aiTransformation: {
-      originalImage: image,
+      originalImage: videoImage,
       originalLabel: "Original actor motion",
-      resultImage: actor.profileImageUrl || image,
+      resultImage: VIDEO_PLACEHOLDER_IMAGE,
       resultLabel: "AI character result",
     },
     availability: statusLabel(actor.status),
@@ -303,7 +320,8 @@ function mapApiActorToDiscoveryActor(actor: ActorListItem): MockActor {
     country: actor.country || "Country TBA",
     dance: skillsMatching(topSkills, ["dance", "movement"]),
     headline: actor.bio || "Actor profile with public media and skills stored in ActByMe.",
-    heroImage: image,
+    heroImage: profileImage,
+    heroVideoUrl: actor.heroVideoUrl,
     id: actor.id,
     isDemo: actor.isDemo,
     isFeatured: actor.status === "APPROVED" && !actor.isDemo,
@@ -313,22 +331,22 @@ function mapApiActorToDiscoveryActor(actor: ActorListItem): MockActor {
     martialArts: skillsMatching(topSkills, ["martial", "combat", "fight"]),
     motionSkills: buildMotionGroups(topSkills),
     name: actor.stageName,
-    profileImage: actor.profileImageUrl || image,
+    profileImage,
     score: actor.actAiScore ?? 0,
     singing: skillsMatching(topSkills, ["singing", "voice"]),
     slug: actor.slug,
     stunts: skillsMatching(topSkills, ["stunt", "action", "fall"]),
     topSkills: topSkills.length > 0 ? topSkills : ["Public actor profile"],
-    videoThumbnail: image,
+    videoThumbnail: videoImage,
     videos:
       actor.videos && actor.videos.length > 0
-        ? actor.videos.map((video) => mapVideoAsset(video, image))
+        ? actor.videos.map((video) => mapVideoAsset(video))
         : [],
     voiceSkills: accents.length > 0 ? accents : skillsMatching(topSkills, ["voice", "accent"]),
   };
 }
 
-function mapVideoAsset(video: ActorVideo, fallbackImage: string) {
+function mapVideoAsset(video: ActorVideo) {
   return {
     category: titleCase(video.type),
     duration:
@@ -337,7 +355,7 @@ function mapVideoAsset(video: ActorVideo, fallbackImage: string) {
         : typeof video.duration === "number"
           ? `${video.duration}s`
           : "Uploaded sample",
-    thumbnail: video.thumbnailUrl || fallbackImage,
+    thumbnail: video.thumbnailUrl || VIDEO_PLACEHOLDER_IMAGE,
     title: video.title,
   };
 }
@@ -371,76 +389,4 @@ function titleCase(value: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function ActorDiscoveryCard({ actor }: { actor: MockActor }) {
-  return (
-    <Card className="group overflow-hidden p-0 transition duration-300 hover:-translate-y-1 hover:border-[#6366F1]/70 hover:shadow-2xl hover:shadow-[#6366F1]/10">
-      <div className="relative aspect-[16/11] overflow-hidden bg-[#111827]">
-        <img
-          alt={`${actor.name} profile thumbnail`}
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-          src={actor.videoThumbnail}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-[#09090B]/20 to-transparent" />
-        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-          {actor.isDemo ? <DemoProfileBadge /> : null}
-          {!actor.isDemo ? (
-            <span className="inline-flex items-center gap-1 rounded-md border border-[#6366F1]/40 bg-[#6366F1]/15 px-2 py-1 text-xs font-semibold text-[#C7D2FE]">
-              <BadgeCheck className="size-3" />
-              Actor profile
-            </span>
-          ) : null}
-          {actor.isFeatured ? (
-            <span className="inline-flex items-center gap-1 rounded-md border border-[#14B8A6]/40 bg-[#14B8A6]/15 px-2 py-1 text-xs font-semibold text-[#A7F3D0]">
-              <Star className="size-3" />
-              Featured
-            </span>
-          ) : null}
-        </div>
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-semibold">{actor.name}</h2>
-            <p className="mt-1 flex items-center gap-1 text-sm text-[#D1D5DB]">
-              <MapPin className="size-4 text-[#14B8A6]" />
-              {actor.location}
-            </p>
-          </div>
-          <div className="rounded-md border border-[#6366F1]/40 bg-[#6366F1]/20 px-3 py-2 text-right">
-            <p className="text-[10px] uppercase text-[#C7D2FE]">Act AI</p>
-            <p className="text-xl font-semibold text-white">{actor.score}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 p-5">
-        <p className="min-h-12 text-sm leading-6 text-[#9CA3AF]">{actor.headline}</p>
-        <div className="flex flex-wrap gap-2">
-          {actor.languages.slice(0, 3).map((language) => (
-            <Badge className="normal-case" key={language}>
-              {language}
-            </Badge>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {actor.topSkills.slice(0, 4).map((skill) => (
-            <span
-              className="inline-flex items-center gap-1 rounded-md bg-[#6366F1]/12 px-2 py-1 text-xs text-[#C7D2FE]"
-              key={skill}
-            >
-              <Zap className="size-3" />
-              {skill}
-            </span>
-          ))}
-        </div>
-        <p className="text-xs uppercase tracking-normal text-[#9CA3AF]">{actor.availability}</p>
-        <Button asChild className="w-full" variant="outline">
-          <Link href={`/actors/${actor.slug}`}>
-            View profile
-            <ChevronRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
-    </Card>
-  );
 }

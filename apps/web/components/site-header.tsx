@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Clapperboard } from "lucide-react";
 import { Button } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
-import { normalizeAccountRole, type AccountRole } from "@/lib/auth/roles";
+import { isAccountRole, normalizeAccountRole, type AccountRole } from "@/lib/auth/roles";
 
 type HeaderState =
   | { isAuthenticated: false; role: null }
@@ -35,9 +35,11 @@ export function SiteHeader() {
         return;
       }
 
+      const role = await resolveSessionRole(session.user.user_metadata?.role);
+
       setState({
         isAuthenticated: true,
-        role: normalizeAccountRole(session.user.user_metadata?.role),
+        role,
       });
     }
 
@@ -51,9 +53,11 @@ export function SiteHeader() {
         return;
       }
 
-      setState({
-        isAuthenticated: true,
-        role: normalizeAccountRole(session.user.user_metadata?.role),
+      void resolveSessionRole(session.user.user_metadata?.role).then((role) => {
+        setState({
+          isAuthenticated: true,
+          role,
+        });
       });
     });
 
@@ -80,6 +84,22 @@ export function SiteHeader() {
       </nav>
     </header>
   );
+}
+
+async function resolveSessionRole(metadataRole: unknown) {
+  if (isAccountRole(metadataRole)) {
+    return metadataRole;
+  }
+
+  const pendingRole = window.localStorage.getItem("actbyme.pendingRole");
+
+  if (isAccountRole(pendingRole)) {
+    await supabase.auth.updateUser({ data: { role: pendingRole } });
+    window.localStorage.removeItem("actbyme.pendingRole");
+    return pendingRole;
+  }
+
+  return normalizeAccountRole(metadataRole);
 }
 
 function AnonymousLinks() {

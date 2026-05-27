@@ -65,15 +65,29 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
   }
 
   const agencyAccessHref = `/agency-access?actor=${encodeURIComponent(actor.slug)}`;
+  const canRenderHeroVideo = actor.heroVideoUrl?.startsWith("http");
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#09090B] text-[#F9FAFB]">
       <section className="relative min-h-[92vh] border-b border-[#1F2937]">
-        <img
-          alt={`${actor.name} cinematic hero`}
-          className="absolute inset-0 h-full w-full object-cover"
-          src={actor.heroImage}
-        />
+        {canRenderHeroVideo ? (
+          <video
+            aria-label={`${actor.name} hero video`}
+            autoPlay
+            className="absolute inset-0 h-full w-full object-cover"
+            loop
+            muted
+            playsInline
+            poster={actor.heroImage}
+            src={actor.heroVideoUrl}
+          />
+        ) : (
+          <img
+            alt={`${actor.name} cinematic hero`}
+            className="absolute inset-0 h-full w-full object-cover"
+            src={actor.heroImage}
+          />
+        )}
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,9,11,0.94),rgba(9,9,11,0.68)_42%,rgba(9,9,11,0.22)),linear-gradient(180deg,rgba(9,9,11,0.18),rgba(9,9,11,1))]" />
         <div className="relative mx-auto flex min-h-[92vh] max-w-7xl flex-col px-5 py-7 md:px-8">
           <nav className="flex items-center justify-between">
@@ -97,7 +111,7 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
                   {actor.availability}
                 </Badge>
                 <Badge className="border-[#6366F1]/40 bg-[#6366F1]/15 text-[#C7D2FE]">
-                  Act AI score placeholder
+                  AI-ready performance
                 </Badge>
               </div>
               <h1 className="text-6xl font-semibold leading-none tracking-normal md:text-8xl">
@@ -158,7 +172,7 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-12 md:px-8">
+      <section className="mx-auto max-w-7xl px-5 py-14 md:px-8">
         <div className="grid gap-5 lg:grid-cols-[0.75fr_1.25fr]">
           <Card className="p-6">
             <div className="flex items-center gap-3">
@@ -191,39 +205,71 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
         </div>
       </section>
 
-      <ProfileBand title="Video Portfolio" icon={<Video className="size-5" />}>
-        <div className="grid gap-5 md:grid-cols-3">
-          {(actor.videos ?? []).map((video) => (
-            <article className="group" key={video.title}>
-              <div className="relative overflow-hidden rounded-md border border-[#1F2937] bg-[#111827]">
-                <img
-                  alt={`${video.title} thumbnail`}
-                  className="aspect-video w-full object-cover transition duration-500 group-hover:scale-105"
-                  src={video.thumbnail}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <span className="absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-xs">
-                  {video.category}
-                </span>
-                <span className="absolute bottom-3 right-3 flex size-10 items-center justify-center rounded-full bg-[#6366F1]">
-                  <button
-                    aria-label={`Play ${video.title}`}
-                    className="flex size-10 items-center justify-center rounded-full"
-                    onClick={() => setActiveVideoTitle(video.title)}
-                    type="button"
-                  >
-                    <Play className="ml-0.5 size-4" fill="currentColor" />
-                  </button>
-                </span>
-              </div>
-              <h3 className="mt-3 text-lg font-semibold">{video.title}</h3>
-              <p className="text-sm text-[#9CA3AF]">{video.duration}</p>
-            </article>
+      <ProfileBand title="Acting" icon={<Clapperboard className="size-5" />}>
+        <div className="grid gap-4 md:grid-cols-3">
+          {actor.actingStyles.map((style) => (
+            <Card className="p-5" key={style}>
+              <h3 className="text-lg font-semibold">{style}</h3>
+              <p className="mt-2 text-sm leading-6 text-[#9CA3AF]">
+                Acting range and screen presence prepared for creator review.
+              </p>
+            </Card>
           ))}
         </div>
       </ProfileBand>
 
-      <ProfileBand title="Motion Skills" icon={<Clapperboard className="size-5" />}>
+      <ProfileBand title="Actor Videos" icon={<Video className="size-5" />}>
+        {actor.videos.length > 0 ? (
+          <div className="grid gap-5 md:grid-cols-3">
+            {(actor.videos ?? []).map((video) => (
+              <article className="group" key={video.title}>
+                <div className="relative overflow-hidden rounded-md border border-[#1F2937] bg-[#111827]">
+                  <img
+                    alt={`${video.title} thumbnail`}
+                    className="aspect-video w-full object-cover transition duration-500 group-hover:scale-105"
+                    src={video.thumbnail}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <span className="absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-xs">
+                    {video.category}
+                  </span>
+                  <span className="absolute bottom-3 right-3 flex size-10 items-center justify-center rounded-full bg-[#6366F1]">
+                    <button
+                      aria-label={`Play ${video.title}`}
+                      className="flex size-10 items-center justify-center rounded-full"
+                      onClick={() => setActiveVideoTitle(video.title)}
+                      type="button"
+                    >
+                      <Play className="ml-0.5 size-4" fill="currentColor" />
+                    </button>
+                  </span>
+                </div>
+                <h3 className="mt-3 text-lg font-semibold">{video.title}</h3>
+                <p className="text-sm text-[#9CA3AF]">{video.duration}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="relative overflow-hidden rounded-lg border border-[#1F2937] bg-[#111827]">
+            <img
+              alt="Video portfolio placeholder"
+              className="aspect-[16/7] w-full object-cover opacity-70"
+              src={VIDEO_PLACEHOLDER_IMAGE}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/48 to-transparent" />
+            <div className="absolute bottom-6 left-6 max-w-xl">
+              <p className="text-sm uppercase text-[#C7D2FE]">Video portfolio</p>
+              <h3 className="mt-2 text-3xl font-semibold">Performance videos coming soon</h3>
+              <p className="mt-3 text-sm leading-6 text-[#D1D5DB]">
+                This profile has no public video thumbnails yet. ActByMe uses a cinematic
+                placeholder instead of reusing the profile photo as a video preview.
+              </p>
+            </div>
+          </div>
+        )}
+      </ProfileBand>
+
+      <ProfileBand title="Motion" icon={<Sparkles className="size-5" />}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {(actor.motionSkills ?? []).map((group) => (
             <Card className="p-5" key={group.category}>
@@ -249,11 +295,24 @@ export function ActorProfileExperience({ actor }: { actor: MockActor }) {
         </div>
       </ProfileBand>
 
-      <ProfileBand title="Voice And Accents" icon={<Mic2 className="size-5" />}>
+      <ProfileBand title="Voice" icon={<Mic2 className="size-5" />}>
         <div className="grid gap-5 lg:grid-cols-3">
           <VoicePanel title="Voice skills" values={actor.voiceSkills ?? []} />
           <VoicePanel title="Languages" values={actor.languages ?? []} />
           <VoicePanel title="Accents" values={actor.accents ?? []} />
+        </div>
+      </ProfileBand>
+
+      <ProfileBand title="Accents" icon={<Radio className="size-5" />}>
+        <div className="flex flex-wrap gap-3">
+          {actor.accents.map((accent) => (
+            <span
+              className="rounded-md border border-[#1F2937] bg-[#111827] px-4 py-3 text-sm text-[#D1D5DB]"
+              key={accent}
+            >
+              {accent}
+            </span>
+          ))}
         </div>
       </ProfileBand>
 

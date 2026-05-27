@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, Clapperboard, Play, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge, Button, Card } from "@actbyme/ui";
+import { FeaturedActorRail, TrustSecurityPanel } from "../../components/cinematic/video-platform";
+import { MOCK_ACTORS } from "../../lib/mock-actors";
 
 const benefits = [
   "Create a public actor profile for free",
@@ -30,18 +32,18 @@ export default function JoinPage() {
           <div className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1fr_420px]">
             <div>
               <Badge className="border-[#6366F1]/50 bg-[#6366F1]/10 text-[#C7D2FE]">
-                Actor registration
+                Actor creator profile
               </Badge>
               <h1 className="mt-6 max-w-4xl text-6xl font-semibold leading-none tracking-normal md:text-8xl">
-                Build your AI-ready actor page.
+                Build a cinematic profile for AI video creators.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-[#D1D5DB]">
-                Start a premium actor profile for agencies working with AI-powered video. This MVP
-                is focused on actor acquisition, public profiles, and clear consent.
+                Showcase acting, voice, dance, stunts, martial arts, accents, singing, and motion
+                skills in a video-first portfolio actors can proudly share.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg">
-                  <Link href="/signup">
+                  <Link href="/signup?role=ACTOR">
                     Create actor account
                     <ArrowRight className="size-4" />
                   </Link>
@@ -90,6 +92,12 @@ export default function JoinPage() {
                 </div>
               ),
             )}
+          </div>
+          <div className="border-t border-[#1F2937] py-8">
+            <FeaturedActorRail actors={MOCK_ACTORS.slice(0, 5)} title="Actor profile inspiration" />
+          </div>
+          <div className="pb-8">
+            <TrustSecurityPanel />
           </div>
         </div>
       </section>

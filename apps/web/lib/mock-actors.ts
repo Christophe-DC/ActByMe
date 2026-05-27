@@ -45,6 +45,7 @@ export type MockActor = {
   joinedAt: string;
   profileImage: string;
   heroImage: string;
+  heroVideoUrl?: string;
   videoThumbnail: string;
   videos: VideoAsset[];
   aiTransformation: AiTransformation;

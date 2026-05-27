@@ -94,6 +94,7 @@ function mapApiActor(actor: ActorDetail, fallback?: MockActor): MockActor {
       fallback?.headline ??
       "AI-ready actor profile with public media, consent boundaries, and shareable reels.",
     heroImage,
+    heroVideoUrl: actor.heroVideoUrl,
     id: actor.id,
     isDemo: actor.isDemo,
     isFeatured: !actor.isDemo,
