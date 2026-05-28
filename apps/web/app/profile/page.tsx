@@ -7,17 +7,15 @@ import { BadgeCheck, Clapperboard, LogOut, UserRound } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { RoleGate } from "../../components/auth/role-gate";
 import { supabase } from "@/lib/supabase/client";
-import { normalizeAccountRole, type AccountRole } from "@/lib/auth/roles";
 
 type ProfileState = {
   email: string;
   name: string;
-  role: AccountRole;
 };
 
 export default function ProfilePage() {
   return (
-    <RoleGate allowedRoles={["ACTOR", "CLIENT", "AGENCY"]}>
+    <RoleGate>
       <ProfileContent />
     </RoleGate>
   );
@@ -40,8 +38,7 @@ function ProfileContent() {
 
       setProfile({
         email: user.email ?? "",
-        name: user.user_metadata?.stageName ?? user.user_metadata?.name ?? "Actor profile",
-        role: normalizeAccountRole(user.user_metadata?.role),
+        name: user.user_metadata?.stageName ?? user.user_metadata?.name ?? "ActByMe profile",
       });
     }
 
@@ -87,30 +84,25 @@ function ProfileContent() {
               <p>
                 <span className="text-[#9CA3AF]">Email:</span> {profile?.email || "Loading..."}
               </p>
-              <p>
-                <span className="text-[#9CA3AF]">Role:</span> {profile?.role ?? "Loading..."}
-              </p>
             </div>
           </Card>
 
           <Card className="p-6">
             <div className="flex items-center gap-3">
               <BadgeCheck className="size-5 text-[#14B8A6]" />
-              <h2 className="text-2xl font-semibold">{workspaceTitle(profile?.role)}</h2>
+              <h2 className="text-2xl font-semibold">Your ActByMe workspace</h2>
             </div>
             <p className="mt-4 text-sm leading-7 text-[#9CA3AF]">
-              {workspaceDescription(profile?.role)}
+              Every account can browse actors, request creator access, and become an actor by
+              completing the onboarding when ready.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              {profile?.role === "CLIENT" || profile?.role === "AGENCY" ? (
-                <Button asChild>
-                  <Link href="/agency-access">Request access</Link>
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link href="/onboarding/actor">Continue onboarding</Link>
-                </Button>
-              )}
+              <Button asChild>
+                <Link href="/onboarding/actor">Become an actor</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/agency-access">Request access</Link>
+              </Button>
               <Button asChild variant="outline">
                 <Link href="/actors">Browse actors</Link>
               </Button>
@@ -120,28 +112,4 @@ function ProfileContent() {
       </section>
     </main>
   );
-}
-
-function workspaceTitle(role?: AccountRole) {
-  if (role === "CLIENT" || role === "AGENCY") {
-    return "Client workspace";
-  }
-
-  if (role === "ADMIN") {
-    return "Admin access";
-  }
-
-  return "Actor workspace";
-}
-
-function workspaceDescription(role?: AccountRole) {
-  if (role === "CLIENT" || role === "AGENCY") {
-    return "Browse visual actor profiles and request early access to the client marketplace preview.";
-  }
-
-  if (role === "ADMIN") {
-    return "Admin accounts can access actor and client flows while the MVP dashboard is being prepared.";
-  }
-
-  return "Continue your actor onboarding, update your public profile, and prepare media for your shareable actor page.";
 }

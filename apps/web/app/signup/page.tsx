@@ -2,28 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { ArrowRight, Clapperboard, UserPlus } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
-import { accountRoles, destinationForRole, type AccountRole } from "@/lib/auth/roles";
 
 export default function SignupPage() {
   const router = useRouter();
-  const [role, setRole] = useState<AccountRole>("ACTOR");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    const requestedRole = new URLSearchParams(window.location.search).get("role");
-
-    if (requestedRole === "CLIENT" || requestedRole === "AGENCY" || requestedRole === "ACTOR") {
-      setRole(requestedRole);
-    }
-  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,15 +27,7 @@ export default function SignupPage() {
       return;
     }
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          role,
-        },
-      },
-    });
+    const { data, error: authError } = await supabase.auth.signUp({ email, password });
 
     setIsSubmitting(false);
 
@@ -59,7 +41,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push(destinationForRole(role));
+    router.push("/profile");
   }
 
   async function handleGoogleSignup() {
@@ -70,12 +52,10 @@ export default function SignupPage() {
       return;
     }
 
-    window.localStorage.setItem("actbyme.pendingRole", role);
-
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}${destinationForRole(role)}`,
+        redirectTo: `${window.location.origin}/profile`,
       },
     });
 
@@ -98,8 +78,8 @@ export default function SignupPage() {
             Create your ActByMe account.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-[#9CA3AF]">
-            Choose your role, then access the right MVP flow: actor onboarding or agency access
-            request.
+            Create one account. You can request creator access and become an actor from your profile
+            whenever you are ready.
           </p>
           <div className="mt-8 flex items-center gap-3 text-sm text-[#C7D2FE]">
             <ArrowRight className="size-4" />
@@ -110,10 +90,9 @@ export default function SignupPage() {
         <Card className="p-6 md:p-8">
           <h2 className="text-3xl font-semibold">Create account</h2>
           <p className="mt-2 text-sm leading-6 text-[#9CA3AF]">
-            This creates a Supabase auth user with your selected role in user metadata.
+            This creates your ActByMe account. Actor onboarding happens later from your profile.
           </p>
           <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
-            <RolePicker role={role} onChange={setRole} />
             <Button
               className="w-full"
               onClick={handleGoogleSignup}
@@ -161,45 +140,6 @@ export default function SignupPage() {
         </Card>
       </div>
     </main>
-  );
-}
-
-function RolePicker({
-  onChange,
-  role,
-}: {
-  onChange: (role: AccountRole) => void;
-  role: AccountRole;
-}) {
-  return (
-    <fieldset>
-      <legend className="mb-2 block text-sm font-medium text-[#D1D5DB]">Account role</legend>
-      <div className="grid gap-2">
-        {accountRoles.map((option) => (
-          <label
-            className={`cursor-pointer rounded-md border p-3 transition ${
-              role === option.value
-                ? "border-[#6366F1] bg-[#6366F1]/15"
-                : "border-[#1F2937] bg-[#09090B] hover:border-[#374151]"
-            }`}
-            key={option.value}
-          >
-            <input
-              checked={role === option.value}
-              className="sr-only"
-              name="role"
-              onChange={() => onChange(option.value)}
-              type="radio"
-              value={option.value}
-            />
-            <span className="block text-sm font-semibold text-[#F9FAFB]">{option.value}</span>
-            <span className="mt-1 block text-xs leading-5 text-[#9CA3AF]">
-              {option.description}
-            </span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
   );
 }
 

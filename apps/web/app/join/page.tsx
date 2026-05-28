@@ -43,8 +43,8 @@ export default function JoinPage() {
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg">
-                  <Link href="/signup?role=ACTOR">
-                    Create actor account
+                  <Link href="/signup">
+                    Create account
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>

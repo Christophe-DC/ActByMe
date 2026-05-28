@@ -6,7 +6,6 @@ import { Suspense, useState, type FormEvent, type ReactNode } from "react";
 import { Clapperboard, LogIn } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
-import { destinationForRole, normalizeAccountRole } from "@/lib/auth/roles";
 
 export default function LoginPage() {
   return (
@@ -35,7 +34,7 @@ function LoginContent() {
       return;
     }
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -47,13 +46,9 @@ function LoginContent() {
       return;
     }
 
-    const role = normalizeAccountRole(data.user?.user_metadata?.role);
     const requestedNext = searchParams.get("next");
-    const fallbackDestination = destinationForRole(role);
     const destination =
-      requestedNext && isAllowedNextForRole(requestedNext, role)
-        ? requestedNext
-        : fallbackDestination;
+      requestedNext && isSafeInternalPath(requestedNext) ? requestedNext : "/profile";
 
     router.push(destination);
   }
@@ -68,9 +63,9 @@ function LoginContent() {
 
     const requestedNext = searchParams.get("next");
     const redirectTo =
-      requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+      requestedNext && isSafeInternalPath(requestedNext)
         ? `${window.location.origin}${requestedNext}`
-        : `${window.location.origin}/actors`;
+        : `${window.location.origin}/profile`;
 
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -160,20 +155,8 @@ function LoginFallback() {
   );
 }
 
-function isAllowedNextForRole(next: string | null, role: ReturnType<typeof normalizeAccountRole>) {
-  if (!next) {
-    return false;
-  }
-
-  if (role === "ADMIN") {
-    return next.startsWith("/") && !next.startsWith("//");
-  }
-
-  if (role === "ACTOR") {
-    return next.startsWith("/onboarding/actor");
-  }
-
-  return next.startsWith("/agency-access");
+function isSafeInternalPath(path: string) {
+  return path.startsWith("/") && !path.startsWith("//");
 }
 
 function AuthShell({

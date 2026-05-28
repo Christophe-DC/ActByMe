@@ -3,7 +3,7 @@ import { ActorOnboardingShell } from "../../../components/onboarding/actor-onboa
 
 export default function ActorOnboardingPage() {
   return (
-    <RoleGate allowedRoles={["ACTOR"]}>
+    <RoleGate>
       <ActorOnboardingShell step="basic" />
     </RoleGate>
   );

@@ -78,7 +78,7 @@ export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPrevie
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/signup?role=CLIENT">Request client access</Link>
+              <Link href="/signup">Request creator access</Link>
             </Button>
             {onPreview ? (
               <Button onClick={onPreview} size="lg" variant="ghost">

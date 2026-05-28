@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, X } from "lucide-react";
 import { Button } from "@actbyme/ui";
-import { accountRoles, type AccountRole } from "@/lib/auth/roles";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
@@ -20,7 +19,6 @@ export function AuthModal({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [role, setRole] = useState<AccountRole>("ACTOR");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -75,11 +73,6 @@ export function AuthModal({
     const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          role,
-        },
-      },
     });
 
     setIsSubmitting(false);
@@ -106,10 +99,6 @@ export function AuthModal({
     if (!isSupabaseConfigured) {
       setError("Supabase frontend environment variables are missing.");
       return;
-    }
-
-    if (mode === "signup") {
-      window.localStorage.setItem("actbyme.pendingRole", role);
     }
 
     const { error: authError } = await supabase.auth.signInWithOAuth({
@@ -194,7 +183,6 @@ export function AuthModal({
           </div>
 
           <form className="space-y-4" onSubmit={handleEmailAuth}>
-            {mode === "signup" ? <RolePicker onChange={setRole} role={role} /> : null}
             <AuthField
               label="Email"
               onChange={setEmail}
@@ -244,42 +232,6 @@ export function AuthModal({
         </section>
       </div>
     </div>
-  );
-}
-
-function RolePicker({
-  onChange,
-  role,
-}: {
-  onChange: (role: AccountRole) => void;
-  role: AccountRole;
-}) {
-  return (
-    <fieldset>
-      <legend className="mb-2 block text-sm font-medium text-[#D1D5DB]">Account role</legend>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {accountRoles.map((option) => (
-          <label
-            className={`cursor-pointer rounded-lg border p-3 transition ${
-              role === option.value
-                ? "border-white bg-white text-[#09090B]"
-                : "border-[#1F2937] bg-[#111827] text-[#F9FAFB] hover:border-[#374151]"
-            }`}
-            key={option.value}
-          >
-            <input
-              checked={role === option.value}
-              className="sr-only"
-              name="modal-role"
-              onChange={() => onChange(option.value)}
-              type="radio"
-              value={option.value}
-            />
-            <span className="block text-xs font-semibold">{option.value}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
   );
 }
 

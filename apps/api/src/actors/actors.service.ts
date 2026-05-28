@@ -339,7 +339,6 @@ export class ActorsService {
       },
       update: {
         ...(user.email ? { email: user.email } : {}),
-        role: user.role,
       },
       where: {
         id: user.id,

@@ -5,14 +5,9 @@ import { useEffect, useState } from "react";
 import { Clapperboard } from "lucide-react";
 import { AuthModal } from "./auth/auth-modal";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
-import { isAccountRole, normalizeAccountRole, type AccountRole } from "@/lib/auth/roles";
-
-type HeaderState =
-  | { isAuthenticated: false; role: null }
-  | { isAuthenticated: true; role: AccountRole };
 
 export function SiteHeader() {
-  const [state, setState] = useState<HeaderState>({ isAuthenticated: false, role: null });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -32,17 +27,7 @@ export function SiteHeader() {
         return;
       }
 
-      if (!session?.user) {
-        setState({ isAuthenticated: false, role: null });
-        return;
-      }
-
-      const role = await resolveSessionRole(session.user.user_metadata?.role);
-
-      setState({
-        isAuthenticated: true,
-        role,
-      });
+      setIsAuthenticated(Boolean(session?.user));
     }
 
     void loadSession();
@@ -50,17 +35,7 @@ export function SiteHeader() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        setState({ isAuthenticated: false, role: null });
-        return;
-      }
-
-      void resolveSessionRole(session.user.user_metadata?.role).then((role) => {
-        setState({
-          isAuthenticated: true,
-          role,
-        });
-      });
+      setIsAuthenticated(Boolean(session?.user));
     });
 
     return () => {
@@ -87,7 +62,7 @@ export function SiteHeader() {
             >
               Actors
             </Link>
-            {state.isAuthenticated ? (
+            {isAuthenticated ? (
               <AuthenticatedLinks />
             ) : (
               <AnonymousLinks
@@ -107,22 +82,6 @@ export function SiteHeader() {
       <AuthModal initialMode={authMode} onClose={() => setAuthOpen(false)} open={authOpen} />
     </>
   );
-}
-
-async function resolveSessionRole(metadataRole: unknown) {
-  if (isAccountRole(metadataRole)) {
-    return metadataRole;
-  }
-
-  const pendingRole = window.localStorage.getItem("actbyme.pendingRole");
-
-  if (isAccountRole(pendingRole)) {
-    await supabase.auth.updateUser({ data: { role: pendingRole } });
-    window.localStorage.removeItem("actbyme.pendingRole");
-    return pendingRole;
-  }
-
-  return normalizeAccountRole(metadataRole);
 }
 
 function AnonymousLinks({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {

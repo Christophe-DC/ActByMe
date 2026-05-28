@@ -6,7 +6,7 @@ import { AgencyAccessForm } from "../../components/agency-access/agency-access-f
 
 export default function AgencyAccessPage() {
   return (
-    <RoleGate allowedRoles={["CLIENT", "AGENCY"]}>
+    <RoleGate>
       <main className="min-h-screen overflow-hidden bg-[#09090B] text-[#F9FAFB]">
         <section className="relative border-b border-[#1F2937] px-5 py-8 md:px-8">
           <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(99,102,241,0.18),transparent_34%),radial-gradient(circle_at_78%_16%,rgba(20,184,166,0.16),transparent_26%),linear-gradient(180deg,rgba(17,24,39,0.86),rgba(9,9,11,1))]" />
