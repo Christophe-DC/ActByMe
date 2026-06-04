@@ -9,6 +9,7 @@ import {
   FeaturedActorRail,
   SkillPill,
   TrustSecurityPanel,
+  PRESENTATION_VIDEO_SRC,
   VideoHero,
   VideoGrid,
 } from "../components/cinematic/video-platform";
@@ -59,9 +60,16 @@ export default function HomePage() {
         open={videoModalOpen}
         title="ActByMe performance preview"
       >
-        <div className="flex aspect-video items-center justify-center rounded-md bg-[#09090B] text-[#9CA3AF]">
-          Demo video placeholder
-        </div>
+        <video
+          autoPlay
+          className="aspect-video w-full rounded-md bg-[#09090B] object-cover"
+          controls
+          loop
+          muted
+          playsInline
+        >
+          <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
+        </video>
       </VideoPresentationModal>
 
       <CinematicSection

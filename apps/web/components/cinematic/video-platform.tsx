@@ -7,6 +7,7 @@ import type { MockActor } from "../../lib/mock-actors";
 
 export const VIDEO_PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=1400&auto=format&fit=crop";
+export const PRESENTATION_VIDEO_SRC = "/videos/actbyme-presentation.mp4";
 
 export function CinematicSection({
   children,
@@ -43,22 +44,26 @@ export function CinematicSection({
 
 export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPreview?: () => void }) {
   const heroActors = actors.slice(0, 5);
-  const leadActor = heroActors[0];
+  const previewActors = heroActors.slice(0, 3);
 
   return (
     <section className="relative min-h-[calc(100vh-73px)] overflow-hidden border-b border-[#1F2937] bg-[#09090B] px-5 py-10 text-[#F9FAFB] md:px-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(99,102,241,0.24),transparent_28%),radial-gradient(circle_at_85%_10%,rgba(20,184,166,0.16),transparent_26%),linear-gradient(180deg,rgba(9,9,11,0.2),#09090B_86%)]" />
-      {leadActor ? (
-        <img
-          alt=""
-          aria-hidden
-          className="absolute inset-0 h-full w-full object-cover opacity-26"
-          src={leadActor.heroImage}
-        />
-      ) : null}
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,#09090B_0%,rgba(9,9,11,0.82)_44%,rgba(9,9,11,0.38)),linear-gradient(180deg,rgba(9,9,11,0.15),#09090B)]" />
+      <video
+        aria-hidden
+        autoPlay
+        className="absolute inset-0 h-full w-full object-cover opacity-72"
+        loop
+        muted
+        playsInline
+        poster={heroActors[0]?.heroImage ?? VIDEO_PLACEHOLDER_IMAGE}
+        preload="metadata"
+      >
+        <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,#09090B_0%,rgba(9,9,11,0.9)_38%,rgba(9,9,11,0.56)_68%,rgba(9,9,11,0.28)),linear-gradient(180deg,rgba(9,9,11,0.16),#09090B_94%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(99,102,241,0.28),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(20,184,166,0.18),transparent_24%)]" />
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-153px)] max-w-7xl items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="relative mx-auto grid min-h-[calc(100vh-153px)] max-w-7xl items-center gap-10 lg:grid-cols-[0.92fr_1.08fr]">
         <div className="max-w-4xl">
           <Badge className="mb-5 border-[#14B8A6]/40 bg-[#14B8A6]/12 text-[#A7F3D0]">
             Human performance for AI video
@@ -87,42 +92,106 @@ export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPrevie
               </Button>
             ) : null}
           </div>
+          <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 border-y border-white/10 py-4">
+            {[
+              ["Video-first", "profiles"],
+              ["Consent", "built in"],
+              ["Motion", "ready"],
+            ].map(([value, label]) => (
+              <div key={value}>
+                <p className="text-sm font-semibold text-white">{value}</p>
+                <p className="mt-1 text-xs uppercase text-[#9CA3AF]">{label}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {heroActors.map((actor, index) => (
-            <Link
-              className={`group relative overflow-hidden rounded-lg border border-[#1F2937] bg-[#111827] shadow-2xl shadow-black/30 ${
-                index === 0 ? "sm:col-span-2" : ""
-              }`}
-              href={`/actors/${actor.slug}`}
-              key={actor.id}
-            >
-              <img
-                alt={`${actor.name} performance preview`}
-                className={`w-full object-cover transition duration-700 group-hover:scale-105 ${
-                  index === 0 ? "aspect-[16/8]" : "aspect-[4/3]"
-                }`}
-                src={actor.videoThumbnail || VIDEO_PLACEHOLDER_IMAGE}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/20 to-transparent" />
+        <div className="relative">
+          <div className="overflow-hidden rounded-lg border border-white/12 bg-[#111827]/70 shadow-2xl shadow-black/50 backdrop-blur">
+            <div className="relative aspect-[16/10] overflow-hidden">
+              <video
+                aria-label="ActByMe presentation video"
+                autoPlay
+                className="h-full w-full object-cover"
+                loop
+                muted
+                playsInline
+                poster={heroActors[0]?.videoThumbnail ?? VIDEO_PLACEHOLDER_IMAGE}
+                preload="metadata"
+              >
+                <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
+              </video>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/74 via-transparent to-black/18" />
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                {actor.isDemo ? <DemoProfileBadge /> : null}
-                <span className="rounded-md border border-white/15 bg-black/50 px-2 py-1 text-xs text-white">
-                  {actor.topSkills[0] ?? "Performance"}
+                <span className="rounded-md border border-white/15 bg-black/54 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
+                  Platform preview
+                </span>
+                <span className="rounded-md border border-[#14B8A6]/40 bg-[#14B8A6]/16 px-3 py-1.5 text-xs font-semibold text-[#A7F3D0] backdrop-blur">
+                  Looping demo
                 </span>
               </div>
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-xl font-semibold">{actor.name}</p>
-                  <p className="mt-1 text-sm text-[#D1D5DB]">{actor.country}</p>
+                  <p className="text-2xl font-semibold">Cinematic actor discovery</p>
+                  <p className="mt-1 text-sm text-[#D1D5DB]">
+                    Acting, motion, voice, action and consent in one visual profile.
+                  </p>
                 </div>
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#6366F1] text-white">
-                  <Play className="ml-0.5 size-5" fill="currentColor" />
-                </span>
+                {onPreview ? (
+                  <button
+                    className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white text-[#09090B] transition hover:scale-105"
+                    onClick={onPreview}
+                    type="button"
+                  >
+                    <Play className="ml-0.5 size-5" fill="currentColor" />
+                  </button>
+                ) : null}
               </div>
-            </Link>
-          ))}
+            </div>
+            <div className="grid gap-px bg-white/10 sm:grid-cols-3">
+              {previewActors.map((actor) => (
+                <Link
+                  className="group bg-[#09090B]/86 p-4 transition hover:bg-[#111827]"
+                  href={`/actors/${actor.slug}`}
+                  key={actor.id}
+                >
+                  <p className="text-sm font-semibold text-white">{actor.name}</p>
+                  <p className="mt-1 truncate text-xs text-[#9CA3AF]">
+                    {actor.topSkills.slice(0, 2).join(" · ")}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            {previewActors.map((actor) => (
+              <Link
+                className="group relative overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl shadow-black/20"
+                href={`/actors/${actor.slug}`}
+                key={actor.id}
+              >
+                <img
+                  alt={`${actor.name} performance preview`}
+                  className="aspect-[4/3] w-full object-cover transition duration-700 group-hover:scale-105"
+                  src={actor.videoThumbnail || VIDEO_PLACEHOLDER_IMAGE}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/20 to-transparent" />
+                <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                  {actor.isDemo ? <DemoProfileBadge /> : null}
+                </div>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <span className="mb-2 inline-flex size-8 items-center justify-center rounded-full bg-[#6366F1] text-white">
+                    <Play className="ml-0.5 size-4" fill="currentColor" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">{actor.name}</p>
+                    <p className="mt-1 text-xs text-[#D1D5DB]">{actor.country}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </section>
