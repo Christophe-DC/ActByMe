@@ -31,8 +31,8 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#09090B] px-5 py-10 text-[#F9FAFB] md:px-8">
-      <section className="mx-auto grid min-h-[calc(100vh-170px)] max-w-6xl items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+    <main className="min-h-screen overflow-hidden bg-[#09090B] px-5 py-10 text-[#F9FAFB] md:px-8 lg:h-[calc(100dvh-101px)] lg:min-h-0 lg:py-6">
+      <section className="mx-auto grid min-h-[calc(100vh-170px)] max-w-6xl items-center gap-10 lg:h-full lg:min-h-0 lg:grid-cols-[0.9fr_1.1fr]">
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#D1D5DB]">
             <Sparkles className="size-4 text-[#A7F3D0]" />
