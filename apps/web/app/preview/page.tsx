@@ -7,6 +7,7 @@ import { useState } from "react";
 import {
   CinematicSection,
   FeaturedActorRail,
+  PRESENTATION_VIDEO_POSTER_SRC,
   SkillPill,
   TrustSecurityPanel,
   PRESENTATION_VIDEO_SRC,
@@ -67,6 +68,7 @@ export default function HomePage() {
           loop
           muted
           playsInline
+          poster={PRESENTATION_VIDEO_POSTER_SRC}
         >
           <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
         </video>

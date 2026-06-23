@@ -7,7 +7,8 @@ import type { MockActor } from "../../lib/mock-actors";
 
 export const VIDEO_PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=1400&auto=format&fit=crop";
-export const PRESENTATION_VIDEO_SRC = "/videos/actbyme-presentation.mp4";
+export const PRESENTATION_VIDEO_SRC = "/videos/actbyme-presentation-720.mp4";
+export const PRESENTATION_VIDEO_POSTER_SRC = "/videos/actbyme-presentation-poster.jpg";
 
 export function CinematicSection({
   children,
@@ -55,7 +56,7 @@ export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPrevie
         loop
         muted
         playsInline
-        poster={heroActors[0]?.heroImage ?? VIDEO_PLACEHOLDER_IMAGE}
+        poster={PRESENTATION_VIDEO_POSTER_SRC}
         preload="metadata"
       >
         <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
@@ -116,7 +117,7 @@ export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPrevie
                 loop
                 muted
                 playsInline
-                poster={heroActors[0]?.videoThumbnail ?? VIDEO_PLACEHOLDER_IMAGE}
+                poster={PRESENTATION_VIDEO_POSTER_SRC}
                 preload="metadata"
               >
                 <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />

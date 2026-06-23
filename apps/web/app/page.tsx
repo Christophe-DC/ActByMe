@@ -4,7 +4,10 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Mail, Sparkles } from "lucide-react";
 import { Button } from "@actbyme/ui";
 import { earlyAccessApi } from "../lib/api/client";
-import { PRESENTATION_VIDEO_SRC } from "../components/cinematic/video-platform";
+import {
+  PRESENTATION_VIDEO_POSTER_SRC,
+  PRESENTATION_VIDEO_SRC,
+} from "../components/cinematic/video-platform";
 
 export default function HomePage() {
   const [email, setEmail] = useState("");
@@ -82,11 +85,13 @@ export default function HomePage() {
           <div className="absolute -inset-6 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.22),transparent_62%)]" />
           <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#111827] shadow-2xl shadow-black/50">
             <video
+              aria-hidden
               autoPlay
               className="aspect-video w-full object-cover"
               loop
               muted
               playsInline
+              poster={PRESENTATION_VIDEO_POSTER_SRC}
               preload="metadata"
             >
               <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
