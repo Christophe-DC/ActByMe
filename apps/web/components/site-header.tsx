@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Clapperboard } from "lucide-react";
 import { AuthModal } from "./auth/auth-modal";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 
 export function SiteHeader() {
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authOpen, setAuthOpen] = useState(false);
@@ -43,6 +45,10 @@ export function SiteHeader() {
       subscription.unsubscribe();
     };
   }, []);
+
+  if (pathname === "/") {
+    return null;
+  }
 
   return (
     <>
