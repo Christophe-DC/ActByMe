@@ -4,6 +4,8 @@ import type {
   ActorDetail,
   AgencyAccessRequest,
   AgencyAccessResponse,
+  EarlyAccessSignupRequest,
+  EarlyAccessSignupResponse,
   UploadNamespace,
   UploadUrlResponse,
 } from "./types";
@@ -158,6 +160,15 @@ export const actorsApi = {
       method: "POST",
       body: JSON.stringify(consent),
     }),
+};
+
+export const earlyAccessApi = {
+  signup: async (request: EarlyAccessSignupRequest): Promise<EarlyAccessSignupResponse> => {
+    return apiFetch<EarlyAccessSignupResponse>("/early-access", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
 };
 
 export const storageApi = {

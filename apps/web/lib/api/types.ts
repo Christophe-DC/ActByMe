@@ -98,6 +98,17 @@ export interface AgencyAccessResponse {
   createdAt: string;
 }
 
+export interface EarlyAccessSignupRequest {
+  email: string;
+  source?: string;
+}
+
+export interface EarlyAccessSignupResponse {
+  createdAt: string;
+  email: string;
+  id: string;
+}
+
 export interface UploadUrlResponse {
   assetUrl: string;
   bucket: string;
