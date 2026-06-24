@@ -66,7 +66,6 @@ export default function HomePage() {
           className="aspect-video w-full rounded-md bg-[#09090B] object-cover"
           controls
           loop
-          muted
           playsInline
           poster={PRESENTATION_VIDEO_POSTER_SRC}
         >

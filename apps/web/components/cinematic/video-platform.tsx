@@ -54,6 +54,7 @@ export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPrevie
         autoPlay
         className="absolute inset-0 h-full w-full object-cover opacity-72"
         loop
+        muted
         playsInline
         poster={PRESENTATION_VIDEO_POSTER_SRC}
         preload="metadata"
@@ -114,6 +115,7 @@ export function VideoHero({ actors, onPreview }: { actors: MockActor[]; onPrevie
                 autoPlay
                 className="h-full w-full object-cover"
                 loop
+                muted
                 playsInline
                 poster={PRESENTATION_VIDEO_POSTER_SRC}
                 preload="metadata"

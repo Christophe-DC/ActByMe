@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { ArrowRight, Mail, Sparkles } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { ArrowRight, Mail, Play, Volume2, Sparkles } from "lucide-react";
 import { Button } from "@actbyme/ui";
 import { earlyAccessApi } from "../lib/api/client";
 import {
@@ -10,9 +10,11 @@ import {
 } from "../components/cinematic/video-platform";
 
 export default function HomePage() {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,6 +32,24 @@ export default function HomePage() {
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Could not save your email.");
+    }
+  }
+
+  async function handleEnableSound() {
+    const video = videoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    video.muted = false;
+    video.volume = 1;
+
+    try {
+      await video.play();
+      setSoundEnabled(true);
+    } catch {
+      setMessage("Click the video controls to start playback with sound.");
     }
   }
 
@@ -85,17 +105,32 @@ export default function HomePage() {
           <div className="absolute -inset-6 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.22),transparent_62%)]" />
           <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#111827] shadow-2xl shadow-black/50">
             <video
-              aria-hidden
               autoPlay
               className="aspect-video w-full object-cover"
+              controls={soundEnabled}
               loop
-              muted
+              muted={!soundEnabled}
+              onVolumeChange={(event) => setSoundEnabled(!event.currentTarget.muted)}
               playsInline
               poster={PRESENTATION_VIDEO_POSTER_SRC}
               preload="metadata"
+              ref={videoRef}
             >
               <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
             </video>
+            {!soundEnabled ? (
+              <button
+                className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-black/85"
+                onClick={handleEnableSound}
+                type="button"
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-white text-[#09090B]">
+                  <Play className="ml-0.5 size-4" fill="currentColor" />
+                </span>
+                Play with sound
+                <Volume2 className="size-4 text-[#A7F3D0]" />
+              </button>
+            ) : null}
           </div>
         </div>
       </section>
