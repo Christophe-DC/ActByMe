@@ -107,10 +107,8 @@ export default function HomePage() {
             <video
               autoPlay
               className="aspect-video w-full object-cover"
-              controls={soundEnabled}
               loop
-              muted={!soundEnabled}
-              onVolumeChange={(event) => setSoundEnabled(!event.currentTarget.muted)}
+              muted={false}
               playsInline
               poster={PRESENTATION_VIDEO_POSTER_SRC}
               preload="metadata"
