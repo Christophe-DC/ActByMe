@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Mail, Play, Volume2, Sparkles } from "lucide-react";
+import { ArrowRight, Mail, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@actbyme/ui";
 import { earlyAccessApi } from "../lib/api/client";
 import {
@@ -35,21 +35,23 @@ export default function HomePage() {
     }
   }
 
-  async function handleEnableSound() {
+  async function handleToggleSound() {
     const video = videoRef.current;
 
     if (!video) {
       return;
     }
 
-    video.muted = false;
+    const nextSoundEnabled = video.muted;
+    video.muted = !nextSoundEnabled;
     video.volume = 1;
 
     try {
       await video.play();
-      setSoundEnabled(true);
+      setSoundEnabled(nextSoundEnabled);
     } catch {
-      setMessage("Click the video controls to start playback with sound.");
+      video.muted = true;
+      setSoundEnabled(false);
     }
   }
 
@@ -105,11 +107,14 @@ export default function HomePage() {
           <div className="absolute -inset-6 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.22),transparent_62%)]" />
           <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#111827] shadow-2xl shadow-black/50">
             <video
+              aria-label={
+                soundEnabled ? "Presentation video with sound" : "Presentation video muted"
+              }
               autoPlay
-              className="aspect-video w-full object-cover"
-              controls={soundEnabled}
+              className="aspect-video w-full cursor-pointer object-cover"
               loop
               muted={!soundEnabled}
+              onClick={handleToggleSound}
               onVolumeChange={(event) => setSoundEnabled(!event.currentTarget.muted)}
               playsInline
               poster={PRESENTATION_VIDEO_POSTER_SRC}
@@ -118,19 +123,14 @@ export default function HomePage() {
             >
               <source src={PRESENTATION_VIDEO_SRC} type="video/mp4" />
             </video>
-            {!soundEnabled ? (
-              <button
-                className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-black/85"
-                onClick={handleEnableSound}
-                type="button"
-              >
-                <span className="flex size-8 items-center justify-center rounded-full bg-white text-[#09090B]">
-                  <Play className="ml-0.5 size-4" fill="currentColor" />
-                </span>
-                Play with sound
+            <div className="pointer-events-none absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/62 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
+              {soundEnabled ? (
                 <Volume2 className="size-4 text-[#A7F3D0]" />
-              </button>
-            ) : null}
+              ) : (
+                <VolumeX className="size-4 text-[#D1D5DB]" />
+              )}
+              {soundEnabled ? "Sound on" : "Click video for sound"}
+            </div>
           </div>
         </div>
       </section>
