@@ -22,8 +22,11 @@ class APIError extends Error {
   }
 }
 
+const LOCAL_API_URL = "http://localhost:4000";
+const PRODUCTION_API_URL = "https://api.actbyme.com";
+
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const API_URL = resolveApiUrl();
   const url = `${API_URL}${endpoint}`;
   const authHeaders = await getAuthHeaders();
   const headers = new Headers(options?.headers);
@@ -34,10 +37,21 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
     headers.set(key, value);
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    throw new Error(
+      error instanceof TypeError
+        ? `Unable to reach the ActByMe API at ${API_URL}.`
+        : "Unable to reach the ActByMe API.",
+      { cause: error },
+    );
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -45,6 +59,24 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
   }
 
   return response.json();
+}
+
+function resolveApiUrl() {
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (typeof window === "undefined") {
+    return configuredApiUrl || LOCAL_API_URL;
+  }
+
+  const isLocalPage = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const configuredApiUrlIsLocal =
+    !configuredApiUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiUrl);
+
+  if (!isLocalPage && configuredApiUrlIsLocal) {
+    return PRODUCTION_API_URL;
+  }
+
+  return configuredApiUrl || LOCAL_API_URL;
 }
 
 async function getAuthHeaders() {

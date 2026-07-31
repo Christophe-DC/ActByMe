@@ -70,6 +70,8 @@ function getAllowedOrigins(config: ConfigService) {
   return [
     "http://localhost:3000",
     "http://localhost:3001",
+    "https://actbyme.com",
+    "https://www.actbyme.com",
     "https://actbyme-web.vercel.app",
     config.get<string>("NEXT_PUBLIC_WEB_URL"),
     config.get<string>("WEB_ORIGIN"),
@@ -85,5 +87,8 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
     return true;
   }
 
-  return /^https:\/\/actbyme-web-[a-z0-9-]+\.vercel\.app$/i.test(origin);
+  return (
+    /^https:\/\/([a-z0-9-]+\.)?actbyme\.com$/i.test(origin) ||
+    /^https:\/\/actbyme-web-[a-z0-9-]+\.vercel\.app$/i.test(origin)
+  );
 }
