@@ -1,12 +1,19 @@
 export type PresignedUploadRequest = {
   contentType: string;
   fileName: string;
+  pathPrefix?: string;
   namespace:
     | "actor-profile-image"
     | "actor-video"
     | "actor-private-video"
+    | "performance-take"
     | "platform-asset"
     | "actor-delivery";
+};
+
+export type StoredObjectInfo = {
+  contentType?: string;
+  sizeBytes?: number;
 };
 
 export type PresignedUpload = {
@@ -22,7 +29,9 @@ export type PresignedUpload = {
 
 export interface StorageClient {
   createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload>;
+  createSignedReadUrl(key: string, expiresInSeconds: number): Promise<string>;
   deleteObject(key: string): Promise<void>;
+  getObjectInfo(key: string): Promise<StoredObjectInfo>;
   getPublicUrl(key: string): string;
 }
 

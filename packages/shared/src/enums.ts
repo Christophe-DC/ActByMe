@@ -50,3 +50,39 @@ export enum AgencyRequestStatus {
   Approved = "APPROVED",
   Rejected = "REJECTED",
 }
+
+export enum PerformancePath {
+  MatchedActor = "MATCHED_ACTOR",
+  InvitedActor = "INVITED_ACTOR",
+  SelfUpload = "SELF_UPLOAD",
+}
+
+export enum PerformanceWorkflowStatus {
+  Draft = "DRAFT",
+  ReadyForBrief = "READY_FOR_BRIEF",
+  GeneratingBrief = "GENERATING_BRIEF",
+  BriefReview = "BRIEF_REVIEW",
+  CompanyDetails = "COMPANY_DETAILS",
+  ProjectDetails = "PROJECT_DETAILS",
+  SetupReview = "SETUP_REVIEW",
+  BriefProcessing = "BRIEF_PROCESSING",
+  BriefReady = "BRIEF_READY",
+  PerformanceSource = "PERFORMANCE_SOURCE",
+  ActorSelection = "ACTOR_SELECTION",
+  RequestSummary = "REQUEST_SUMMARY",
+  PerformanceProgress = "PERFORMANCE_PROGRESS",
+  QaPending = "QA_PENDING",
+  ClientReview = "CLIENT_REVIEW",
+  ApprovedDelivery = "APPROVED_DELIVERY",
+}
+
+export enum PerformanceTakeUploadStatus {
+  Uploading = "UPLOADING",
+  Uploaded = "UPLOADED",
+  Failed = "FAILED",
+}
+
+export enum PerformanceTakeStatus {
+  Draft = "DRAFT",
+  Submitted = "SUBMITTED",
+}

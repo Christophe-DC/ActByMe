@@ -29,7 +29,21 @@ export class SupabaseService implements StorageClient {
 
   async createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload> {
     const bucket = resolveBucket(request.namespace);
-    const path = `${request.namespace}/${Date.now()}-${randomUUID()}-${sanitizeFileName(
+
+    if (request.namespace === "performance-take") {
+      const { data: bucketDetails, error: bucketError } = await this.admin.storage.getBucket(bucket);
+
+      if (bucketError) {
+        throw bucketError;
+      }
+
+      if (bucketDetails.public) {
+        throw new Error('The "actor-private" Supabase bucket must not be public.');
+      }
+    }
+
+    const pathPrefix = sanitizePathPrefix(request.pathPrefix ?? request.namespace);
+    const path = `${pathPrefix}/${Date.now()}-${randomUUID()}-${sanitizeFileName(
       request.fileName,
     )}`;
     const { data, error } = await this.admin.storage.from(bucket).createSignedUploadUrl(path);
@@ -42,11 +56,24 @@ export class SupabaseService implements StorageClient {
       assetUrl: this.getPublicUrl(`${bucket}/${path}`),
       bucket,
       key: `${bucket}/${path}`,
-      method: "POST",
+      method: "PUT",
       path,
       token: data.token,
       uploadUrl: data.signedUrl,
     };
+  }
+
+  async createSignedReadUrl(key: string, expiresInSeconds: number): Promise<string> {
+    const { bucket, path } = splitStorageKey(key);
+    const { data, error } = await this.admin.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresInSeconds);
+
+    if (error) {
+      throw error;
+    }
+
+    return data.signedUrl;
   }
 
   async deleteObject(key: string): Promise<void> {
@@ -56,6 +83,20 @@ export class SupabaseService implements StorageClient {
     if (error) {
       throw error;
     }
+  }
+
+  async getObjectInfo(key: string) {
+    const { bucket, path } = splitStorageKey(key);
+    const { data, error } = await this.admin.storage.from(bucket).info(path);
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      contentType: data.contentType,
+      sizeBytes: data.size,
+    };
   }
 
   getPublicUrl(key: string): string {
@@ -99,4 +140,12 @@ function sanitizeFileName(fileName: string) {
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/(^-|-$)/g, "")
     .slice(0, 120);
+}
+
+function sanitizePathPrefix(pathPrefix: string) {
+  return pathPrefix
+    .split("/")
+    .map((part) => part.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/(^-|-$)/g, ""))
+    .filter(Boolean)
+    .join("/");
 }

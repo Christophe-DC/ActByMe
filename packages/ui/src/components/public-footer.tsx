@@ -2,8 +2,8 @@ import * as React from "react";
 
 export function PublicFooter() {
   return (
-    <footer className="mt-8 border-t border-[#1F2937] py-6 px-6 text-sm text-[#9CA3AF]">
-      <div className="max-w-7xl">© ActByMe</div>
+    <footer className="border-t border-white/[0.06] bg-[#070A12] px-6 py-6 text-sm text-[#5a5a72]">
+      <div className="mx-auto max-w-[1400px]">© ActByMe · Human performance for AI video</div>
     </footer>
   );
 }

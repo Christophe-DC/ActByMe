@@ -60,15 +60,59 @@ enum AgencyRequestStatus {
   REJECTED
 }
 
+enum PerformancePath {
+  MATCHED_ACTOR
+  INVITED_ACTOR
+  SELF_UPLOAD
+}
+
+enum PerformanceWorkflowStatus {
+  DRAFT
+  READY_FOR_BRIEF
+  GENERATING_BRIEF
+  BRIEF_REVIEW
+  COMPANY_DETAILS
+  PROJECT_DETAILS
+  SETUP_REVIEW
+  BRIEF_PROCESSING
+  BRIEF_READY
+  PERFORMANCE_SOURCE
+  ACTOR_SELECTION
+  REQUEST_SUMMARY
+  PERFORMANCE_PROGRESS
+  QA_PENDING
+  CLIENT_REVIEW
+  APPROVED_DELIVERY
+}
+
+enum PerformanceTakeUploadStatus {
+  UPLOADING
+  UPLOADED
+  FAILED
+}
+
+enum PerformanceTakeStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum PerformanceBriefAttachmentStatus {
+  UPLOADING
+  PARSING
+  READY
+  FAILED
+}
+
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  email        String        @unique
-  name         String?
-  role         UserRole      @default(ACTOR)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  actorProfile ActorProfile?
-  auditLogs    AuditLog[]
+  id                  String               @id @default(uuid()) @db.Uuid
+  email               String               @unique
+  name                String?
+  role                UserRole             @default(ACTOR)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  actorProfile        ActorProfile?
+  auditLogs           AuditLog[]
+  performanceProjects PerformanceProject[]
 
   @@index([role])
   @@index([createdAt])
@@ -206,6 +250,122 @@ model EarlyAccessSignup {
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+}
+
+model PerformanceProject {
+  id               String                    @id @default(uuid()) @db.Uuid
+  ownerId          String                    @db.Uuid
+  title            String
+  type             String
+  objective        String?                   @db.Text
+  location         String?
+  locationData     Json?
+  targetAiTool     String?
+  language         String?
+  notes            String?                   @db.Text
+  sourceFileName   String?
+  companyName      String
+  companyWebsite   String?                   @db.Text
+  organizationType String?
+  contactName      String?
+  contactRole      String?
+  performerPath    PerformancePath?
+  workflowStatus   PerformanceWorkflowStatus @default(DRAFT)
+  currentStep      String                    @default("company")
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  owner            User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  brief            PerformanceBrief?
+  briefAttachment  PerformanceBriefAttachment?
+  scenes           PerformanceScene[]
+  takes            PerformanceTake[]
+
+  @@index([ownerId, updatedAt])
+  @@index([workflowStatus])
+}
+
+model PerformanceBriefAttachment {
+  id                 String                           @id @default(uuid()) @db.Uuid
+  projectId          String                           @unique @db.Uuid
+  uploadAttemptId    String                           @db.Uuid
+  originalFileName   String
+  contentType        String
+  sizeBytes          Int
+  storageBucket      String
+  storagePath        String                           @db.Text
+  status             PerformanceBriefAttachmentStatus @default(UPLOADING)
+  extractedText      String?                          @db.Text
+  extractionError    String?                          @db.Text
+  uploadedAt         DateTime?
+  parsedAt           DateTime?
+  createdAt          DateTime                         @default(now())
+  updatedAt          DateTime                         @updatedAt
+  project            PerformanceProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model PerformanceBrief {
+  id                 String             @id @default(uuid()) @db.Uuid
+  projectId          String             @unique @db.Uuid
+  talentRequirements Json
+  capturePlan        Json
+  globalDirection    String             @db.Text
+  qaCriteria         Json
+  model              String
+  openaiResponseId   String?
+  generatedAt        DateTime           @default(now())
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  project            PerformanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model PerformanceScene {
+  id                  String             @id @default(uuid()) @db.Uuid
+  projectId           String             @db.Uuid
+  position            Int
+  title               String
+  duration            String?
+  referenceUrl        String?            @db.Text
+  dialogue            String?            @db.Text
+  direction           String?            @db.Text
+  bodyPosition        String?            @db.Text
+  eyeline             String?            @db.Text
+  gestures            String?            @db.Text
+  framing             String?            @db.Text
+  captureRequirements String?            @db.Text
+  uploadedFileName    String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  project             PerformanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  take                PerformanceTake?
+
+  @@unique([projectId, position])
+  @@index([projectId])
+}
+
+model PerformanceTake {
+  id               String                      @id @default(uuid()) @db.Uuid
+  projectId        String                      @db.Uuid
+  sceneId          String                      @unique @db.Uuid
+  uploadAttemptId  String                      @db.Uuid
+  originalFileName String
+  contentType      String
+  sizeBytes        Int
+  storageBucket    String
+  storagePath      String                      @db.Text
+  uploadStatus     PerformanceTakeUploadStatus @default(UPLOADING)
+  takeStatus       PerformanceTakeStatus       @default(DRAFT)
+  uploadError      String?                     @db.Text
+  uploadedAt       DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  project          PerformanceProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene            PerformanceScene            @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([uploadStatus])
+  @@index([takeStatus])
 }
 
 model DemoProfile {

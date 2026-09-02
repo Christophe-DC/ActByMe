@@ -1,13 +1,18 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { PresignedUpload, PresignedUploadRequest, StorageClient } from "./storage.types.js";
+import type {
+  PresignedUpload,
+  PresignedUploadRequest,
+  StorageClient,
+  StoredObjectInfo,
+} from "./storage.types.js";
 
 @Injectable()
 export class S3CompatibleStorageService implements StorageClient {
   constructor(private readonly config: ConfigService) {}
 
   async createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload> {
-    const key = `${request.namespace}/${Date.now()}-${sanitizeFileName(request.fileName)}`;
+    const key = `${request.pathPrefix ?? request.namespace}/${Date.now()}-${sanitizeFileName(request.fileName)}`;
     const endpoint = this.config.get<string>("S3_PUBLIC_ENDPOINT", "https://storage.actbyme.local");
 
     return {
@@ -20,8 +25,16 @@ export class S3CompatibleStorageService implements StorageClient {
     };
   }
 
+  async createSignedReadUrl(_key: string, _expiresInSeconds: number): Promise<string> {
+    throw new Error("Signed S3-compatible reads are not implemented yet.");
+  }
+
   async deleteObject(_key: string): Promise<void> {
     throw new Error("S3-compatible object deletion is not implemented yet.");
+  }
+
+  async getObjectInfo(_key: string): Promise<StoredObjectInfo> {
+    throw new Error("S3-compatible object metadata is not implemented yet.");
   }
 
   getPublicUrl(key: string): string {

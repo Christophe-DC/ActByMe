@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Clapperboard } from "lucide-react";
+import { Clapperboard, RotateCcw, Sparkles } from "lucide-react";
 import { AuthModal } from "./auth/auth-modal";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 
@@ -12,11 +12,10 @@ export function SiteHeader() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authOpen, setAuthOpen] = useState(false);
+  const isWorkflow = pathname === "/create-performance";
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      return;
-    }
+    if (!isSupabaseConfigured) return;
 
     let active = true;
 
@@ -24,16 +23,10 @@ export function SiteHeader() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
-      if (!active) {
-        return;
-      }
-
-      setIsAuthenticated(Boolean(session?.user));
+      if (active) setIsAuthenticated(Boolean(session?.user));
     }
 
     void loadSession();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -46,78 +39,103 @@ export function SiteHeader() {
     };
   }, []);
 
-  if (pathname === "/") {
-    return null;
-  }
-
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#09090B]/76 px-4 py-3 backdrop-blur-xl md:px-6">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <Link className="flex items-center gap-3" href="/">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#09090B]">
-              <Clapperboard className="size-5" />
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#070A12]/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 md:px-6 lg:px-10">
+          <Link
+            className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-80"
+            href="/"
+          >
+            <span className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#6C4DFF] to-[#5b3fd6] shadow-lg shadow-[#6C4DFF]/20">
+              <Clapperboard className="size-5 text-white" strokeWidth={2.2} />
             </span>
-            <span className="text-lg font-semibold text-[#F9FAFB]">ActByMe</span>
+            <span className="text-lg font-bold tracking-tight text-white">ActByMe</span>
           </Link>
 
-          <nav className="flex items-center gap-2">
+          <nav className="hidden items-center gap-1 lg:flex">
             <Link
-              className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/10"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
               href="/actors"
             >
-              Actors
+              Discover Actors
             </Link>
-            {isAuthenticated ? (
-              <AuthenticatedLinks />
-            ) : (
-              <AnonymousLinks
-                onLogin={() => {
-                  setAuthMode("login");
-                  setAuthOpen(true);
-                }}
-                onSignup={() => {
-                  setAuthMode("signup");
-                  setAuthOpen(true);
-                }}
-              />
-            )}
+            <Link
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
+              href="/create-performance"
+            >
+              Create Performance
+            </Link>
+            <Link
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
+              href="/create-performance"
+            >
+              Projects
+            </Link>
+            <Link
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
+              href="/#how-it-works"
+            >
+              How It Works
+            </Link>
           </nav>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            {!isWorkflow ? (
+              <Link
+                className="hidden items-center gap-1.5 rounded-lg bg-[#6C4DFF] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#6C4DFF]/25 transition hover:bg-[#7a5eff] md:flex"
+                href="/create-performance"
+              >
+                <Sparkles className="size-3.5" /> Create Performance
+              </Link>
+            ) : (
+              <button
+                aria-label="Create a new performance project"
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-[#a3a3b8] transition hover:border-white/20 hover:text-white"
+                onClick={() => window.dispatchEvent(new Event("actbyme:new-performance-project"))}
+                title="Create a new performance project"
+                type="button"
+              >
+                <RotateCcw className="size-3.5" />
+                <span className="hidden sm:inline">New Project</span>
+              </button>
+            )}
+
+            {isAuthenticated ? (
+              <Link
+                className="inline-flex h-10 items-center rounded-lg border border-white/10 px-3.5 text-sm font-semibold text-white transition hover:border-white/20"
+                href="/profile"
+              >
+                Profile
+              </Link>
+            ) : (
+              <>
+                <button
+                  className="inline-flex h-10 items-center rounded-lg border border-white/10 px-3.5 text-sm font-medium text-[#a3a3b8] transition hover:border-white/20 hover:text-white"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthOpen(true);
+                  }}
+                  type="button"
+                >
+                  Login
+                </button>
+                <button
+                  className="hidden h-10 items-center rounded-lg bg-white px-3.5 text-sm font-semibold text-[#070A12] transition hover:bg-[#e8e8f0] sm:inline-flex"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthOpen(true);
+                  }}
+                  type="button"
+                >
+                  Sign up
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
       <AuthModal initialMode={authMode} onClose={() => setAuthOpen(false)} open={authOpen} />
     </>
-  );
-}
-
-function AnonymousLinks({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
-  return (
-    <>
-      <button
-        className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-transparent px-4 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/10"
-        onClick={onLogin}
-        type="button"
-      >
-        Login
-      </button>
-      <button
-        className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#09090B] transition hover:bg-[#E5E7EB]"
-        onClick={onSignup}
-        type="button"
-      >
-        Sign up
-      </button>
-    </>
-  );
-}
-
-function AuthenticatedLinks() {
-  return (
-    <Link
-      className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold !text-[#09090B] transition hover:bg-[#E5E7EB]"
-      href="/profile"
-    >
-      Profile
-    </Link>
   );
 }

@@ -8,6 +8,10 @@ import type {
   EarlyAccessSignupResponse,
   UploadNamespace,
   UploadUrlResponse,
+  PerformanceProjectResponse,
+  PerformanceProjectSaveRequest,
+  PerformanceTake,
+  PerformanceTakeUploadReservation,
 } from "./types";
 import { supabase } from "@/lib/supabase/client";
 
@@ -54,8 +58,13 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `API error: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const message = Array.isArray(errorData.message)
+      ? errorData.message.join(", ")
+      : errorData.message || `API error: ${response.statusText}`;
+    throw new APIError(response.status, message, errorData);
   }
 
   return response.json();
@@ -241,6 +250,136 @@ export const storageApi = {
 
     return upload;
   },
+};
+
+export const performanceProjectsApi = {
+  getCurrent: async (): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>("/performance-projects/current"),
+
+  create: async (request: PerformanceProjectSaveRequest): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>("/performance-projects", {
+      body: JSON.stringify(request),
+      method: "POST",
+    }),
+
+  update: async (
+    id: string,
+    request: PerformanceProjectSaveRequest,
+  ): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}`, {
+      body: JSON.stringify(request),
+      method: "PATCH",
+    }),
+
+  generateBrief: async (id: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/generate-brief`, {
+      method: "POST",
+    }),
+};
+
+export const performanceTakesApi = {
+  createUpload: async (
+    projectId: string,
+    sceneId: string,
+    request: { contentType: "video/mp4" | "video/quicktime"; fileName: string; sizeBytes: number },
+  ): Promise<PerformanceTakeUploadReservation> =>
+    apiFetch<PerformanceTakeUploadReservation>(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/upload-url`,
+      {
+        body: JSON.stringify(request),
+        method: "POST",
+      },
+    ),
+
+  uploadFile: async (
+    upload: PerformanceTakeUploadReservation["upload"],
+    file: File,
+    contentType: "video/mp4" | "video/quicktime",
+    onProgress: (progress: number) => void,
+  ): Promise<void> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const uploadFile =
+      file.type === contentType
+        ? file
+        : new File([file], file.name, { lastModified: file.lastModified, type: contentType });
+
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append("cacheControl", "3600");
+      formData.append("", uploadFile);
+
+      request.open("PUT", upload.uploadUrl);
+      request.setRequestHeader("x-upsert", "false");
+
+      const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      if (publishableKey) request.setRequestHeader("apikey", publishableKey);
+      if (session?.access_token) {
+        request.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+      }
+
+      request.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      });
+      request.addEventListener("load", () => {
+        if (request.status >= 200 && request.status < 300) {
+          onProgress(100);
+          resolve();
+          return;
+        }
+        reject(new Error(`Storage upload failed with status ${request.status}.`));
+      });
+      request.addEventListener("error", () => reject(new Error("Storage upload failed.")));
+      request.addEventListener("abort", () => reject(new Error("Storage upload was cancelled.")));
+      request.send(formData);
+    });
+  },
+
+  completeUpload: async (
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+    uploadAttemptId: string,
+  ): Promise<PerformanceTake> =>
+    apiFetch<PerformanceTake>(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/complete`,
+      {
+        body: JSON.stringify({ uploadAttemptId }),
+        method: "POST",
+      },
+    ),
+
+  failUpload: async (
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+    uploadAttemptId: string,
+    message: string,
+  ): Promise<PerformanceTake> =>
+    apiFetch<PerformanceTake>(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/fail`,
+      {
+        body: JSON.stringify({ message, uploadAttemptId }),
+        method: "POST",
+      },
+    ),
+
+  getReadUrl: async (
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+  ): Promise<{ expiresInSeconds: number; readUrl: string }> =>
+    apiFetch(`/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/read-url`),
+
+  delete: async (projectId: string, sceneId: string, takeId: string) =>
+    apiFetch<{ deleted: boolean }>(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}`,
+      { method: "DELETE" },
+    ),
 };
 
 export { APIError };
