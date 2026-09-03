@@ -6,6 +6,7 @@ export type PresignedUploadRequest = {
     | "actor-profile-image"
     | "actor-video"
     | "actor-private-video"
+    | "performance-brief"
     | "performance-take"
     | "platform-asset"
     | "actor-delivery";
@@ -31,6 +32,7 @@ export interface StorageClient {
   createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload>;
   createSignedReadUrl(key: string, expiresInSeconds: number): Promise<string>;
   deleteObject(key: string): Promise<void>;
+  downloadObject(key: string): Promise<Uint8Array>;
   getObjectInfo(key: string): Promise<StoredObjectInfo>;
   getPublicUrl(key: string): string;
 }

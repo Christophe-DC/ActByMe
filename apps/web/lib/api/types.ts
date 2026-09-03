@@ -126,11 +126,92 @@ export type UploadNamespace =
   | "platform-asset"
   | "actor-delivery";
 
-export type PerformancePath = "MATCHED_ACTOR" | "INVITED_ACTOR" | "SELF_UPLOAD";
+export type PerformancePath = "SELF" | "TEAM_MEMBER" | "ACTBYME_PERFORMER";
 
 export type PerformanceTakeUploadStatus = "UPLOADING" | "UPLOADED" | "FAILED";
 
-export type PerformanceTakeStatus = "DRAFT" | "SUBMITTED";
+export type PerformanceTakeStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "QA_RUNNING"
+  | "QA_FAILED"
+  | "QA_PASSED"
+  | "APPROVED";
+
+export type PerformanceQaRunStatus = "RUNNING" | "COMPLETED" | "ERROR";
+
+export type PerformanceQaResultStatus = "PASS" | "FAIL";
+
+export type PerformanceQaCheckType =
+  | "FILE_CODEC"
+  | "DURATION"
+  | "RESOLUTION_ORIENTATION"
+  | "AUDIO_PRESENCE"
+  | "DIALOGUE_ACCURACY";
+
+export interface PerformanceQaCheckResult {
+  correctionInstruction: string | null;
+  createdAt: string;
+  id: string;
+  measuredValue: Record<string, unknown>;
+  qaRunId: string;
+  requiredValue: Record<string, unknown> | null;
+  result: PerformanceQaResultStatus;
+  type: PerformanceQaCheckType;
+}
+
+export interface PerformanceQaRun {
+  approvedBriefVersion: number;
+  checks: PerformanceQaCheckResult[];
+  completedAt: string | null;
+  createdAt: string;
+  id: string;
+  processingError: string | null;
+  projectId: string;
+  result: PerformanceQaResultStatus | null;
+  sceneId: string;
+  startedAt: string;
+  status: PerformanceQaRunStatus;
+  takeId: string;
+  transcript: string | null;
+  transcriptionModel: string | null;
+  updatedAt: string;
+  uploadAttemptId: string;
+}
+
+export type PerformanceBriefAttachmentStatus = "UPLOADING" | "PARSING" | "READY" | "FAILED";
+
+export type PerformanceBriefContentType =
+  | "application/pdf"
+  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  | "text/plain";
+
+export interface PerformanceBriefAttachment {
+  contentType: PerformanceBriefContentType;
+  createdAt: string;
+  extractionError: string | null;
+  id: string;
+  originalFileName: string;
+  parsedAt: string | null;
+  projectId: string;
+  sizeBytes: number;
+  status: PerformanceBriefAttachmentStatus;
+  storageBucket: string;
+  storagePath: string;
+  updatedAt: string;
+  uploadedAt: string | null;
+  uploadAttemptId: string;
+}
+
+export interface PerformanceBriefAttachmentUploadReservation {
+  attachment: PerformanceBriefAttachment;
+  upload: {
+    bucket: string;
+    path: string;
+    token: string;
+    uploadUrl: string;
+  };
+}
 
 export interface PerformanceTake {
   contentType: string;
@@ -138,6 +219,7 @@ export interface PerformanceTake {
   id: string;
   originalFileName: string;
   projectId: string;
+  qaRuns?: PerformanceQaRun[];
   readUrl?: string;
   sceneId: string;
   sizeBytes: number;
@@ -166,6 +248,8 @@ export type PerformanceWorkflowStatus =
   | "READY_FOR_BRIEF"
   | "GENERATING_BRIEF"
   | "BRIEF_REVIEW"
+  | "BRIEF_APPROVED"
+  | "PERFORMER_SELECTION"
   | "COMPANY_DETAILS"
   | "PROJECT_DETAILS"
   | "SETUP_REVIEW"
@@ -229,7 +313,6 @@ export interface PerformanceProjectSaveRequest {
     targetAiTool: string;
     title: string;
     type: string;
-    uploadFile: string;
   };
   scenes: Array<{
     bodyPosition: string;
@@ -249,7 +332,10 @@ export interface PerformanceProjectSaveRequest {
 }
 
 export interface PerformanceProjectResponse {
+  briefAttachment: PerformanceBriefAttachment | null;
   brief: {
+    approvedAt: string | null;
+    approvedVersion: number | null;
     globalDirection: string;
     capturePlan: {
       location: string;
@@ -274,6 +360,7 @@ export interface PerformanceProjectResponse {
     model: string;
     openaiResponseId: string | null;
     generatedAt: string;
+    version: number;
   } | null;
   companyName: string;
   companyWebsite: string | null;

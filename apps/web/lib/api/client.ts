@@ -12,6 +12,10 @@ import type {
   PerformanceProjectSaveRequest,
   PerformanceTake,
   PerformanceTakeUploadReservation,
+  PerformanceBriefAttachment,
+  PerformanceBriefAttachmentUploadReservation,
+  PerformanceBriefContentType,
+  PerformancePath,
 } from "./types";
 import { supabase } from "@/lib/supabase/client";
 
@@ -100,6 +104,54 @@ async function getAuthHeaders() {
   return {
     Authorization: `Bearer ${session.access_token}`,
   };
+}
+
+async function uploadToSignedUrl(
+  upload: { uploadUrl: string },
+  file: File,
+  contentType: string,
+  onProgress: (progress: number) => void,
+): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const uploadFile =
+    file.type === contentType
+      ? file
+      : new File([file], file.name, { lastModified: file.lastModified, type: contentType });
+
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append("cacheControl", "3600");
+    formData.append("", uploadFile);
+
+    request.open("PUT", upload.uploadUrl);
+    request.setRequestHeader("x-upsert", "false");
+
+    const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    if (publishableKey) request.setRequestHeader("apikey", publishableKey);
+    if (session?.access_token) {
+      request.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+    }
+
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+    request.addEventListener("load", () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress(100);
+        resolve();
+        return;
+      }
+      reject(new Error(`Storage upload failed with status ${request.status}.`));
+    });
+    request.addEventListener("error", () => reject(new Error("Storage upload failed.")));
+    request.addEventListener("abort", () => reject(new Error("Storage upload was cancelled.")));
+    request.send(formData);
+  });
 }
 
 export const actorsApi = {
@@ -275,6 +327,60 @@ export const performanceProjectsApi = {
     apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/generate-brief`, {
       method: "POST",
     }),
+
+  approveBrief: async (id: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/approve-brief`, {
+      method: "POST",
+    }),
+
+  selectPerformerPath: async (
+    id: string,
+    performerPath: PerformancePath,
+  ): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/performer-path`, {
+      body: JSON.stringify({ performerPath }),
+      method: "POST",
+    }),
+};
+
+export const performanceBriefAttachmentsApi = {
+  createUpload: async (
+    projectId: string,
+    request: { contentType: PerformanceBriefContentType; fileName: string; sizeBytes: number },
+  ): Promise<PerformanceBriefAttachmentUploadReservation> =>
+    apiFetch<PerformanceBriefAttachmentUploadReservation>(
+      `/performance-projects/${projectId}/brief-attachment/upload-url`,
+      { body: JSON.stringify(request), method: "POST" },
+    ),
+
+  uploadFile: uploadToSignedUrl,
+
+  completeUpload: async (
+    projectId: string,
+    attachmentId: string,
+    uploadAttemptId: string,
+  ): Promise<PerformanceBriefAttachment> =>
+    apiFetch<PerformanceBriefAttachment>(
+      `/performance-projects/${projectId}/brief-attachment/${attachmentId}/complete`,
+      { body: JSON.stringify({ uploadAttemptId }), method: "POST" },
+    ),
+
+  failUpload: async (
+    projectId: string,
+    attachmentId: string,
+    uploadAttemptId: string,
+    message: string,
+  ): Promise<PerformanceBriefAttachment> =>
+    apiFetch<PerformanceBriefAttachment>(
+      `/performance-projects/${projectId}/brief-attachment/${attachmentId}/fail`,
+      { body: JSON.stringify({ message, uploadAttemptId }), method: "POST" },
+    ),
+
+  delete: async (projectId: string, attachmentId: string) =>
+    apiFetch<{ deleted: boolean }>(
+      `/performance-projects/${projectId}/brief-attachment/${attachmentId}`,
+      { method: "DELETE" },
+    ),
 };
 
 export const performanceTakesApi = {
@@ -296,48 +402,7 @@ export const performanceTakesApi = {
     file: File,
     contentType: "video/mp4" | "video/quicktime",
     onProgress: (progress: number) => void,
-  ): Promise<void> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const uploadFile =
-      file.type === contentType
-        ? file
-        : new File([file], file.name, { lastModified: file.lastModified, type: contentType });
-
-    return new Promise((resolve, reject) => {
-      const request = new XMLHttpRequest();
-      const formData = new FormData();
-      formData.append("cacheControl", "3600");
-      formData.append("", uploadFile);
-
-      request.open("PUT", upload.uploadUrl);
-      request.setRequestHeader("x-upsert", "false");
-
-      const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-      if (publishableKey) request.setRequestHeader("apikey", publishableKey);
-      if (session?.access_token) {
-        request.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
-      }
-
-      request.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          onProgress(Math.round((event.loaded / event.total) * 100));
-        }
-      });
-      request.addEventListener("load", () => {
-        if (request.status >= 200 && request.status < 300) {
-          onProgress(100);
-          resolve();
-          return;
-        }
-        reject(new Error(`Storage upload failed with status ${request.status}.`));
-      });
-      request.addEventListener("error", () => reject(new Error("Storage upload failed.")));
-      request.addEventListener("abort", () => reject(new Error("Storage upload was cancelled.")));
-      request.send(formData);
-    });
-  },
+  ): Promise<void> => uploadToSignedUrl(upload, file, contentType, onProgress),
 
   completeUpload: async (
     projectId: string,
@@ -366,6 +431,26 @@ export const performanceTakesApi = {
         body: JSON.stringify({ message, uploadAttemptId }),
         method: "POST",
       },
+    ),
+
+  runQa: async (
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+  ): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/qa-runs`,
+      { method: "POST" },
+    ),
+
+  approve: async (
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+  ): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/approve`,
+      { method: "POST" },
     ),
 
   getReadUrl: async (

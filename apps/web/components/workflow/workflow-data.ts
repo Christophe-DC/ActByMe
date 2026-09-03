@@ -7,7 +7,8 @@ export type WorkflowStep =
   | "director"
   | "brief"
   | "source"
-  | "progress";
+  | "progress"
+  | "qa";
 
 export type CompanyDraft = {
   name: string;
@@ -35,7 +36,6 @@ export type ProjectDraft = {
   targetAiTool: string;
   language: string;
   notes: string;
-  uploadFile: string;
 };
 
 export type SceneDraft = {
@@ -85,6 +85,7 @@ export const WORKFLOW_STEPS: Array<{ id: WorkflowStep; label: string }> = [
   { id: "brief", label: "Brief" },
   { id: "source", label: "Source" },
   { id: "progress", label: "Uploads" },
+  { id: "qa", label: "QA" },
 ];
 
 export function createEmptyCompanyDraft(): CompanyDraft {
@@ -114,6 +115,5 @@ export function createEmptyProjectDraft(): ProjectDraft {
     targetAiTool: "",
     language: "",
     notes: "",
-    uploadFile: "",
   };
 }

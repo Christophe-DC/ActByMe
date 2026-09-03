@@ -30,8 +30,9 @@ export class SupabaseService implements StorageClient {
   async createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload> {
     const bucket = resolveBucket(request.namespace);
 
-    if (request.namespace === "performance-take") {
-      const { data: bucketDetails, error: bucketError } = await this.admin.storage.getBucket(bucket);
+    if (["performance-brief", "performance-take"].includes(request.namespace)) {
+      const { data: bucketDetails, error: bucketError } =
+        await this.admin.storage.getBucket(bucket);
 
       if (bucketError) {
         throw bucketError;
@@ -83,6 +84,17 @@ export class SupabaseService implements StorageClient {
     if (error) {
       throw error;
     }
+  }
+
+  async downloadObject(key: string): Promise<Uint8Array> {
+    const { bucket, path } = splitStorageKey(key);
+    const { data, error } = await this.admin.storage.from(bucket).download(path);
+
+    if (error) {
+      throw error;
+    }
+
+    return new Uint8Array(await data.arrayBuffer());
   }
 
   async getObjectInfo(key: string) {

@@ -28,8 +28,15 @@ import {
   type WorkflowStep,
 } from "./workflow-data";
 import { ProductionStep } from "./workflow-production-screens";
-import { APIError, performanceProjectsApi, performanceTakesApi } from "@/lib/api/client";
+import {
+  APIError,
+  performanceBriefAttachmentsApi,
+  performanceProjectsApi,
+  performanceTakesApi,
+} from "@/lib/api/client";
 import type {
+  PerformanceBriefAttachment,
+  PerformanceBriefContentType,
   PerformancePath,
   PerformanceProjectResponse,
   PerformanceProjectSaveRequest,
@@ -38,9 +45,16 @@ import type {
 
 export type WorkflowState = {
   step: WorkflowStep;
+  workflowStatus: PerformanceWorkflowStatus;
   company: CompanyDraft;
   project: ProjectDraft;
   brief: BriefDraft | null;
+  briefApproval: {
+    approvedAt: string;
+    approvedVersion: number;
+    version: number;
+  } | null;
+  briefAttachment: PerformanceBriefAttachment | null;
   scenes: SceneDraft[];
   performerPath: PerformancePath | null;
 };
@@ -50,14 +64,28 @@ export type WorkflowController = {
   state: WorkflowState;
   generatingBrief: boolean;
   generationError: string;
+  briefAttachmentBusy: boolean;
+  briefAttachmentError: string;
+  briefUploadProgress: number;
+  approvingBrief: boolean;
+  approvalError: string;
+  performerSelectionBusy: boolean;
+  performerSelectionError: string;
+  qaError: string;
+  qaSceneBusy: string | null;
+  approveBrief: () => Promise<void>;
   generateBrief: () => Promise<void>;
   goTo: (step: WorkflowStep) => void;
   updateCompany: (patch: Partial<CompanyDraft>) => void;
   updateProject: (patch: Partial<ProjectDraft>) => void;
   updateBrief: (patch: Partial<BriefDraft>) => void;
   updateScene: (sceneId: string, patch: Partial<SceneDraft>) => void;
-  setPerformerPath: (performerPath: PerformancePath) => void;
+  selectPerformerPath: (performerPath: PerformancePath) => Promise<void>;
+  approveTake: (sceneId: string, takeId: string) => Promise<void>;
+  runTakeQa: (sceneId: string, takeId: string) => Promise<void>;
   createNewProject: () => void;
+  removeBriefAttachment: () => Promise<void>;
+  uploadBriefAttachment: (file: File) => Promise<void>;
 };
 
 const STEP_TO_STATUS: Record<WorkflowStep, PerformanceWorkflowStatus> = {
@@ -68,14 +96,22 @@ const STEP_TO_STATUS: Record<WorkflowStep, PerformanceWorkflowStatus> = {
   brief: "BRIEF_REVIEW",
   source: "PERFORMANCE_SOURCE",
   progress: "PERFORMANCE_PROGRESS",
+  qa: "QA_PENDING",
 };
+
+const APPROVED_WORKFLOW_STATUSES: PerformanceWorkflowStatus[] = [
+  "BRIEF_APPROVED",
+  "PERFORMER_SELECTION",
+  "PERFORMANCE_SOURCE",
+  "ACTOR_SELECTION",
+  "REQUEST_SUMMARY",
+  "PERFORMANCE_PROGRESS",
+  "QA_PENDING",
+];
 
 function persistedStep(project: PerformanceProjectResponse): WorkflowStep {
   const currentStep = project.currentStep as WorkflowStep;
-  if (
-    project.workflowStatus === "DRAFT" &&
-    ["company", "project"].includes(currentStep)
-  ) {
+  if (project.workflowStatus === "DRAFT" && ["company", "project"].includes(currentStep)) {
     return currentStep;
   }
 
@@ -83,13 +119,19 @@ function persistedStep(project: PerformanceProjectResponse): WorkflowStep {
     READY_FOR_BRIEF: "review",
     GENERATING_BRIEF: "director",
     BRIEF_REVIEW: "brief",
+    BRIEF_APPROVED: "source",
+    PERFORMER_SELECTION:
+      project.performerPath === "SELF" ? (currentStep === "qa" ? "qa" : "progress") : "source",
     COMPANY_DETAILS: "company",
     PROJECT_DETAILS: "project",
     SETUP_REVIEW: "review",
     BRIEF_PROCESSING: "director",
     BRIEF_READY: "brief",
     PERFORMANCE_SOURCE: "source",
+    ACTOR_SELECTION: "source",
+    REQUEST_SUMMARY: "source",
     PERFORMANCE_PROGRESS: "progress",
+    QA_PENDING: currentStep === "progress" ? "progress" : "qa",
   };
   return legacySteps[project.workflowStatus] ?? "company";
 }
@@ -97,9 +139,12 @@ function persistedStep(project: PerformanceProjectResponse): WorkflowStep {
 function createInitialState(): WorkflowState {
   return {
     step: "company",
+    workflowStatus: "DRAFT",
     company: createEmptyCompanyDraft(),
     project: createEmptyProjectDraft(),
     brief: null,
+    briefApproval: null,
+    briefAttachment: null,
     scenes: [],
     performerPath: null,
   };
@@ -125,7 +170,7 @@ function toSaveRequest(state: WorkflowState): PerformanceProjectSaveRequest {
       title: scene.title,
     })),
     currentStep: state.step,
-    workflowStatus: STEP_TO_STATUS[state.step],
+    workflowStatus: state.workflowStatus,
   };
 }
 
@@ -134,6 +179,8 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
 
   return {
     ...initial,
+    workflowStatus: project.workflowStatus,
+    briefAttachment: project.briefAttachment,
     brief: project.brief
       ? {
           capturePlan: {
@@ -159,6 +206,14 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
           },
         }
       : null,
+    briefApproval:
+      project.brief?.approvedAt && project.brief.approvedVersion
+        ? {
+            approvedAt: project.brief.approvedAt,
+            approvedVersion: project.brief.approvedVersion,
+            version: project.brief.version,
+          }
+        : null,
     company: {
       contactName: project.contactName ?? "",
       contactRole: project.contactRole ?? "",
@@ -184,7 +239,6 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
       targetAiTool: project.targetAiTool ?? "",
       title: project.title,
       type: project.type,
-      uploadFile: project.sourceFileName ?? "",
     },
     scenes: project.scenes.map((scene) => ({
       bodyPosition: scene.bodyPosition ?? "",
@@ -229,12 +283,38 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+const MAX_BRIEF_ATTACHMENT_BYTES = 20_000_000;
+
+function resolveBriefContentType(fileName: string): PerformanceBriefContentType | null {
+  const normalized = fileName.toLowerCase();
+  if (normalized.endsWith(".pdf")) return "application/pdf";
+  if (normalized.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (normalized.endsWith(".txt")) return "text/plain";
+  return null;
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1_000_000) return `${Math.max(1, Math.round(sizeBytes / 1000))} KB`;
+  return `${(sizeBytes / 1_000_000).toFixed(1)} MB`;
+}
+
 export function WorkflowApp() {
   const [state, setState] = useState<WorkflowState>(createInitialState);
   const [projectId, setProjectId] = useState<string>();
   const [ready, setReady] = useState(false);
   const [generatingBrief, setGeneratingBrief] = useState(false);
   const [generationError, setGenerationError] = useState("");
+  const [approvingBrief, setApprovingBrief] = useState(false);
+  const [approvalError, setApprovalError] = useState("");
+  const [performerSelectionBusy, setPerformerSelectionBusy] = useState(false);
+  const [performerSelectionError, setPerformerSelectionError] = useState("");
+  const [qaError, setQaError] = useState("");
+  const [qaSceneBusy, setQaSceneBusy] = useState<string | null>(null);
+  const [briefAttachmentBusy, setBriefAttachmentBusy] = useState(false);
+  const [briefAttachmentError, setBriefAttachmentError] = useState("");
+  const [briefUploadProgress, setBriefUploadProgress] = useState(0);
   const [persistenceError, setPersistenceError] = useState("");
   const initializationStarted = useRef(false);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
@@ -289,10 +369,18 @@ export function WorkflowApp() {
   }, []);
 
   useEffect(() => {
-    if (!ready || !projectId || state.step === "director") return;
+    if (
+      !ready ||
+      !projectId ||
+      state.step === "director" ||
+      approvingBrief ||
+      performerSelectionBusy
+    ) {
+      return;
+    }
     const timer = window.setTimeout(() => queueSave(projectId, state), 500);
     return () => window.clearTimeout(timer);
-  }, [projectId, queueSave, ready, state]);
+  }, [approvingBrief, performerSelectionBusy, projectId, queueSave, ready, state]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -301,7 +389,13 @@ export function WorkflowApp() {
   const goTo = useCallback(
     (step: WorkflowStep) => {
       setState((current) => {
-        const next = { ...current, step };
+        const next = {
+          ...current,
+          step,
+          workflowStatus: APPROVED_WORKFLOW_STATUSES.includes(current.workflowStatus)
+            ? current.workflowStatus
+            : STEP_TO_STATUS[step],
+        };
         if (projectId) queueSave(projectId, next);
         return next;
       });
@@ -314,6 +408,11 @@ export function WorkflowApp() {
     setReady(false);
     setProjectId(undefined);
     setState(initial);
+    setBriefAttachmentError("");
+    setBriefUploadProgress(0);
+    setApprovalError("");
+    setPerformerSelectionError("");
+    setQaError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     void performanceProjectsApi
@@ -337,6 +436,113 @@ export function WorkflowApp() {
     return () => window.removeEventListener("actbyme:new-performance-project", createNewProject);
   }, [createNewProject]);
 
+  const uploadBriefAttachment = useCallback(
+    async (file: File) => {
+      if (!projectId || briefAttachmentBusy) return;
+
+      const contentType = resolveBriefContentType(file.name);
+      if (!contentType) {
+        setBriefAttachmentError("Choose a PDF, DOCX, or TXT production brief.");
+        return;
+      }
+      if (!file.size || file.size > MAX_BRIEF_ATTACHMENT_BYTES) {
+        setBriefAttachmentError("The production brief must be between 1 byte and 20 MB.");
+        return;
+      }
+
+      setBriefAttachmentBusy(true);
+      setBriefAttachmentError("");
+      setBriefUploadProgress(0);
+      let reservation:
+        | Awaited<ReturnType<typeof performanceBriefAttachmentsApi.createUpload>>
+        | undefined;
+      let storageUploadCompleted = false;
+
+      try {
+        await saveQueue.current;
+        reservation = await performanceBriefAttachmentsApi.createUpload(projectId, {
+          contentType,
+          fileName: file.name,
+          sizeBytes: file.size,
+        });
+        setState((current) => ({
+          ...current,
+          briefAttachment: reservation?.attachment ?? null,
+        }));
+        await performanceBriefAttachmentsApi.uploadFile(
+          reservation.upload,
+          file,
+          contentType,
+          setBriefUploadProgress,
+        );
+        storageUploadCompleted = true;
+        setState((current) => ({
+          ...current,
+          briefAttachment: current.briefAttachment
+            ? { ...current.briefAttachment, status: "PARSING" }
+            : null,
+        }));
+        const attachment = await performanceBriefAttachmentsApi.completeUpload(
+          projectId,
+          reservation.attachment.id,
+          reservation.attachment.uploadAttemptId,
+        );
+        setState((current) => ({ ...current, briefAttachment: attachment }));
+      } catch (error) {
+        if (reservation && !storageUploadCompleted) {
+          try {
+            const failed = await performanceBriefAttachmentsApi.failUpload(
+              projectId,
+              reservation.attachment.id,
+              reservation.attachment.uploadAttemptId,
+              error instanceof Error ? error.message : "Upload failed.",
+            );
+            setState((current) => ({ ...current, briefAttachment: failed }));
+          } catch {
+            // The primary upload error is more useful than a secondary status-write failure.
+          }
+        } else if (reservation) {
+          try {
+            const refreshedProject = await performanceProjectsApi.getCurrent();
+            if (refreshedProject.id === projectId) {
+              setState((current) => ({
+                ...current,
+                briefAttachment: refreshedProject.briefAttachment,
+              }));
+            }
+          } catch {
+            // Preserve the parsing error below if the status refresh is unavailable.
+          }
+        }
+        setBriefAttachmentError(
+          error instanceof Error ? error.message : "The production brief could not be uploaded.",
+        );
+      } finally {
+        setBriefAttachmentBusy(false);
+      }
+    },
+    [briefAttachmentBusy, projectId],
+  );
+
+  const removeBriefAttachment = useCallback(async () => {
+    const attachment = state.briefAttachment;
+    if (!projectId || !attachment || briefAttachmentBusy) return;
+
+    setBriefAttachmentBusy(true);
+    setBriefAttachmentError("");
+    try {
+      await performanceBriefAttachmentsApi.delete(projectId, attachment.id);
+      setState((current) => ({ ...current, briefAttachment: null }));
+      setBriefUploadProgress(0);
+    } catch (error) {
+      setBriefAttachmentError(
+        error instanceof Error ? error.message : "The production brief could not be removed.",
+      );
+    } finally {
+      setBriefAttachmentBusy(false);
+    }
+  }, [briefAttachmentBusy, projectId, state.briefAttachment]);
+
   const generateBrief = useCallback(async () => {
     if (!projectId || generatingBrief) return;
 
@@ -346,10 +552,18 @@ export function WorkflowApp() {
     try {
       await saveQueue.current;
       if (state.step !== "director") {
-        const reviewSnapshot: WorkflowState = { ...state, step: "review" };
+        const reviewSnapshot: WorkflowState = {
+          ...state,
+          step: "review",
+          workflowStatus: "READY_FOR_BRIEF",
+        };
         await performanceProjectsApi.update(projectId, toSaveRequest(reviewSnapshot));
       }
-      setState((current) => ({ ...current, step: "director" }));
+      setState((current) => ({
+        ...current,
+        step: "director",
+        workflowStatus: "GENERATING_BRIEF",
+      }));
 
       const generatedProject = await performanceProjectsApi.generateBrief(projectId);
       const persistedState = await addSignedTakeUrls(
@@ -367,10 +581,112 @@ export function WorkflowApp() {
     }
   }, [generatingBrief, projectId, state]);
 
+  const approveBrief = useCallback(async () => {
+    if (!projectId || approvingBrief || !state.brief) return;
+
+    setApprovingBrief(true);
+    setApprovalError("");
+    try {
+      await saveQueue.current;
+      const reviewSnapshot: WorkflowState = {
+        ...state,
+        step: "brief",
+        workflowStatus: "BRIEF_REVIEW",
+      };
+      await performanceProjectsApi.update(projectId, toSaveRequest(reviewSnapshot));
+      const approvedProject = await performanceProjectsApi.approveBrief(projectId);
+      setState(fromPersistedProject(approvedProject));
+      setPersistenceError("");
+    } catch (error) {
+      setApprovalError(
+        error instanceof Error ? error.message : "The Director Brief could not be approved.",
+      );
+    } finally {
+      setApprovingBrief(false);
+    }
+  }, [approvingBrief, projectId, state]);
+
+  const selectPerformerPath = useCallback(
+    async (performerPath: PerformancePath) => {
+      if (!projectId || performerSelectionBusy) return;
+
+      setPerformerSelectionBusy(true);
+      setPerformerSelectionError("");
+      try {
+        await saveQueue.current;
+        const selectedProject = await performanceProjectsApi.selectPerformerPath(
+          projectId,
+          performerPath,
+        );
+        const selectedState = await addSignedTakeUrls(
+          selectedProject.id,
+          fromPersistedProject(selectedProject),
+        );
+        setState(selectedState);
+        setPersistenceError("");
+      } catch (error) {
+        setPerformerSelectionError(
+          error instanceof Error ? error.message : "The performer path could not be saved.",
+        );
+      } finally {
+        setPerformerSelectionBusy(false);
+      }
+    },
+    [performerSelectionBusy, projectId],
+  );
+
+  const runTakeQa = useCallback(
+    async (sceneId: string, takeId: string) => {
+      if (!projectId || qaSceneBusy) return;
+      setQaSceneBusy(sceneId);
+      setQaError("");
+      try {
+        await saveQueue.current;
+        const updatedProject = await performanceTakesApi.runQa(projectId, sceneId, takeId);
+        setState(await addSignedTakeUrls(projectId, fromPersistedProject(updatedProject)));
+        setPersistenceError("");
+      } catch (error) {
+        setQaError(error instanceof Error ? error.message : "Technical QA could not complete.");
+      } finally {
+        setQaSceneBusy(null);
+      }
+    },
+    [projectId, qaSceneBusy],
+  );
+
+  const approveTake = useCallback(
+    async (sceneId: string, takeId: string) => {
+      if (!projectId || qaSceneBusy) return;
+      setQaSceneBusy(sceneId);
+      setQaError("");
+      try {
+        const updatedProject = await performanceTakesApi.approve(projectId, sceneId, takeId);
+        setState(await addSignedTakeUrls(projectId, fromPersistedProject(updatedProject)));
+        setPersistenceError("");
+      } catch (error) {
+        setQaError(error instanceof Error ? error.message : "The take could not be approved.");
+      } finally {
+        setQaSceneBusy(null);
+      }
+    },
+    [projectId, qaSceneBusy],
+  );
+
   const controller: WorkflowController = useMemo(
     () => ({
       projectId,
       state,
+      briefAttachmentBusy,
+      briefAttachmentError,
+      briefUploadProgress,
+      approvingBrief,
+      approvalError,
+      performerSelectionBusy,
+      performerSelectionError,
+      qaError,
+      qaSceneBusy,
+      approveBrief,
+      approveTake,
       generatingBrief,
       generationError,
       generateBrief,
@@ -397,10 +713,36 @@ export function WorkflowApp() {
             scene.id === sceneId ? { ...scene, ...patch } : scene,
           ),
         })),
-      setPerformerPath: (performerPath) => setState((current) => ({ ...current, performerPath })),
+      selectPerformerPath,
+      runTakeQa,
       createNewProject,
+      removeBriefAttachment,
+      uploadBriefAttachment,
     }),
-    [createNewProject, generateBrief, generatingBrief, generationError, goTo, projectId, state],
+    [
+      briefAttachmentBusy,
+      briefAttachmentError,
+      briefUploadProgress,
+      approveBrief,
+      approvalError,
+      approvingBrief,
+      approveTake,
+      createNewProject,
+      generateBrief,
+      generatingBrief,
+      generationError,
+      goTo,
+      projectId,
+      performerSelectionBusy,
+      performerSelectionError,
+      qaError,
+      qaSceneBusy,
+      removeBriefAttachment,
+      state,
+      selectPerformerPath,
+      runTakeQa,
+      uploadBriefAttachment,
+    ],
   );
 
   return (
@@ -549,7 +891,7 @@ function CompanyScreen({ controller }: { controller: WorkflowController }) {
 }
 
 function ProjectScreen({ controller }: { controller: WorkflowController }) {
-  const { project } = controller.state;
+  const { briefAttachment, project } = controller.state;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectTypes = [
@@ -565,6 +907,11 @@ function ProjectScreen({ controller }: { controller: WorkflowController }) {
     const nextErrors: Record<string, string> = {};
     if (!project.title.trim()) nextErrors.title = "Project title is required";
     if (!project.type.trim()) nextErrors.type = "Project type is required";
+    if (controller.briefAttachmentBusy) {
+      nextErrors.attachment = "Wait for the production brief to finish processing";
+    } else if (briefAttachment && briefAttachment.status !== "READY") {
+      nextErrors.attachment = "Remove or replace the production brief before continuing";
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length === 0) controller.goTo("review");
   }
@@ -641,32 +988,81 @@ function ProjectScreen({ controller }: { controller: WorkflowController }) {
 
           <div>
             <p className="mb-2 text-sm font-medium text-white">Production Brief Upload</p>
-            {project.uploadFile ? (
-              <div className="flex items-center justify-between rounded-xl border border-[#66E0C2]/30 bg-[#66E0C2]/[0.06] p-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-[#66E0C2]/15">
-                    <FileText className="size-5 text-[#66E0C2]" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{project.uploadFile}</p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#66E0C2]">
-                      <CheckCircle2 className="size-3.5" /> Ready
-                    </p>
+            {briefAttachment ? (
+              <div
+                className={`rounded-xl border p-4 ${
+                  briefAttachment.status === "FAILED"
+                    ? "border-[#FF9A44]/30 bg-[#FF9A44]/[0.06]"
+                    : "border-[#66E0C2]/30 bg-[#66E0C2]/[0.06]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-10 items-center justify-center rounded-lg bg-[#66E0C2]/15">
+                      <FileText className="size-5 text-[#66E0C2]" />
+                    </span>
+                    <div>
+                      <p className="break-all text-sm font-semibold text-white">
+                        {briefAttachment.originalFileName}
+                      </p>
+                      <p
+                        className={`mt-0.5 flex items-center gap-1.5 text-xs ${
+                          briefAttachment.status === "FAILED" ? "text-[#FF9A44]" : "text-[#66E0C2]"
+                        }`}
+                      >
+                        {briefAttachment.status === "READY" ? (
+                          <CheckCircle2 className="size-3.5" />
+                        ) : (
+                          <Loader2
+                            className={`size-3.5 ${
+                              briefAttachment.status === "FAILED" ? "" : "animate-spin"
+                            }`}
+                          />
+                        )}
+                        {briefAttachment.status === "UPLOADING"
+                          ? `Uploading ${controller.briefUploadProgress}%`
+                          : briefAttachment.status === "PARSING"
+                            ? "Extracting text…"
+                            : briefAttachment.status === "READY"
+                              ? `Ready · ${formatFileSize(briefAttachment.sizeBytes)}`
+                              : briefAttachment.extractionError || "Upload or parsing failed"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="rounded-lg px-2 py-1.5 text-xs font-medium text-[#a3a3b8] transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                      disabled={controller.briefAttachmentBusy}
+                      onClick={() => fileInputRef.current?.click()}
+                      type="button"
+                    >
+                      Replace
+                    </button>
+                    <button
+                      aria-label="Remove uploaded brief"
+                      className="rounded-lg p-2 text-[#a3a3b8] transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                      disabled={controller.briefAttachmentBusy}
+                      onClick={() => void controller.removeBriefAttachment()}
+                      type="button"
+                    >
+                      <X className="size-4" />
+                    </button>
                   </div>
                 </div>
-                <button
-                  aria-label="Remove uploaded brief"
-                  className="rounded-lg p-2 text-[#a3a3b8] transition hover:bg-white/5 hover:text-white"
-                  onClick={() => controller.updateProject({ uploadFile: "" })}
-                  type="button"
-                >
-                  <X className="size-4" />
-                </button>
+                {briefAttachment.status === "UPLOADING" ? (
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-[#66E0C2] transition-[width]"
+                      style={{ width: `${controller.briefUploadProgress}%` }}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div>
                 <button
-                  className="w-full rounded-xl border-2 border-dashed border-white/10 bg-[#0A0E1A]/50 p-8 text-center transition hover:border-white/20"
+                  className="w-full rounded-xl border-2 border-dashed border-white/10 bg-[#0A0E1A]/50 p-8 text-center transition hover:border-white/20 disabled:opacity-50"
+                  disabled={controller.briefAttachmentBusy}
                   onClick={() => fileInputRef.current?.click()}
                   type="button"
                 >
@@ -675,20 +1071,27 @@ function ProjectScreen({ controller }: { controller: WorkflowController }) {
                     Choose a production brief
                   </span>
                   <span className="mt-1 block text-xs text-[#5a5a72]">
-                    PDF, DOCX, PNG, JPG, or MP4
+                    PDF, DOCX, or TXT · up to 20 MB
                   </span>
                 </button>
-                <input
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.mp4"
-                  className="hidden"
-                  onChange={(event) =>
-                    controller.updateProject({ uploadFile: event.target.files?.[0]?.name ?? "" })
-                  }
-                  ref={fileInputRef}
-                  type="file"
-                />
               </div>
             )}
+            <input
+              accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void controller.uploadBriefAttachment(file);
+                event.target.value = "";
+              }}
+              ref={fileInputRef}
+              type="file"
+            />
+            {errors.attachment || controller.briefAttachmentError ? (
+              <p className="mt-2 text-xs text-[#FF9A44]">
+                {errors.attachment || controller.briefAttachmentError}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -737,7 +1140,14 @@ function ReviewScreen({ controller }: { controller: WorkflowController }) {
             ["Location", project.location.label],
             ["Target AI Tool", project.targetAiTool],
             ["Production Objective", project.objective],
-            ["Uploaded Brief", project.uploadFile || "No file uploaded"],
+            [
+              "Uploaded Brief",
+              controller.state.briefAttachment?.status === "READY"
+                ? controller.state.briefAttachment.originalFileName
+                : controller.state.briefAttachment
+                  ? `${controller.state.briefAttachment.originalFileName} (${controller.state.briefAttachment.status.toLowerCase()})`
+                  : "No file uploaded",
+            ],
           ]}
           title="Project"
         />
@@ -760,7 +1170,11 @@ function ReviewScreen({ controller }: { controller: WorkflowController }) {
             <ArrowLeft className="size-4" /> Back
           </SecondaryButton>
           <PrimaryButton
-            disabled={controller.generatingBrief}
+            disabled={
+              controller.generatingBrief ||
+              (controller.state.briefAttachment !== null &&
+                controller.state.briefAttachment.status !== "READY")
+            }
             onClick={() => void controller.generateBrief()}
           >
             {controller.generatingBrief ? (
@@ -773,6 +1187,11 @@ function ReviewScreen({ controller }: { controller: WorkflowController }) {
         </div>
         {controller.generationError ? (
           <p className="text-right text-sm text-[#FF9A44]">{controller.generationError}</p>
+        ) : null}
+        {controller.state.briefAttachment && controller.state.briefAttachment.status !== "READY" ? (
+          <p className="text-right text-sm text-[#FF9A44]">
+            Return to Project and remove or replace the production brief before building.
+          </p>
         ) : null}
       </div>
     </WorkflowContainer>

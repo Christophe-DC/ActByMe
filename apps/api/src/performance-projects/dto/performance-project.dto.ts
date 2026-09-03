@@ -116,11 +116,6 @@ export class PerformanceProjectDetailsDto {
   @IsString()
   @MaxLength(4000)
   notes!: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @MaxLength(500)
-  uploadFile!: string;
 }
 
 export class PerformanceBriefDto {
@@ -227,8 +222,14 @@ export class SavePerformanceProjectDto {
   workflowStatus!: PerformanceWorkflowStatus;
 
   @ApiProperty({
-    enum: ["company", "project", "review", "director", "brief", "source", "progress"],
+    enum: ["company", "project", "review", "director", "brief", "source", "progress", "qa"],
   })
-  @IsIn(["company", "project", "review", "director", "brief", "source", "progress"])
+  @IsIn(["company", "project", "review", "director", "brief", "source", "progress", "qa"])
   currentStep!: string;
+}
+
+export class SelectPerformancePathDto {
+  @ApiProperty({ enum: PerformancePath })
+  @IsEnum(PerformancePath)
+  performerPath!: PerformancePath;
 }

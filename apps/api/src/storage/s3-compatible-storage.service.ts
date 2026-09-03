@@ -33,6 +33,10 @@ export class S3CompatibleStorageService implements StorageClient {
     throw new Error("S3-compatible object deletion is not implemented yet.");
   }
 
+  async downloadObject(_key: string): Promise<Uint8Array> {
+    throw new Error("S3-compatible object downloads are not implemented yet.");
+  }
+
   async getObjectInfo(_key: string): Promise<StoredObjectInfo> {
     throw new Error("S3-compatible object metadata is not implemented yet.");
   }
