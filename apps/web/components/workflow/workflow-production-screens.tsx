@@ -5,10 +5,12 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Award,
   Camera,
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Download,
   FileText,
   Gauge,
   Hand,
@@ -25,6 +27,8 @@ import {
 } from "lucide-react";
 import { performanceTakesApi } from "@/lib/api/client";
 import type {
+  PerformanceConsent,
+  PerformanceConsentDraft,
   PerformancePath,
   PerformanceQaCheckResult,
   PerformanceQaRun,
@@ -48,6 +52,8 @@ export function ProductionStep({ controller }: { controller: WorkflowController 
   if (step === "source") return <PerformanceSource controller={controller} />;
   if (step === "progress") return <PerformanceUploads controller={controller} />;
   if (step === "qa") return <TechnicalQaReview controller={controller} />;
+  if (step === "consent") return <ConsentDocumentation controller={controller} />;
+  if (step === "delivery") return <ApprovedDelivery controller={controller} />;
 
   return null;
 }
@@ -1028,13 +1034,638 @@ function TechnicalQaReview({ controller }: { controller: WorkflowController }) {
       </div>
 
       {approvedCount === controller.state.scenes.length && approvedCount > 0 ? (
-        <div className="mt-6 flex items-center gap-3 rounded-xl border border-[#66E0C2]/20 bg-[#66E0C2]/[0.06] p-4 text-sm font-semibold text-[#66E0C2]">
-          <CheckCircle2 className="size-5" /> All scene takes have passed technical QA and are
-          approved.
+        <div className="mt-6 rounded-xl border border-[#66E0C2]/20 bg-[#66E0C2]/[0.06] p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 text-sm font-semibold text-[#66E0C2]">
+              <CheckCircle2 className="size-5 shrink-0" /> All scene takes have passed technical QA
+              and are approved.
+            </div>
+            <PrimaryButton
+              onClick={() => controller.goTo("consent")}
+            >
+              <FileText className="size-4" /> Review consent
+            </PrimaryButton>
+          </div>
         </div>
       ) : null}
     </WorkflowContainer>
   );
+}
+
+function ConsentDocumentation({ controller }: { controller: WorkflowController }) {
+  const consent = controller.state.consent;
+  const [draft, setDraft] = useState<PerformanceConsentDraft>(() => consentDraft(consent));
+  const [reviewing, setReviewing] = useState(Boolean(consent?.acceptedAt));
+  const [localError, setLocalError] = useState("");
+
+  const missingRequiredField =
+    !draft.performerName?.trim() ||
+    !draft.performerEmail?.trim() ||
+    !draft.usagePurpose?.trim() ||
+    typeof draft.commercialUse !== "boolean" ||
+    typeof draft.aiTransformationAllowed !== "boolean" ||
+    typeof draft.modelTrainingAllowed !== "boolean" ||
+    !draft.territory?.trim() ||
+    !draft.usageDuration?.trim();
+
+  async function reviewConsent() {
+    if (missingRequiredField) {
+      setLocalError("Complete every required field and explicitly select each permission.");
+      return;
+    }
+    setLocalError("");
+    if (await controller.saveConsent(draft)) setReviewing(true);
+  }
+
+  const persistedConsent = controller.state.consent;
+  const accepted = Boolean(persistedConsent?.acceptedAt);
+
+  if (reviewing && persistedConsent) {
+    return (
+      <WorkflowContainer size="small">
+        {!accepted ? (
+          <ScreenBack onClick={() => setReviewing(false)} label="Edit consent details" />
+        ) : (
+          <ScreenBack onClick={() => controller.goTo("qa")} label="Back to QA results" />
+        )}
+        <PageHeading
+          eyebrow={accepted ? `Accepted consent · v${persistedConsent.version}` : "Consent review"}
+          icon={<FileText className="size-5" />}
+          intro="Review the recorded performer identity, permissions, and usage terms before acceptance."
+          title={accepted ? "Consent accepted" : "Review consent before acceptance"}
+        />
+        <ConsentSummary consent={persistedConsent} />
+        <Panel className="mt-5 border-[#FF9A44]/20 bg-[#FF9A44]/[0.05] p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#FF9A44]" />
+            <p className="text-sm leading-6 text-[#a3a3b8]">
+              This records the choices shown above. It is not legal advice and does not claim or
+              guarantee legal compliance, ownership, or rights clearance.
+            </p>
+          </div>
+        </Panel>
+        {controller.consentError ? (
+          <p className="mt-4 text-sm text-[#FF9A44]">{controller.consentError}</p>
+        ) : null}
+        <div className="mt-6 flex items-center justify-between gap-3">
+          {!accepted ? (
+            <SecondaryButton onClick={() => setReviewing(false)}>Edit details</SecondaryButton>
+          ) : (
+            <SecondaryButton onClick={() => controller.goTo("qa")}>Back to QA</SecondaryButton>
+          )}
+          {accepted ? (
+            <PrimaryButton
+              disabled={controller.deliveryBusy}
+              onClick={() => void controller.completeDelivery()}
+            >
+              {controller.deliveryBusy ? (
+                <RefreshCw className="size-4 animate-spin" />
+              ) : (
+                <Award className="size-4" />
+              )}
+              Complete delivery
+            </PrimaryButton>
+          ) : (
+            <PrimaryButton
+              disabled={controller.consentBusy}
+              onClick={() => void controller.acceptConsent()}
+            >
+              {controller.consentBusy ? (
+                <RefreshCw className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              Accept consent v{persistedConsent.version}
+            </PrimaryButton>
+          )}
+        </div>
+        {controller.deliveryError ? (
+          <p className="mt-4 text-right text-sm text-[#FF9A44]">
+            {controller.deliveryError}
+          </p>
+        ) : null}
+      </WorkflowContainer>
+    );
+  }
+
+  return (
+    <WorkflowContainer size="small">
+      <ScreenBack onClick={() => controller.goTo("qa")} label="Back to QA results" />
+      <PageHeading
+        eyebrow="SELF performer consent"
+        icon={<FileText className="size-5" />}
+        intro="Document the actual performer and intended use. No permission is selected by default."
+        title="Consent & Usage Documentation"
+      />
+      <Panel className="p-6 lg:p-8">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <ConsentTextField
+            label="Performer full name"
+            onChange={(performerName) => setDraft((current) => ({ ...current, performerName }))}
+            required
+            value={draft.performerName ?? ""}
+          />
+          <ConsentTextField
+            label="Performer email"
+            onChange={(performerEmail) => setDraft((current) => ({ ...current, performerEmail }))}
+            required
+            type="email"
+            value={draft.performerEmail ?? ""}
+          />
+        </div>
+        <div className="mt-5">
+          <ConsentTextField
+            label="Usage purpose"
+            multiline
+            onChange={(usagePurpose) => setDraft((current) => ({ ...current, usagePurpose }))}
+            required
+            value={draft.usagePurpose ?? ""}
+          />
+        </div>
+        <div className="mt-5 space-y-4">
+          <ConsentDecision
+            falseLabel="Non-commercial use"
+            label="Will this performance be used commercially?"
+            onChange={(commercialUse) => setDraft((current) => ({ ...current, commercialUse }))}
+            trueLabel="Commercial use"
+            value={draft.commercialUse}
+          />
+          <ConsentDecision
+            falseLabel="Not permitted"
+            label="Allow AI transformation of this performance?"
+            onChange={(aiTransformationAllowed) =>
+              setDraft((current) => ({ ...current, aiTransformationAllowed }))
+            }
+            trueLabel="Permitted"
+            value={draft.aiTransformationAllowed}
+          />
+          <ConsentDecision
+            falseLabel="Not permitted"
+            label="Allow this performance to be used for model training?"
+            onChange={(modelTrainingAllowed) =>
+              setDraft((current) => ({ ...current, modelTrainingAllowed }))
+            }
+            trueLabel="Permitted"
+            value={draft.modelTrainingAllowed}
+          />
+        </div>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <ConsentTextField
+            label="Territory"
+            onChange={(territory) => setDraft((current) => ({ ...current, territory }))}
+            required
+            value={draft.territory ?? ""}
+          />
+          <ConsentTextField
+            label="Usage duration"
+            onChange={(usageDuration) => setDraft((current) => ({ ...current, usageDuration }))}
+            required
+            value={draft.usageDuration ?? ""}
+          />
+        </div>
+        <div className="mt-5">
+          <ConsentTextField
+            label="Optional restrictions"
+            multiline
+            onChange={(restrictions) => setDraft((current) => ({ ...current, restrictions }))}
+            value={draft.restrictions ?? ""}
+          />
+        </div>
+        {localError || controller.consentError ? (
+          <p className="mt-4 text-sm text-[#FF9A44]">
+            {localError || controller.consentError}
+          </p>
+        ) : null}
+        <div className="mt-6 flex justify-end border-t border-white/[0.06] pt-6">
+          <PrimaryButton disabled={controller.consentBusy} onClick={() => void reviewConsent()}>
+            {controller.consentBusy ? (
+              <RefreshCw className="size-4 animate-spin" />
+            ) : (
+              <FileText className="size-4" />
+            )}
+            Save and review consent
+          </PrimaryButton>
+        </div>
+      </Panel>
+    </WorkflowContainer>
+  );
+}
+
+function ConsentTextField({
+  label,
+  multiline = false,
+  onChange,
+  required = false,
+  type = "text",
+  value,
+}: {
+  label: string;
+  multiline?: boolean;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: "email" | "text";
+  value: string;
+}) {
+  const className =
+    "w-full rounded-xl border border-white/10 bg-[#0A0E1A] px-4 py-3 text-sm text-white outline-none transition focus:border-[#6C4DFF]/60";
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-white">
+        {label} {required ? <span className="text-[#FF9A44]">*</span> : null}
+      </span>
+      {multiline ? (
+        <textarea
+          className={`${className} min-h-24 resize-none`}
+          onChange={(event) => onChange(event.target.value)}
+          value={value}
+        />
+      ) : (
+        <input
+          className={className}
+          onChange={(event) => onChange(event.target.value)}
+          type={type}
+          value={value}
+        />
+      )}
+    </label>
+  );
+}
+
+function ConsentDecision({
+  falseLabel,
+  label,
+  onChange,
+  trueLabel,
+  value,
+}: {
+  falseLabel: string;
+  label: string;
+  onChange: (value: boolean) => void;
+  trueLabel: string;
+  value: boolean | null;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-2 text-sm font-medium text-white">
+        {label} <span className="text-[#FF9A44]">*</span>
+      </legend>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          [trueLabel, true],
+          [falseLabel, false],
+        ].map(([optionLabel, optionValue]) => (
+          <button
+            className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+              value === optionValue
+                ? "border-[#6C4DFF] bg-[#6C4DFF]/15 text-white"
+                : "border-white/10 bg-white/[0.02] text-[#a3a3b8] hover:border-white/20"
+            }`}
+            key={String(optionValue)}
+            onClick={() => onChange(Boolean(optionValue))}
+            type="button"
+          >
+            {optionLabel}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function consentDraft(consent: PerformanceConsent | null): PerformanceConsentDraft {
+  return {
+    aiTransformationAllowed: consent?.aiTransformationAllowed ?? null,
+    commercialUse: consent?.commercialUse ?? null,
+    modelTrainingAllowed: consent?.modelTrainingAllowed ?? null,
+    performerEmail: consent?.performerEmail ?? null,
+    performerName: consent?.performerName ?? null,
+    restrictions: consent?.restrictions ?? null,
+    territory: consent?.territory ?? null,
+    usageDuration: consent?.usageDuration ?? null,
+    usagePurpose: consent?.usagePurpose ?? null,
+  };
+}
+
+function ConsentSummary({ consent }: { consent: PerformanceConsent }) {
+  const rows = [
+    ["Performer", consent.performerName],
+    ["Performer email", consent.performerEmail],
+    ["Usage purpose", consent.usagePurpose],
+    ["Use type", consent.commercialUse ? "Commercial" : "Non-commercial"],
+    ["AI transformation", consent.aiTransformationAllowed ? "Permitted" : "Not permitted"],
+    ["Model training", consent.modelTrainingAllowed ? "Permitted" : "Not permitted"],
+    ["Territory", consent.territory],
+    ["Usage duration", consent.usageDuration],
+    ["Restrictions", consent.restrictions || "None documented"],
+  ];
+
+  return (
+    <Panel className="p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <CardTitle
+          icon={<FileText className="size-4 text-[#a78bfa]" />}
+          title={`Consent & Usage · v${consent.version}`}
+        />
+        {consent.acceptedAt ? (
+          <span className="text-xs font-semibold text-[#66E0C2]">
+            Accepted {formatDeliveryDate(consent.acceptedAt)}
+          </span>
+        ) : (
+          <span className="text-xs font-semibold text-[#FF9A44]">Not yet accepted</span>
+        )}
+      </div>
+      <dl className="grid gap-4 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div className={label === "Usage purpose" || label === "Restrictions" ? "sm:col-span-2" : ""} key={label}>
+            <dt className="text-xs text-[#5a5a72]">{label}</dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm leading-5 text-white">
+              {value || "Not provided"}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Panel>
+  );
+}
+
+function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
+  const { brief, briefApproval, consent, deliveryCompletedAt, scenes } = controller.state;
+  const currentRuns = scenes.map((scene) => currentQaRun(scene.take)).filter(Boolean);
+  const allRuns = scenes.flatMap((scene) => scene.take?.qaRuns ?? []);
+  const completedRuns = allRuns.filter((run) => run.status === "COMPLETED");
+  const failedRuns = completedRuns.filter((run) => run.result === "FAIL");
+  const currentChecks = currentRuns.flatMap((run) => run?.checks ?? []);
+  const correctionInstructions = scenes.flatMap((scene) =>
+    (scene.take?.qaRuns ?? []).flatMap((run) =>
+      run.checks
+        .filter((check) => check.result === "FAIL" && check.correctionInstruction)
+        .map((check) => ({
+          instruction: check.correctionInstruction!,
+          sceneTitle: scene.title,
+          type: QA_CHECK_PRESENTATION[check.type].label,
+        })),
+    ),
+  );
+
+  if (!brief || !briefApproval || !consent?.acceptedAt || !deliveryCompletedAt) {
+    return (
+      <WorkflowContainer size="small">
+        <Panel className="p-6 text-center">
+          <p className="text-sm text-[#a3a3b8]">
+            Delivery is available after every required scene has a QA-passed, approved take and
+            the current consent version has been accepted.
+          </p>
+          <div className="mt-5 flex justify-center">
+            <PrimaryButton onClick={() => controller.goTo("qa")}>Return to QA</PrimaryButton>
+          </div>
+        </Panel>
+      </WorkflowContainer>
+    );
+  }
+
+  const castingSummary = Object.entries(brief.talentRequirements).filter(([, value]) => value);
+  const captureSummary = Object.entries(brief.capturePlan).filter(([, value]) => value);
+
+  return (
+    <WorkflowContainer>
+      <div className="mb-8 text-center">
+        <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-[#66E0C2]/15">
+          <Award className="size-8 text-[#66E0C2]" />
+        </div>
+        <StatusPill>
+          <CheckCircle2 className="size-3.5" /> Project complete
+        </StatusPill>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">Approved Delivery</h1>
+        <p className="mt-2 text-[#a3a3b8]">
+          {scenes.length} {scenes.length === 1 ? "scene take is" : "scene takes are"} approved and
+          available from private storage.
+        </p>
+        <p className="mt-1 text-xs text-[#5a5a72]">
+          Completed {formatDeliveryDate(deliveryCompletedAt)}
+        </p>
+      </div>
+
+      <div className="mb-6">
+        <h2 className="mb-4 text-lg font-bold text-white">Approved Source Takes</h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {scenes.map((scene, index) => {
+            const take = scene.take;
+            const run = currentQaRun(take);
+            const passedChecks = run?.checks.filter((check) => check.result === "PASS").length ?? 0;
+            const failedHistory = take?.qaRuns?.filter((item) => item.result === "FAIL").length ?? 0;
+
+            return (
+              <Panel className="overflow-hidden border-[#66E0C2]/20" key={scene.id}>
+                <div className="relative aspect-video overflow-hidden bg-[#070A12]">
+                  {take?.readUrl ? (
+                    <video
+                      className="h-full w-full object-cover"
+                      controls
+                      playsInline
+                      preload="metadata"
+                      src={take.readUrl}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Video className="size-8 text-[#5a5a72]" />
+                    </div>
+                  )}
+                  <span className="absolute right-2 top-2 rounded-full bg-[#66E0C2] px-2 py-0.5 text-[10px] font-bold text-[#070A12]">
+                    Approved
+                  </span>
+                </div>
+                <div className="p-4">
+                  <p className="font-semibold text-white">
+                    Scene {index + 1}: {scene.title}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-[#5a5a72]">
+                    {take?.originalFileName}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <span className="text-[#66E0C2]">
+                      {passedChecks}/{run?.checks.length ?? 0} QA checks passed
+                    </span>
+                    <span className="text-[#a3a3b8]">
+                      {failedHistory
+                        ? `${failedHistory} corrected ${failedHistory === 1 ? "run" : "runs"}`
+                        : "First take passed"}
+                    </span>
+                  </div>
+                  {take?.downloadUrl ? (
+                    <a
+                      className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#66E0C2] px-4 py-2 text-sm font-semibold text-[#070A12] transition hover:bg-[#5fd0b0]"
+                      download={take.originalFileName}
+                      href={take.downloadUrl}
+                    >
+                      <Download className="size-4" /> Download approved take
+                    </a>
+                  ) : (
+                    <p className="mt-4 text-xs text-[#FF9A44]">
+                      The signed download link is temporarily unavailable. Reload to retry.
+                    </p>
+                  )}
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
+      </div>
+
+      <Panel className="mb-6 p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <CardTitle
+            icon={<FileText className="size-4 text-[#a78bfa]" />}
+            title={`Approved Director Brief · v${briefApproval.approvedVersion}`}
+          />
+          <span className="text-xs text-[#5a5a72]">
+            Approved {formatDeliveryDate(briefApproval.approvedAt)}
+          </span>
+        </div>
+        <div className="rounded-xl bg-white/[0.03] p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#5a5a72]">
+            Global direction
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white">
+            {brief.globalDirection}
+          </p>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <BriefSummaryList title="Casting requirements" values={castingSummary} />
+          <BriefSummaryList title="Capture requirements" values={captureSummary} />
+        </div>
+        <div className="mt-4 rounded-xl bg-white/[0.03] p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#5a5a72]">
+            Approved QA criteria
+          </p>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {brief.qaCriteria.map((criterion, index) => (
+              <li className="flex gap-2 text-sm leading-5 text-white" key={index}>
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#66E0C2]" /> {criterion}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Panel>
+
+      <Panel className="mb-6 p-6">
+        <CardTitle
+          icon={<Gauge className="size-4 text-[#66E0C2]" />}
+          title="Technical QA Summary"
+        />
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ["Approved scenes", scenes.length],
+            ["Current checks passed", currentChecks.filter((check) => check.result === "PASS").length],
+            ["Completed QA runs", completedRuns.length],
+            ["Corrected QA runs", failedRuns.length],
+          ].map(([label, value]) => (
+            <div className="rounded-xl bg-white/[0.03] p-3" key={String(label)}>
+              <p className="text-xs text-[#5a5a72]">{label}</p>
+              <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 space-y-2">
+          {scenes.map((scene) => {
+            const run = currentQaRun(scene.take);
+            return (
+              <details className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4" key={scene.id}>
+                <summary className="cursor-pointer text-sm font-semibold text-white">
+                  {scene.title} · {run?.checks.filter((check) => check.result === "PASS").length ?? 0}/
+                  {run?.checks.length ?? 0} checks passed
+                </summary>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {run?.checks.map((check) => (
+                    <div className="flex items-center gap-2 text-xs text-[#a3a3b8]" key={check.id}>
+                      <CheckCircle2 className="size-3.5 shrink-0 text-[#66E0C2]" />
+                      {QA_CHECK_PRESENTATION[check.type].label}: passed
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </Panel>
+
+      <Panel className="mb-6 p-6">
+        <CardTitle
+          icon={<RefreshCw className="size-4 text-[#FF9A44]" />}
+          title="Correction History"
+        />
+        {correctionInstructions.length ? (
+          <div className="mt-4 space-y-2">
+            {correctionInstructions.map((correction, index) => (
+              <div className="rounded-lg bg-[#FF9A44]/[0.06] p-3" key={`${correction.sceneTitle}-${correction.type}-${index}`}>
+                <p className="text-xs font-semibold text-white">
+                  {correction.sceneTitle} · {correction.type}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#a3a3b8]">{correction.instruction}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-[#a3a3b8]">
+            No correction instructions were generated; every approved take passed on its first QA
+            run.
+          </p>
+        )}
+      </Panel>
+
+      <div className="mb-6">
+        <ConsentSummary consent={consent} />
+      </div>
+
+      <Panel className="border-white/[0.08] p-5">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#FF9A44]" />
+          <div>
+            <p className="text-sm font-semibold text-white">Documentation scope</p>
+            <p className="mt-1 text-sm leading-6 text-[#a3a3b8]">
+              The consent record documents the accepted choices; it is not legal advice or a
+              guarantee of legal compliance, ownership, or rights clearance. Payments, performer
+              matching, and team invitations remain unavailable and are not simulated.
+            </p>
+          </div>
+        </div>
+      </Panel>
+    </WorkflowContainer>
+  );
+}
+
+function BriefSummaryList({
+  title,
+  values,
+}: {
+  title: string;
+  values: Array<[string, string]>;
+}) {
+  return (
+    <div className="rounded-xl bg-white/[0.03] p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#5a5a72]">{title}</p>
+      <dl className="mt-3 space-y-2">
+        {values.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-[10px] uppercase tracking-wide text-[#5a5a72]">
+              {formatBriefLabel(label)}
+            </dt>
+            <dd className="text-sm leading-5 text-white">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function formatBriefLabel(value: string) {
+  return value.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+function formatDeliveryDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function currentQaRun(take?: PerformanceTake): PerformanceQaRun | undefined {

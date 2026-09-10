@@ -37,6 +37,8 @@ import {
 import type {
   PerformanceBriefAttachment,
   PerformanceBriefContentType,
+  PerformanceConsent,
+  PerformanceConsentDraft,
   PerformancePath,
   PerformanceProjectResponse,
   PerformanceProjectSaveRequest,
@@ -55,6 +57,8 @@ export type WorkflowState = {
     version: number;
   } | null;
   briefAttachment: PerformanceBriefAttachment | null;
+  consent: PerformanceConsent | null;
+  deliveryCompletedAt: string | null;
   scenes: SceneDraft[];
   performerPath: PerformancePath | null;
 };
@@ -73,6 +77,10 @@ export type WorkflowController = {
   performerSelectionError: string;
   qaError: string;
   qaSceneBusy: string | null;
+  deliveryBusy: boolean;
+  deliveryError: string;
+  consentBusy: boolean;
+  consentError: string;
   approveBrief: () => Promise<void>;
   generateBrief: () => Promise<void>;
   goTo: (step: WorkflowStep) => void;
@@ -82,6 +90,9 @@ export type WorkflowController = {
   updateScene: (sceneId: string, patch: Partial<SceneDraft>) => void;
   selectPerformerPath: (performerPath: PerformancePath) => Promise<void>;
   approveTake: (sceneId: string, takeId: string) => Promise<void>;
+  completeDelivery: () => Promise<void>;
+  saveConsent: (consent: PerformanceConsentDraft) => Promise<boolean>;
+  acceptConsent: () => Promise<void>;
   runTakeQa: (sceneId: string, takeId: string) => Promise<void>;
   createNewProject: () => void;
   removeBriefAttachment: () => Promise<void>;
@@ -97,6 +108,8 @@ const STEP_TO_STATUS: Record<WorkflowStep, PerformanceWorkflowStatus> = {
   source: "PERFORMANCE_SOURCE",
   progress: "PERFORMANCE_PROGRESS",
   qa: "QA_PENDING",
+  consent: "QA_PENDING",
+  delivery: "APPROVED_DELIVERY",
 };
 
 const APPROVED_WORKFLOW_STATUSES: PerformanceWorkflowStatus[] = [
@@ -107,6 +120,8 @@ const APPROVED_WORKFLOW_STATUSES: PerformanceWorkflowStatus[] = [
   "REQUEST_SUMMARY",
   "PERFORMANCE_PROGRESS",
   "QA_PENDING",
+  "CLIENT_REVIEW",
+  "APPROVED_DELIVERY",
 ];
 
 function persistedStep(project: PerformanceProjectResponse): WorkflowStep {
@@ -131,7 +146,10 @@ function persistedStep(project: PerformanceProjectResponse): WorkflowStep {
     ACTOR_SELECTION: "source",
     REQUEST_SUMMARY: "source",
     PERFORMANCE_PROGRESS: "progress",
-    QA_PENDING: currentStep === "progress" ? "progress" : "qa",
+    QA_PENDING:
+      currentStep === "progress" ? "progress" : currentStep === "consent" ? "consent" : "qa",
+    CLIENT_REVIEW: currentStep === "consent" ? "consent" : "qa",
+    APPROVED_DELIVERY: "delivery",
   };
   return legacySteps[project.workflowStatus] ?? "company";
 }
@@ -145,9 +163,63 @@ function createInitialState(): WorkflowState {
     brief: null,
     briefApproval: null,
     briefAttachment: null,
+    consent: null,
+    deliveryCompletedAt: null,
     scenes: [],
     performerPath: null,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeLocation(
+  value: unknown,
+  legacyLabel: string | null = null,
+): ProjectDraft["location"] {
+  const emptyLocation = createEmptyProjectDraft().location;
+  const outerLocation = isRecord(value) ? value : null;
+  const location =
+    outerLocation && isRecord(outerLocation.label) ? outerLocation.label : outerLocation;
+  const label =
+    (typeof location?.label === "string" && location.label.trim()
+      ? location.label
+      : legacyLabel?.trim()) || emptyLocation.label;
+  const isRemote =
+    typeof location?.isRemote === "boolean"
+      ? location.isRemote
+      : label.toLowerCase() === "remote";
+  const provider =
+    location?.provider === "google" ||
+    location?.provider === "manual" ||
+    location?.provider === "remote"
+      ? location.provider
+      : isRemote
+        ? "remote"
+        : "manual";
+
+  return {
+    countryCode: typeof location?.countryCode === "string" ? location.countryCode : null,
+    isRemote,
+    label,
+    latitude:
+      typeof location?.latitude === "number" && Number.isFinite(location.latitude)
+        ? location.latitude
+        : null,
+    longitude:
+      typeof location?.longitude === "number" && Number.isFinite(location.longitude)
+        ? location.longitude
+        : null,
+    placeId: typeof location?.placeId === "string" ? location.placeId : null,
+    provider,
+  };
+}
+
+function locationDisplayLabel(value: unknown) {
+  if (typeof value === "string") return value;
+  if (!isRecord(value)) return "";
+  return locationDisplayLabel(value.label);
 }
 
 function toSaveRequest(state: WorkflowState): PerformanceProjectSaveRequest {
@@ -155,7 +227,10 @@ function toSaveRequest(state: WorkflowState): PerformanceProjectSaveRequest {
     ...(state.brief ? { brief: state.brief } : {}),
     company: state.company,
     performerPath: state.performerPath,
-    project: state.project,
+    project: {
+      ...state.project,
+      location: normalizeLocation(state.project.location),
+    },
     scenes: state.scenes.map((scene) => ({
       bodyPosition: scene.bodyPosition,
       dialogue: scene.dialogue,
@@ -181,6 +256,8 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
     ...initial,
     workflowStatus: project.workflowStatus,
     briefAttachment: project.briefAttachment,
+    consent: project.consent,
+    deliveryCompletedAt: project.deliveryCompletedAt,
     brief: project.brief
       ? {
           capturePlan: {
@@ -224,16 +301,7 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
     performerPath: project.performerPath,
     project: {
       language: project.language ?? "",
-      location:
-        project.locationData ??
-        (project.location
-          ? {
-              ...createEmptyProjectDraft().location,
-              isRemote: project.location.toLowerCase() === "remote",
-              label: project.location,
-              provider: project.location.toLowerCase() === "remote" ? "remote" : "manual",
-            }
-          : createEmptyProjectDraft().location),
+      location: normalizeLocation(project.locationData, project.location),
       notes: project.notes ?? "",
       objective: project.objective ?? "",
       targetAiTool: project.targetAiTool ?? "",
@@ -259,11 +327,24 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
 }
 
 async function addSignedTakeUrls(projectId: string, state: WorkflowState): Promise<WorkflowState> {
+  const deliveryCompleted =
+    state.workflowStatus === "APPROVED_DELIVERY" && Boolean(state.deliveryCompletedAt);
   const scenes = await Promise.all(
     state.scenes.map(async (scene) => {
       if (!scene.take || scene.take.uploadStatus !== "UPLOADED") return scene;
 
       try {
+        if (deliveryCompleted && scene.take.takeStatus === "APPROVED") {
+          const { downloadUrl, playbackUrl } = await performanceTakesApi.getDeliveryUrls(
+            projectId,
+            scene.id,
+            scene.take.id,
+          );
+          return {
+            ...scene,
+            take: { ...scene.take, downloadUrl, readUrl: playbackUrl },
+          };
+        }
         const { readUrl } = await performanceTakesApi.getReadUrl(
           projectId,
           scene.id,
@@ -312,6 +393,10 @@ export function WorkflowApp() {
   const [performerSelectionError, setPerformerSelectionError] = useState("");
   const [qaError, setQaError] = useState("");
   const [qaSceneBusy, setQaSceneBusy] = useState<string | null>(null);
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
+  const [deliveryError, setDeliveryError] = useState("");
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentError, setConsentError] = useState("");
   const [briefAttachmentBusy, setBriefAttachmentBusy] = useState(false);
   const [briefAttachmentError, setBriefAttachmentError] = useState("");
   const [briefUploadProgress, setBriefUploadProgress] = useState(0);
@@ -413,6 +498,8 @@ export function WorkflowApp() {
     setApprovalError("");
     setPerformerSelectionError("");
     setQaError("");
+    setDeliveryError("");
+    setConsentError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     void performanceProjectsApi
@@ -672,6 +759,61 @@ export function WorkflowApp() {
     [projectId, qaSceneBusy],
   );
 
+  const completeDelivery = useCallback(async () => {
+    if (!projectId || deliveryBusy) return;
+
+    setDeliveryBusy(true);
+    setDeliveryError("");
+    try {
+      await saveQueue.current;
+      const updatedProject = await performanceProjectsApi.completeDelivery(projectId);
+      setState(await addSignedTakeUrls(projectId, fromPersistedProject(updatedProject)));
+      setPersistenceError("");
+    } catch (error) {
+      setDeliveryError(error instanceof Error ? error.message : "Delivery could not be completed.");
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }, [deliveryBusy, projectId]);
+
+  const saveConsent = useCallback(
+    async (consent: PerformanceConsentDraft) => {
+      if (!projectId || consentBusy) return false;
+
+      setConsentBusy(true);
+      setConsentError("");
+      try {
+        await saveQueue.current;
+        const updatedProject = await performanceProjectsApi.saveConsent(projectId, consent);
+        setState(fromPersistedProject(updatedProject));
+        setPersistenceError("");
+        return true;
+      } catch (error) {
+        setConsentError(error instanceof Error ? error.message : "Consent could not be saved.");
+        return false;
+      } finally {
+        setConsentBusy(false);
+      }
+    },
+    [consentBusy, projectId],
+  );
+
+  const acceptConsent = useCallback(async () => {
+    if (!projectId || consentBusy) return;
+
+    setConsentBusy(true);
+    setConsentError("");
+    try {
+      const updatedProject = await performanceProjectsApi.acceptConsent(projectId);
+      setState(fromPersistedProject(updatedProject));
+      setPersistenceError("");
+    } catch (error) {
+      setConsentError(error instanceof Error ? error.message : "Consent could not be accepted.");
+    } finally {
+      setConsentBusy(false);
+    }
+  }, [consentBusy, projectId]);
+
   const controller: WorkflowController = useMemo(
     () => ({
       projectId,
@@ -685,8 +827,15 @@ export function WorkflowApp() {
       performerSelectionError,
       qaError,
       qaSceneBusy,
+      deliveryBusy,
+      deliveryError,
+      consentBusy,
+      consentError,
       approveBrief,
       approveTake,
+      completeDelivery,
+      saveConsent,
+      acceptConsent,
       generatingBrief,
       generationError,
       generateBrief,
@@ -723,11 +872,17 @@ export function WorkflowApp() {
       briefAttachmentBusy,
       briefAttachmentError,
       briefUploadProgress,
+      completeDelivery,
+      acceptConsent,
       approveBrief,
       approvalError,
       approvingBrief,
       approveTake,
       createNewProject,
+      consentBusy,
+      consentError,
+      deliveryBusy,
+      deliveryError,
       generateBrief,
       generatingBrief,
       generationError,
@@ -738,6 +893,7 @@ export function WorkflowApp() {
       qaError,
       qaSceneBusy,
       removeBriefAttachment,
+      saveConsent,
       state,
       selectPerformerPath,
       runTakeQa,
@@ -964,7 +1120,7 @@ function ProjectScreen({ controller }: { controller: WorkflowController }) {
                 },
               });
             }}
-            value={project.location.label}
+            value={locationDisplayLabel(project.location)}
           />
           <ChoiceGroup
             hint="Used only to tailor capture guidance. You remain in control of the final AI workflow."
@@ -1137,7 +1293,7 @@ function ReviewScreen({ controller }: { controller: WorkflowController }) {
           rows={[
             ["Project Title", project.title],
             ["Project Type", project.type],
-            ["Location", project.location.label],
+            ["Location", locationDisplayLabel(project.location)],
             ["Target AI Tool", project.targetAiTool],
             ["Production Objective", project.objective],
             [

@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   directorBriefJsonSchema,
@@ -15,6 +15,8 @@ type AiProvider = "gemini" | "openai";
 
 @Injectable()
 export class AiDirectorService {
+  private readonly logger = new Logger(AiDirectorService.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly gemini: GeminiDirectorService,
@@ -24,6 +26,7 @@ export class AiDirectorService {
   async generate(projectData: Record<string, unknown>): Promise<{
     brief: DirectorBriefResult;
     model: string;
+    provider: AiProvider;
     responseId: string | null;
   }> {
     const request: DirectorProviderRequest = {
@@ -32,23 +35,52 @@ export class AiDirectorService {
       schema: directorBriefJsonSchema,
     };
     const provider = this.resolveProvider();
+    this.logger.log(`AI Director generation started provider=${provider}`);
     const generated =
       provider === "gemini"
         ? await this.gemini.generate(request)
         : await this.openai.generate(request);
 
+    let parsedOutput: unknown;
     try {
-      return {
-        brief: directorBriefSchema.parse(JSON.parse(generated.outputText)),
-        model: generated.model,
-        responseId: generated.responseId,
-      };
+      parsedOutput = JSON.parse(generated.outputText);
     } catch (error) {
+      this.logger.error(
+        `AI Director JSON parsing failed provider=${provider} model=${generated.model}`,
+        stackFrames(error),
+      );
       throw new ServiceUnavailableException(
         "The AI Director returned an invalid structured brief.",
         { cause: error },
       );
     }
+
+    const validated = directorBriefSchema.safeParse(parsedOutput);
+    if (!validated.success) {
+      const issues = validated.error.issues.map((issue) => ({
+        code: issue.code,
+        message: issue.message,
+        path: issue.path.join("."),
+      }));
+      this.logger.error(
+        `AI Director validation failed provider=${provider} model=${generated.model} issues=${JSON.stringify(issues)}`,
+        stackFrames(validated.error),
+      );
+      throw new ServiceUnavailableException(
+        "The AI Director returned an invalid structured brief.",
+        { cause: validated.error },
+      );
+    }
+
+    this.logger.log(
+      `AI Director validation completed provider=${provider} model=${generated.model} scenes=${validated.data.scenes.length} qaCriteria=${validated.data.qaCriteria.length}`,
+    );
+    return {
+      brief: validated.data,
+      model: generated.model,
+      provider,
+      responseId: generated.responseId,
+    };
   }
 
   private resolveProvider(): AiProvider {
@@ -60,4 +92,8 @@ export class AiDirectorService {
 
     return this.config.get<string>("NODE_ENV") === "production" ? "openai" : "gemini";
   }
+}
+
+function stackFrames(error: unknown) {
+  return error instanceof Error ? error.stack?.split("\n").slice(1).join("\n") : undefined;
 }

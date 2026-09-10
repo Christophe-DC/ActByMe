@@ -213,9 +213,42 @@ export interface PerformanceBriefAttachmentUploadReservation {
   };
 }
 
+export interface PerformanceConsent {
+  acceptedAt: string | null;
+  aiTransformationAllowed: boolean | null;
+  approvedBriefVersion: number;
+  commercialUse: boolean | null;
+  createdAt: string;
+  id: string;
+  modelTrainingAllowed: boolean | null;
+  performerEmail: string | null;
+  performerName: string | null;
+  projectId: string;
+  restrictions: string | null;
+  territory: string | null;
+  updatedAt: string;
+  usageDuration: string | null;
+  usagePurpose: string | null;
+  version: number;
+}
+
+export type PerformanceConsentDraft = Pick<
+  PerformanceConsent,
+  | "aiTransformationAllowed"
+  | "commercialUse"
+  | "modelTrainingAllowed"
+  | "performerEmail"
+  | "performerName"
+  | "restrictions"
+  | "territory"
+  | "usageDuration"
+  | "usagePurpose"
+>;
+
 export interface PerformanceTake {
   contentType: string;
   createdAt: string;
+  downloadUrl?: string;
   id: string;
   originalFileName: string;
   projectId: string;
@@ -333,6 +366,7 @@ export interface PerformanceProjectSaveRequest {
 
 export interface PerformanceProjectResponse {
   briefAttachment: PerformanceBriefAttachment | null;
+  consent: PerformanceConsent | null;
   brief: {
     approvedAt: string | null;
     approvedVersion: number | null;
@@ -367,6 +401,7 @@ export interface PerformanceProjectResponse {
   contactName: string | null;
   contactRole: string | null;
   createdAt: string;
+  deliveryCompletedAt: string | null;
   id: string;
   currentStep: string;
   language: string | null;

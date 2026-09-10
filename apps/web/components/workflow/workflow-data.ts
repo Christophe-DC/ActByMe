@@ -8,7 +8,9 @@ export type WorkflowStep =
   | "brief"
   | "source"
   | "progress"
-  | "qa";
+  | "qa"
+  | "consent"
+  | "delivery";
 
 export type CompanyDraft = {
   name: string;
@@ -86,6 +88,8 @@ export const WORKFLOW_STEPS: Array<{ id: WorkflowStep; label: string }> = [
   { id: "source", label: "Source" },
   { id: "progress", label: "Uploads" },
   { id: "qa", label: "QA" },
+  { id: "consent", label: "Consent" },
+  { id: "delivery", label: "Delivery" },
 ];
 
 export function createEmptyCompanyDraft(): CompanyDraft {

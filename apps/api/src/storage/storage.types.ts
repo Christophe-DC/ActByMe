@@ -17,6 +17,10 @@ export type StoredObjectInfo = {
   sizeBytes?: number;
 };
 
+export type SignedReadOptions = {
+  downloadFileName?: string;
+};
+
 export type PresignedUpload = {
   assetUrl: string;
   bucket: string;
@@ -30,7 +34,11 @@ export type PresignedUpload = {
 
 export interface StorageClient {
   createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload>;
-  createSignedReadUrl(key: string, expiresInSeconds: number): Promise<string>;
+  createSignedReadUrl(
+    key: string,
+    expiresInSeconds: number,
+    options?: SignedReadOptions,
+  ): Promise<string>;
   deleteObject(key: string): Promise<void>;
   downloadObject(key: string): Promise<Uint8Array>;
   getObjectInfo(key: string): Promise<StoredObjectInfo>;

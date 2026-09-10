@@ -17,6 +17,7 @@ import { Roles } from "../auth/roles.decorator.js";
 import { RolesGuard } from "../auth/roles.guard.js";
 import {
   SavePerformanceProjectDto,
+  SavePerformanceConsentDto,
   SelectPerformancePathDto,
 } from "./dto/performance-project.dto.js";
 import {
@@ -90,6 +91,34 @@ export class PerformanceProjectsController {
     @Body() dto: SelectPerformancePathDto,
   ): Promise<unknown> {
     return this.projects.selectPerformerPath(user, id, dto.performerPath);
+  }
+
+  @Post(":id/complete-delivery")
+  @ApiOperation({ summary: "Complete an owned SELF delivery after every scene take is approved" })
+  completeDelivery(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<unknown> {
+    return this.projects.completeDelivery(user, id);
+  }
+
+  @Patch(":id/consent")
+  @ApiOperation({ summary: "Save an owned SELF performance consent draft" })
+  saveConsent(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: SavePerformanceConsentDto,
+  ): Promise<unknown> {
+    return this.projects.saveConsent(user, id, dto);
+  }
+
+  @Post(":id/consent/accept")
+  @ApiOperation({ summary: "Accept and lock an owned SELF performance consent version" })
+  acceptConsent(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<unknown> {
+    return this.projects.acceptConsent(user, id);
   }
 
   @Post(":projectId/brief-attachment/upload-url")
@@ -200,6 +229,17 @@ export class PerformanceProjectsController {
     @Param("takeId", ParseUUIDPipe) takeId: string,
   ) {
     return this.projects.getTakeReadUrl(user, projectId, sceneId, takeId);
+  }
+
+  @Get(":projectId/scenes/:sceneId/take/:takeId/delivery-urls")
+  @ApiOperation({ summary: "Create owner-only signed playback and download delivery URLs" })
+  getApprovedTakeDeliveryUrls(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) projectId: string,
+    @Param("sceneId", ParseUUIDPipe) sceneId: string,
+    @Param("takeId", ParseUUIDPipe) takeId: string,
+  ) {
+    return this.projects.getApprovedTakeDeliveryUrls(user, projectId, sceneId, takeId);
   }
 
   @Delete(":projectId/scenes/:sceneId/take/:takeId")

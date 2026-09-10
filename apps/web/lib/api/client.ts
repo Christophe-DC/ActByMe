@@ -15,6 +15,7 @@ import type {
   PerformanceBriefAttachment,
   PerformanceBriefAttachmentUploadReservation,
   PerformanceBriefContentType,
+  PerformanceConsentDraft,
   PerformancePath,
 } from "./types";
 import { supabase } from "@/lib/supabase/client";
@@ -341,6 +342,25 @@ export const performanceProjectsApi = {
       body: JSON.stringify({ performerPath }),
       method: "POST",
     }),
+
+  completeDelivery: async (id: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/complete-delivery`, {
+      method: "POST",
+    }),
+
+  saveConsent: async (
+    id: string,
+    consent: PerformanceConsentDraft,
+  ): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/consent`, {
+      body: JSON.stringify(consent),
+      method: "PATCH",
+    }),
+
+  acceptConsent: async (id: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/consent/accept`, {
+      method: "POST",
+    }),
 };
 
 export const performanceBriefAttachmentsApi = {
@@ -459,6 +479,19 @@ export const performanceTakesApi = {
     takeId: string,
   ): Promise<{ expiresInSeconds: number; readUrl: string }> =>
     apiFetch(`/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/read-url`),
+
+  getDeliveryUrls: async (
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+  ): Promise<{
+    downloadUrl: string;
+    expiresInSeconds: number;
+    playbackUrl: string;
+  }> =>
+    apiFetch(
+      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/delivery-urls`,
+    ),
 
   delete: async (projectId: string, sceneId: string, takeId: string) =>
     apiFetch<{ deleted: boolean }>(

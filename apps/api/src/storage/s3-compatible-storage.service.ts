@@ -25,7 +25,11 @@ export class S3CompatibleStorageService implements StorageClient {
     };
   }
 
-  async createSignedReadUrl(_key: string, _expiresInSeconds: number): Promise<string> {
+  async createSignedReadUrl(
+    _key: string,
+    _expiresInSeconds: number,
+    _options?: { downloadFileName?: string },
+  ): Promise<string> {
     throw new Error("Signed S3-compatible reads are not implemented yet.");
   }
 

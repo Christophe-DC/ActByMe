@@ -4,6 +4,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type {
   PresignedUpload,
   PresignedUploadRequest,
+  SignedReadOptions,
   StorageClient,
 } from "../storage/storage.types.js";
 
@@ -64,11 +65,19 @@ export class SupabaseService implements StorageClient {
     };
   }
 
-  async createSignedReadUrl(key: string, expiresInSeconds: number): Promise<string> {
+  async createSignedReadUrl(
+    key: string,
+    expiresInSeconds: number,
+    options?: SignedReadOptions,
+  ): Promise<string> {
     const { bucket, path } = splitStorageKey(key);
     const { data, error } = await this.admin.storage
       .from(bucket)
-      .createSignedUrl(path, expiresInSeconds);
+      .createSignedUrl(
+        path,
+        expiresInSeconds,
+        options?.downloadFileName ? { download: options.downloadFileName } : undefined,
+      );
 
     if (error) {
       throw error;

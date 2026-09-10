@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsEmail,
   IsEnum,
   IsIn,
   IsNumber,
@@ -222,9 +223,31 @@ export class SavePerformanceProjectDto {
   workflowStatus!: PerformanceWorkflowStatus;
 
   @ApiProperty({
-    enum: ["company", "project", "review", "director", "brief", "source", "progress", "qa"],
+    enum: [
+      "company",
+      "project",
+      "review",
+      "director",
+      "brief",
+      "source",
+      "progress",
+      "qa",
+      "consent",
+      "delivery",
+    ],
   })
-  @IsIn(["company", "project", "review", "director", "brief", "source", "progress", "qa"])
+  @IsIn([
+    "company",
+    "project",
+    "review",
+    "director",
+    "brief",
+    "source",
+    "progress",
+    "qa",
+    "consent",
+    "delivery",
+  ])
   currentStep!: string;
 }
 
@@ -232,4 +255,57 @@ export class SelectPerformancePathDto {
   @ApiProperty({ enum: PerformancePath })
   @IsEnum(PerformancePath)
   performerPath!: PerformancePath;
+}
+
+export class SavePerformanceConsentDto {
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  performerName!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(320)
+  performerEmail!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  usagePurpose!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  commercialUse!: boolean | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  aiTransformationAllowed!: boolean | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  modelTrainingAllowed!: boolean | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  territory!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  usageDuration!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  restrictions!: string | null;
 }

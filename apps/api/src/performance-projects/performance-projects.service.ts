@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -20,7 +21,10 @@ import {
 import type { AuthenticatedUser } from "../auth/auth.types.js";
 import { PrismaService } from "../database/prisma.service.js";
 import { STORAGE_CLIENT, type StorageClient } from "../storage/storage.types.js";
-import type { SavePerformanceProjectDto } from "./dto/performance-project.dto.js";
+import type {
+  SavePerformanceConsentDto,
+  SavePerformanceProjectDto,
+} from "./dto/performance-project.dto.js";
 import type {
   CompletePerformanceBriefAttachmentUploadDto,
   CreatePerformanceBriefAttachmentUploadDto,
@@ -39,6 +43,10 @@ import { PerformanceTechnicalQaService } from "./performance-technical-qa.servic
 const projectInclude = {
   brief: true,
   briefAttachment: true,
+  consents: {
+    orderBy: { version: "desc" as const },
+    take: 1,
+  },
   scenes: {
     include: {
       take: {
@@ -60,8 +68,14 @@ const projectInclude = {
   },
 };
 
+type PerformanceProjectWithDetails = Prisma.PerformanceProjectGetPayload<{
+  include: typeof projectInclude;
+}>;
+
 @Injectable()
 export class PerformanceProjectsService {
+  private readonly logger = new Logger(PerformanceProjectsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_CLIENT) private readonly storage: StorageClient,
@@ -221,6 +235,10 @@ export class PerformanceProjectsService {
       where: { id: project.id },
     });
 
+    let failureStage = "provider";
+    let generatedModel = "unknown";
+    let generatedProvider = "unknown";
+
     try {
       const generated = await this.aiDirector.generate({
         company: {
@@ -245,6 +263,9 @@ export class PerformanceProjectsService {
           type: project.type,
         },
       });
+      generatedModel = generated.model;
+      generatedProvider = generated.provider;
+      failureStage = "persistence-and-workflow-transition";
 
       await this.prisma.client.$transaction([
         this.prisma.client.performanceBrief.upsert({
@@ -297,27 +318,44 @@ export class PerformanceProjectsService {
         }),
       ]);
 
+      failureStage = "audit";
       await this.prisma.audit({
         action: "DIRECTOR_BRIEF_GENERATED",
         entityId: project.id,
         entityType: "PerformanceProject",
-        metadata: { model: generated.model, responseId: generated.responseId },
+        metadata: {
+          model: generated.model,
+          provider: generated.provider,
+          responseId: generated.responseId,
+        },
         userId: user.id,
       });
 
+      failureStage = "reload";
       return this.projectResponse(await this.requireOwnedProject(user, project.id));
     } catch (error) {
-      await this.prisma.client.performanceProject.updateMany({
-        data: {
-          currentStep: "review",
-          workflowStatus: PerformanceWorkflowStatus.ReadyForBrief,
-        },
-        where: {
-          id: project.id,
-          ownerId: user.id,
-          workflowStatus: PerformanceWorkflowStatus.GeneratingBrief,
-        },
-      });
+      this.logger.error(
+        `AI Director failed stage=${failureStage} projectId=${project.id} provider=${generatedProvider} model=${generatedModel} errorName=${errorName(error)} errorCode=${errorCode(error)}`,
+        stackFrames(error),
+      );
+      try {
+        await this.prisma.client.performanceProject.updateMany({
+          data: {
+            currentStep: "review",
+            workflowStatus: PerformanceWorkflowStatus.ReadyForBrief,
+          },
+          where: {
+            id: project.id,
+            ownerId: user.id,
+            workflowStatus: PerformanceWorkflowStatus.GeneratingBrief,
+          },
+        });
+      } catch (resetError) {
+        this.logger.error(
+          `AI Director workflow recovery failed projectId=${project.id} errorName=${errorName(resetError)} errorCode=${errorCode(resetError)}`,
+          stackFrames(resetError),
+        );
+      }
       throw error;
     }
   }
@@ -643,6 +681,12 @@ export class PerformanceProjectsService {
   ) {
     this.assertSupportedVideo(dto.fileName, dto.contentType);
     const project = await this.requireOwnedProject(user, projectId);
+    if (
+      project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
+      project.deliveryCompletedAt
+    ) {
+      throw new ConflictException("Completed delivery takes cannot be replaced.");
+    }
     if (!project.brief?.approvedAt || project.performerPath !== PerformancePath.Self) {
       throw new ConflictException(
         "Approve the Director Brief and select Self before uploading performance takes.",
@@ -813,8 +857,225 @@ export class PerformanceProjectsService {
     };
   }
 
+  async completeDelivery(user: AuthenticatedUser, projectId: string) {
+    const project = await this.requireOwnedProject(user, projectId);
+    this.assertDeliveryReady(project);
+    if (
+      project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery &&
+      project.deliveryCompletedAt
+    ) {
+      return this.projectResponse(project);
+    }
+
+    const deliveryFiles = await Promise.all(
+      project.scenes.map(async (scene) => {
+        const take = scene.take!;
+        return this.storage
+          .getObjectInfo(this.storageKey(take.storageBucket, take.storagePath))
+          .then((object) => Boolean(object.contentType && object.sizeBytes))
+          .catch(() => false);
+      }),
+    );
+    if (deliveryFiles.some((available) => !available)) {
+      throw new ConflictException(
+        "Every approved take must still be available in private storage before delivery.",
+      );
+    }
+    const completedAt = new Date();
+    const completed = await this.prisma.client.performanceProject.updateMany({
+      data: {
+        currentStep: "delivery",
+        deliveryCompletedAt: completedAt,
+        workflowStatus: PerformanceWorkflowStatus.ApprovedDelivery,
+      },
+      where: {
+        deliveryCompletedAt: null,
+        id: project.id,
+        ownerId: user.id,
+      },
+    });
+    if (completed.count !== 1) {
+      const current = await this.requireOwnedProject(user, projectId);
+      if (
+        current.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery &&
+        current.deliveryCompletedAt
+      ) {
+        return this.projectResponse(current);
+      }
+      throw new ConflictException("The delivery state changed before completion.");
+    }
+
+    await this.prisma.audit({
+      action: "PERFORMANCE_DELIVERY_COMPLETED",
+      entityId: project.id,
+      entityType: "PerformanceProject",
+      metadata: {
+        approvedBriefVersion: project.brief!.approvedVersion,
+        completedAt: completedAt.toISOString(),
+        consentVersion: project.consents[0]!.version,
+        sceneCount: project.scenes.length,
+      },
+      userId: user.id,
+    });
+
+    return this.projectResponse(await this.requireOwnedProject(user, projectId));
+  }
+
+  async saveConsent(
+    user: AuthenticatedUser,
+    projectId: string,
+    dto: SavePerformanceConsentDto,
+  ) {
+    const project = await this.requireOwnedProject(user, projectId);
+    this.assertConsentCanBeDocumented(project);
+    const currentConsent = project.consents[0];
+
+    if (currentConsent?.acceptedAt) {
+      throw new ConflictException("The accepted consent version is immutable.");
+    }
+
+    const consentData = {
+      aiTransformationAllowed: dto.aiTransformationAllowed ?? null,
+      commercialUse: dto.commercialUse ?? null,
+      modelTrainingAllowed: dto.modelTrainingAllowed ?? null,
+      performerEmail: dto.performerEmail?.trim() || null,
+      performerName: dto.performerName?.trim() || null,
+      restrictions: dto.restrictions?.trim() || null,
+      territory: dto.territory?.trim() || null,
+      usageDuration: dto.usageDuration?.trim() || null,
+      usagePurpose: dto.usagePurpose?.trim() || null,
+    };
+    const approvedBriefVersion = project.brief!.approvedVersion!;
+
+    if (currentConsent && currentConsent.approvedBriefVersion === approvedBriefVersion) {
+      await this.prisma.client.performanceConsent.update({
+        data: consentData,
+        where: { id: currentConsent.id },
+      });
+    } else {
+      await this.prisma.client.performanceConsent.create({
+        data: {
+          ...consentData,
+          approvedBriefVersion,
+          projectId: project.id,
+          version: (currentConsent?.version ?? 0) + 1,
+        },
+      });
+    }
+
+    await this.prisma.client.performanceProject.update({
+      data: { currentStep: "consent" },
+      where: { id: project.id },
+    });
+    await this.prisma.audit({
+      action: "PERFORMANCE_CONSENT_DRAFT_SAVED",
+      entityId: project.id,
+      entityType: "PerformanceProject",
+      metadata: { approvedBriefVersion },
+      userId: user.id,
+    });
+
+    return this.projectResponse(await this.requireOwnedProject(user, projectId));
+  }
+
+  async acceptConsent(user: AuthenticatedUser, projectId: string) {
+    const project = await this.requireOwnedProject(user, projectId);
+    this.assertConsentCanBeDocumented(project);
+    const consent = project.consents[0];
+
+    if (!consent || consent.approvedBriefVersion !== project.brief!.approvedVersion) {
+      throw new ConflictException("Review and save the consent details before acceptance.");
+    }
+    if (consent.acceptedAt) {
+      return this.projectResponse(project);
+    }
+    if (
+      !consent.performerName?.trim() ||
+      !consent.performerEmail?.trim() ||
+      !consent.usagePurpose?.trim() ||
+      typeof consent.commercialUse !== "boolean" ||
+      typeof consent.aiTransformationAllowed !== "boolean" ||
+      typeof consent.modelTrainingAllowed !== "boolean" ||
+      !consent.territory?.trim() ||
+      !consent.usageDuration?.trim()
+    ) {
+      throw new BadRequestException(
+        "Complete every required consent field and explicitly select each permission.",
+      );
+    }
+
+    const acceptedAt = new Date();
+    const accepted = await this.prisma.client.$transaction(async (transaction) => {
+      const update = await transaction.performanceConsent.updateMany({
+        data: { acceptedAt },
+        where: { acceptedAt: null, id: consent.id },
+      });
+      if (update.count !== 1) {
+        throw new ConflictException("The consent version changed before acceptance.");
+      }
+      await transaction.performanceProject.update({
+        data: { currentStep: "consent" },
+        where: { id: project.id },
+      });
+      return transaction.performanceConsent.findUniqueOrThrow({ where: { id: consent.id } });
+    });
+
+    await this.prisma.audit({
+      action: "PERFORMANCE_CONSENT_ACCEPTED",
+      entityId: accepted.id,
+      entityType: "PerformanceConsent",
+      metadata: {
+        acceptedAt: acceptedAt.toISOString(),
+        approvedBriefVersion: accepted.approvedBriefVersion,
+        version: accepted.version,
+      },
+      userId: user.id,
+    });
+
+    return this.projectResponse(await this.requireOwnedProject(user, projectId));
+  }
+
+  async getApprovedTakeDeliveryUrls(
+    user: AuthenticatedUser,
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+  ) {
+    const project = await this.requireOwnedProject(user, projectId);
+    if (
+      project.workflowStatus !== PerformanceWorkflowStatus.ApprovedDelivery ||
+      !project.deliveryCompletedAt
+    ) {
+      throw new ConflictException("Complete the approved delivery before accessing its files.");
+    }
+    this.assertDeliveryReady(project);
+
+    const scene = project.scenes.find((candidate) => candidate.id === sceneId);
+    const take = scene?.take?.id === takeId ? scene.take : null;
+    if (!scene || !take || take.takeStatus !== PerformanceTakeStatus.Approved) {
+      throw new NotFoundException("Approved delivery take not found.");
+    }
+
+    const storageKey = this.storageKey(take.storageBucket, take.storagePath);
+    const expiresInSeconds = 600;
+    const [playbackUrl, downloadUrl] = await Promise.all([
+      this.storage.createSignedReadUrl(storageKey, expiresInSeconds),
+      this.storage.createSignedReadUrl(storageKey, expiresInSeconds, {
+        downloadFileName: take.originalFileName.replace(/[\r\n"]/g, "_").slice(0, 200),
+      }),
+    ]);
+
+    return { downloadUrl, expiresInSeconds, playbackUrl };
+  }
+
   async runTakeQa(user: AuthenticatedUser, projectId: string, sceneId: string, takeId: string) {
     const project = await this.requireOwnedProject(user, projectId);
+    if (
+      project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
+      project.deliveryCompletedAt
+    ) {
+      throw new ConflictException("Completed delivery QA results are locked.");
+    }
     const scene = project.scenes.find((candidate) => candidate.id === sceneId);
     const take = scene?.take?.id === takeId ? scene.take : null;
 
@@ -1073,7 +1334,18 @@ export class PerformanceProjectsService {
   }
 
   async deleteTake(user: AuthenticatedUser, projectId: string, sceneId: string, takeId: string) {
-    const take = await this.requireOwnedTake(user, projectId, sceneId, takeId);
+    const project = await this.requireOwnedProject(user, projectId);
+    if (
+      project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
+      project.deliveryCompletedAt
+    ) {
+      throw new ConflictException("Completed delivery takes cannot be deleted.");
+    }
+    const scene = project.scenes.find((candidate) => candidate.id === sceneId);
+    const take = scene?.take?.id === takeId ? scene.take : null;
+    if (!take) {
+      throw new NotFoundException("Performance take not found.");
+    }
     await this.storage.deleteObject(this.storageKey(take.storageBucket, take.storagePath));
     await this.prisma.client.performanceTake.delete({ where: { id: take.id } });
     await this.touchProject(projectId);
@@ -1094,6 +1366,73 @@ export class PerformanceProjectsService {
     }
 
     return project;
+  }
+
+  private assertDeliveryReady(project: PerformanceProjectWithDetails) {
+    if (
+      project.performerPath !== PerformancePath.Self ||
+      !project.brief?.approvedAt ||
+      !project.brief.approvedVersion ||
+      project.brief.approvedVersion !== project.brief.version
+    ) {
+      throw new ConflictException(
+        "Delivery requires the currently approved Director Brief and the Self performer path.",
+      );
+    }
+    if (project.scenes.length === 0) {
+      throw new ConflictException("Delivery requires at least one approved scene take.");
+    }
+    const consent = project.consents[0];
+    if (
+      !consent?.acceptedAt ||
+      consent.approvedBriefVersion !== project.brief.approvedVersion
+    ) {
+      throw new ConflictException(
+        "Review and accept the current consent version before delivery.",
+      );
+    }
+
+    const incompleteScene = project.scenes.find((scene) => {
+      const take = scene.take;
+      if (
+        !take ||
+        take.uploadStatus !== PerformanceTakeUploadStatus.Uploaded ||
+        take.takeStatus !== PerformanceTakeStatus.Approved
+      ) {
+        return true;
+      }
+      return !take.qaRuns.some(
+        (run) =>
+          run.approvedBriefVersion === project.brief!.approvedVersion &&
+          run.result === PerformanceQaResultStatus.Pass &&
+          run.status === PerformanceQaRunStatus.Completed &&
+          run.uploadAttemptId === take.uploadAttemptId,
+      );
+    });
+    if (incompleteScene) {
+      throw new ConflictException(
+        `Scene "${incompleteScene.title}" needs a QA-passed, approved take before delivery.`,
+      );
+    }
+  }
+
+  private assertConsentCanBeDocumented(project: PerformanceProjectWithDetails) {
+    if (
+      project.performerPath !== PerformancePath.Self ||
+      !project.brief?.approvedAt ||
+      !project.brief.approvedVersion ||
+      project.brief.approvedVersion !== project.brief.version
+    ) {
+      throw new ConflictException(
+        "Consent documentation requires the current approved Director Brief and SELF performer path.",
+      );
+    }
+    if (
+      project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
+      project.deliveryCompletedAt
+    ) {
+      throw new ConflictException("Completed delivery consent is locked.");
+    }
   }
 
   private async requireOwnedScene(user: AuthenticatedUser, projectId: string, sceneId: string) {
@@ -1312,13 +1651,16 @@ export class PerformanceProjectsService {
   private projectResponse<
     T extends {
       briefAttachment: { extractedText: string | null } | null;
+      consents: unknown[];
     },
   >(project: T) {
+    const { consents, ...projectFields } = project;
     return {
-      ...project,
+      ...projectFields,
       briefAttachment: project.briefAttachment
         ? this.attachmentResponse(project.briefAttachment)
         : null,
+      consent: consents[0] ?? null,
     };
   }
 
@@ -1353,4 +1695,20 @@ export class PerformanceProjectsService {
   private storageKey(bucket: string, path: string) {
     return `${bucket}/${path}`;
   }
+}
+
+function errorCode(error: unknown) {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = error.code;
+    if (typeof code === "string" || typeof code === "number") return String(code);
+  }
+  return "unknown";
+}
+
+function errorName(error: unknown) {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+function stackFrames(error: unknown) {
+  return error instanceof Error ? error.stack?.split("\n").slice(1).join("\n") : undefined;
 }
