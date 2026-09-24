@@ -8,6 +8,7 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
+    "test": "tsx --test src/performance-projects/*.spec.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

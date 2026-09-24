@@ -128,6 +128,15 @@ enum PerformanceBriefAttachmentStatus {
   FAILED
 }
 
+enum PerformanceAssignmentStatus {
+  SELECTED
+  ACCEPTED
+  SUBMITTED
+  QA_RUNNING
+  QA_PASSED
+  QA_FAILED
+}
+
 model User {
   id                  String               @id @default(uuid()) @db.Uuid
   email               String               @unique
@@ -144,28 +153,29 @@ model User {
 }
 
 model ActorProfile {
-  id              String             @id @default(uuid()) @db.Uuid
-  userId          String             @unique @db.Uuid
-  slug            String             @unique
-  stageName       String
-  bio             String?            @db.Text
-  country         String?
-  city            String?
-  profileImageUrl String?            @db.Text
-  heroVideoUrl    String?            @db.Text
-  actAiScore      Int?
-  isDemo          Boolean            @default(false)
-  status          ActorProfileStatus @default(DRAFT)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skills          ActorSkill[]
-  languages       ActorLanguage[]
-  accents         ActorAccent[]
-  videos          ActorVideo[]
-  consent         ActorConsent?
-  demoProfile     DemoProfile?
-  auditLogs       AuditLog[]
+  id                     String                  @id @default(uuid()) @db.Uuid
+  userId                 String                  @unique @db.Uuid
+  slug                   String                  @unique
+  stageName              String
+  bio                    String?                 @db.Text
+  country                String?
+  city                   String?
+  profileImageUrl        String?                 @db.Text
+  heroVideoUrl           String?                 @db.Text
+  actAiScore             Int?
+  isDemo                 Boolean                 @default(false)
+  status                 ActorProfileStatus      @default(DRAFT)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills                 ActorSkill[]
+  languages              ActorLanguage[]
+  accents                ActorAccent[]
+  videos                 ActorVideo[]
+  consent                ActorConsent?
+  demoProfile            DemoProfile?
+  auditLogs              AuditLog[]
+  performanceAssignments PerformanceAssignment[]
 
   @@index([slug])
   @@index([status])
@@ -288,6 +298,7 @@ model PerformanceProject {
   targetAiTool        String?
   language            String?
   notes               String?                     @db.Text
+  script              String?                     @db.Text
   sourceFileName      String?
   companyName         String
   companyWebsite      String?                     @db.Text
@@ -298,6 +309,9 @@ model PerformanceProject {
   workflowStatus      PerformanceWorkflowStatus   @default(DRAFT)
   currentStep         String                      @default("company")
   deliveryCompletedAt DateTime?
+  actorGuide          Json?
+  aiEnginePrompt      String?                     @db.Text
+  outputsBriefVersion Int?
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
   owner               User                        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -307,6 +321,7 @@ model PerformanceProject {
   takes               PerformanceTake[]
   qaRuns              PerformanceQaRun[]
   consents            PerformanceConsent[]
+  assignment          PerformanceAssignment?
 
   @@index([ownerId, updatedAt])
   @@index([workflowStatus])
@@ -375,28 +390,47 @@ model PerformanceBrief {
 }
 
 model PerformanceScene {
-  id                  String             @id @default(uuid()) @db.Uuid
-  projectId           String             @db.Uuid
-  position            Int
-  title               String
-  duration            String?
-  referenceUrl        String?            @db.Text
-  dialogue            String?            @db.Text
-  direction           String?            @db.Text
-  bodyPosition        String?            @db.Text
-  eyeline             String?            @db.Text
-  gestures            String?            @db.Text
-  framing             String?            @db.Text
-  captureRequirements String?            @db.Text
-  uploadedFileName    String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  project             PerformanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  take                PerformanceTake?
-  qaRuns              PerformanceQaRun[]
+  id                   String             @id @default(uuid()) @db.Uuid
+  projectId            String             @db.Uuid
+  position             Int
+  title                String
+  duration             String?
+  referenceUrl         String?            @db.Text
+  dialogue             String?            @db.Text
+  direction            String?            @db.Text
+  emotionalProgression String?            @db.Text
+  startingPosition     String?            @db.Text
+  bodyPosition         String?            @db.Text
+  eyeline              String?            @db.Text
+  gestures             String?            @db.Text
+  framing              String?            @db.Text
+  captureRequirements  String?            @db.Text
+  uploadedFileName     String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  project              PerformanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  take                 PerformanceTake?
+  qaRuns               PerformanceQaRun[]
 
   @@unique([projectId, position])
   @@index([projectId])
+}
+
+model PerformanceAssignment {
+  id             String                      @id @default(uuid()) @db.Uuid
+  projectId      String                      @unique @db.Uuid
+  actorProfileId String                      @db.Uuid
+  status         PerformanceAssignmentStatus @default(SELECTED)
+  sentAt         DateTime?
+  acceptedAt     DateTime?
+  submittedAt    DateTime?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  project        PerformanceProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorProfile   ActorProfile                @relation(fields: [actorProfileId], references: [id], onDelete: Restrict)
+
+  @@index([actorProfileId, status])
+  @@index([status])
 }
 
 model PerformanceTake {

@@ -17,6 +17,8 @@ import type {
   PerformanceBriefContentType,
   PerformanceConsentDraft,
   PerformancePath,
+  ActorRecommendation,
+  PerformanceRequest,
 } from "./types";
 import { supabase } from "@/lib/supabase/client";
 
@@ -334,6 +336,20 @@ export const performanceProjectsApi = {
       method: "POST",
     }),
 
+  generateOutputs: async (id: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/generate-outputs`, {
+      method: "POST",
+    }),
+
+  recommendActors: async (id: string): Promise<ActorRecommendation[]> =>
+    apiFetch<ActorRecommendation[]>(`/performance-projects/${id}/actor-recommendations`),
+
+  assignActor: async (id: string, actorProfileId: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/assignment`, {
+      body: JSON.stringify({ actorProfileId }),
+      method: "POST",
+    }),
+
   selectPerformerPath: async (
     id: string,
     performerPath: PerformancePath,
@@ -361,6 +377,19 @@ export const performanceProjectsApi = {
     apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/consent/accept`, {
       method: "POST",
     }),
+};
+
+export const performanceRequestsApi = {
+  list: async (): Promise<PerformanceRequest[]> => apiFetch<PerformanceRequest[]>("/performances"),
+
+  get: async (id: string): Promise<PerformanceRequest> =>
+    apiFetch<PerformanceRequest>(`/performances/${id}`),
+
+  accept: async (id: string): Promise<PerformanceRequest> =>
+    apiFetch<PerformanceRequest>(`/performances/${id}/accept`, { method: "POST" }),
+
+  submit: async (id: string): Promise<PerformanceRequest> =>
+    apiFetch<PerformanceRequest>(`/performances/${id}/submit`, { method: "POST" }),
 };
 
 export const performanceBriefAttachmentsApi = {
@@ -489,9 +518,7 @@ export const performanceTakesApi = {
     expiresInSeconds: number;
     playbackUrl: string;
   }> =>
-    apiFetch(
-      `/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/delivery-urls`,
-    ),
+    apiFetch(`/performance-projects/${projectId}/scenes/${sceneId}/take/${takeId}/delivery-urls`),
 
   delete: async (projectId: string, sceneId: string, takeId: string) =>
     apiFetch<{ deleted: boolean }>(

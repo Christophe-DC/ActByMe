@@ -187,9 +187,7 @@ function normalizeLocation(
       ? location.label
       : legacyLabel?.trim()) || emptyLocation.label;
   const isRemote =
-    typeof location?.isRemote === "boolean"
-      ? location.isRemote
-      : label.toLowerCase() === "remote";
+    typeof location?.isRemote === "boolean" ? location.isRemote : label.toLowerCase() === "remote";
   const provider =
     location?.provider === "google" ||
     location?.provider === "manual" ||
@@ -235,6 +233,7 @@ function toSaveRequest(state: WorkflowState): PerformanceProjectSaveRequest {
       bodyPosition: scene.bodyPosition,
       dialogue: scene.dialogue,
       direction: scene.direction,
+      emotionalProgression: scene.emotionalProgression,
       duration: scene.duration,
       eyeline: scene.eyeline,
       framing: scene.framing,
@@ -242,6 +241,7 @@ function toSaveRequest(state: WorkflowState): PerformanceProjectSaveRequest {
       captureRequirements: scene.captureRequirements,
       ...(isUuid(scene.id) ? { id: scene.id } : {}),
       reference: scene.reference,
+      startingPosition: scene.startingPosition,
       title: scene.title,
     })),
     currentStep: state.step,
@@ -263,12 +263,16 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
           capturePlan: {
             location: project.brief.capturePlan.location ?? "",
             camera: project.brief.capturePlan.camera ?? "",
+            cameraPosition: project.brief.capturePlan.cameraPosition ?? "",
+            cameraHeight: project.brief.capturePlan.cameraHeight ?? "",
             framing: project.brief.capturePlan.framing ?? "",
+            orientation: project.brief.capturePlan.orientation ?? "",
             lighting: project.brief.capturePlan.lighting ?? "",
             audio: project.brief.capturePlan.audio ?? "",
             background: project.brief.capturePlan.background ?? "",
             continuity: project.brief.capturePlan.continuity ?? "",
             fileFormat: project.brief.capturePlan.fileFormat ?? "",
+            recordingRequirements: project.brief.capturePlan.recordingRequirements ?? "",
           },
           globalDirection: project.brief.globalDirection ?? "",
           qaCriteria: Array.isArray(project.brief.qaCriteria) ? project.brief.qaCriteria : [],
@@ -312,6 +316,7 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
       bodyPosition: scene.bodyPosition ?? "",
       dialogue: scene.dialogue ?? "",
       direction: scene.direction ?? "",
+      emotionalProgression: scene.emotionalProgression ?? "",
       duration: scene.duration ?? "",
       eyeline: scene.eyeline ?? "",
       framing: scene.framing ?? "",
@@ -319,6 +324,7 @@ function fromPersistedProject(project: PerformanceProjectResponse): WorkflowStat
       captureRequirements: scene.captureRequirements ?? "",
       id: scene.id,
       reference: scene.referenceUrl ?? "",
+      startingPosition: scene.startingPosition ?? "",
       ...(scene.take ? { take: scene.take } : {}),
       title: scene.title,
     })),

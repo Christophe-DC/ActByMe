@@ -14,12 +14,16 @@ export const directorBriefSchema = z.object({
   captureRequirements: z.object({
     location: z.string(),
     camera: z.string(),
+    cameraPosition: z.string(),
+    cameraHeight: z.string(),
     framing: z.string(),
+    orientation: z.string(),
     lighting: z.string(),
     audio: z.string(),
     background: z.string(),
     continuity: z.string(),
     fileFormat: z.string(),
+    recordingRequirements: z.string(),
   }),
   qaCriteria: z.array(z.string()).min(1),
   scenes: z
@@ -28,6 +32,8 @@ export const directorBriefSchema = z.object({
         title: z.string(),
         dialogue: z.string(),
         actingIntent: z.string(),
+        emotionalProgression: z.string(),
+        startingPosition: z.string(),
         eyeDirection: z.string(),
         timing: z.string(),
         bodyMovement: z.string(),
@@ -36,7 +42,8 @@ export const directorBriefSchema = z.object({
         captureRequirements: z.string(),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(1),
 });
 
 export type DirectorBriefResult = z.infer<typeof directorBriefSchema>;
@@ -74,22 +81,30 @@ export const directorBriefJsonSchema = {
       properties: {
         location: stringField,
         camera: stringField,
+        cameraPosition: stringField,
+        cameraHeight: stringField,
         framing: stringField,
+        orientation: stringField,
         lighting: stringField,
         audio: stringField,
         background: stringField,
         continuity: stringField,
         fileFormat: stringField,
+        recordingRequirements: stringField,
       },
       required: [
         "location",
         "camera",
+        "cameraPosition",
+        "cameraHeight",
         "framing",
+        "orientation",
         "lighting",
         "audio",
         "background",
         "continuity",
         "fileFormat",
+        "recordingRequirements",
       ],
       additionalProperties: false,
     },
@@ -101,12 +116,15 @@ export const directorBriefJsonSchema = {
     scenes: {
       type: "array",
       minItems: 1,
+      maxItems: 1,
       items: {
         type: "object",
         properties: {
           title: stringField,
           dialogue: stringField,
           actingIntent: stringField,
+          emotionalProgression: stringField,
+          startingPosition: stringField,
           eyeDirection: stringField,
           timing: stringField,
           bodyMovement: stringField,
@@ -118,6 +136,8 @@ export const directorBriefJsonSchema = {
           "title",
           "dialogue",
           "actingIntent",
+          "emotionalProgression",
+          "startingPosition",
           "eyeDirection",
           "timing",
           "bodyMovement",
@@ -141,10 +161,11 @@ export const directorBriefJsonSchema = {
 
 export const directorInstructions = [
   "You are ActByMe's AI Director.",
-  "Build a practical, performer-ready director brief using only the supplied project facts.",
+  "Build a practical shooting plan for exactly one continuous 15–30 second performance using only the supplied script and project facts.",
   "Do not invent brand facts, uploaded-file contents, rights, pricing, performers, or delivery promises.",
   "You may make clearly actionable creative and technical directing decisions needed to execute the performance.",
-  "Write dialogue in the requested project language. If no exact script was supplied, write concise original dialogue that serves the stated objective.",
+  "Return exactly one scene and preserve the supplied script as the dialogue; do not add, rewrite, or omit factual claims.",
+  "Specify emotional progression, starting position, movement, eyeline, gestures, camera position and height, framing, orientation, lighting, audio, background, wardrobe continuity, recording requirements, and objective QA criteria.",
   "Make every field specific, editable, internally consistent, safe for remote video capture, and suitable for MP4 or MOV upload.",
 ].join(" ");
 

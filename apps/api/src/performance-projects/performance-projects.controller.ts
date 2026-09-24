@@ -16,6 +16,7 @@ import type { AuthenticatedUser } from "../auth/auth.types.js";
 import { Roles } from "../auth/roles.decorator.js";
 import { RolesGuard } from "../auth/roles.guard.js";
 import {
+  AssignPerformanceActorDto,
   SavePerformanceProjectDto,
   SavePerformanceConsentDto,
   SelectPerformancePathDto,
@@ -81,6 +82,34 @@ export class PerformanceProjectsController {
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<unknown> {
     return this.projects.approveBrief(user, id);
+  }
+
+  @Post(":id/generate-outputs")
+  @ApiOperation({ summary: "Generate idempotent Actor Guide and AI Engine Prompt outputs" })
+  generateOutputs(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<unknown> {
+    return this.projects.generateOutputs(user, id);
+  }
+
+  @Get(":id/actor-recommendations")
+  @ApiOperation({ summary: "Recommend approved real actors for the approved shooting plan" })
+  recommendActors(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<unknown> {
+    return this.projects.recommendActors(user, id);
+  }
+
+  @Post(":id/assignment")
+  @ApiOperation({ summary: "Assign an approved real actor to an owned performance" })
+  assignActor(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AssignPerformanceActorDto,
+  ): Promise<unknown> {
+    return this.projects.assignActor(user, id, dto.actorProfileId);
   }
 
   @Post(":id/performer-path")

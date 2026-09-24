@@ -117,6 +117,12 @@ export class PerformanceProjectDetailsDto {
   @IsString()
   @MaxLength(4000)
   notes!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(12000)
+  script?: string;
 }
 
 export class PerformanceBriefDto {
@@ -167,6 +173,14 @@ export class PerformanceSceneDto {
   @IsString()
   @MaxLength(8000)
   direction!: string;
+
+  @IsString()
+  @MaxLength(4000)
+  emotionalProgression!: string;
+
+  @IsString()
+  @MaxLength(2000)
+  startingPosition!: string;
 
   @IsString()
   @MaxLength(2000)
@@ -234,6 +248,10 @@ export class SavePerformanceProjectDto {
       "qa",
       "consent",
       "delivery",
+      "script",
+      "plan",
+      "actor",
+      "performance",
     ],
   })
   @IsIn([
@@ -247,6 +265,10 @@ export class SavePerformanceProjectDto {
     "qa",
     "consent",
     "delivery",
+    "script",
+    "plan",
+    "actor",
+    "performance",
   ])
   currentStep!: string;
 }
@@ -255,6 +277,12 @@ export class SelectPerformancePathDto {
   @ApiProperty({ enum: PerformancePath })
   @IsEnum(PerformancePath)
   performerPath!: PerformancePath;
+}
+
+export class AssignPerformanceActorDto {
+  @ApiProperty()
+  @IsUUID()
+  actorProfileId!: string;
 }
 
 export class SavePerformanceConsentDto {

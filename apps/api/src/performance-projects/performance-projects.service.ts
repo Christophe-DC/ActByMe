@@ -10,6 +10,8 @@ import {
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@actbyme/database";
 import {
+  ActorProfileStatus,
+  PerformanceAssignmentStatus,
   PerformanceBriefAttachmentStatus,
   PerformancePath,
   PerformanceQaResultStatus,
@@ -39,8 +41,22 @@ import type {
 import { AiDirectorService } from "./ai-director.service.js";
 import { BriefContentExtractorService } from "./brief-content-extractor.service.js";
 import { PerformanceTechnicalQaService } from "./performance-technical-qa.service.js";
+import {
+  assignmentStatusForQaResult,
+  assignmentStatusForReplacement,
+  canAccessAssignedProject,
+  recommendActors,
+} from "./actor-matching.js";
+import { buildPerformanceOutputs } from "./performance-outputs.js";
 
 const projectInclude = {
+  assignment: {
+    include: {
+      actorProfile: {
+        include: { accents: true, languages: true, skills: true },
+      },
+    },
+  },
   brief: true,
   briefAttachment: true,
   consents: {
@@ -193,6 +209,7 @@ export class PerformanceProjectsService {
 
     if (
       project.workflowStatus !== PerformanceWorkflowStatus.ReadyForBrief &&
+      project.workflowStatus !== PerformanceWorkflowStatus.BriefReview &&
       project.workflowStatus !== PerformanceWorkflowStatus.GeneratingBrief
     ) {
       throw new ConflictException("Review the project details before building the Director Brief.");
@@ -205,10 +222,9 @@ export class PerformanceProjectsService {
       throw new ConflictException("The Director Brief is already being generated.");
     }
 
-    if (!project.companyName.trim() || !project.title.trim() || !project.type.trim()) {
-      throw new BadRequestException(
-        "Company name, project title, and project type are required to build the Director Brief.",
-      );
+    const suppliedScript = project.script?.trim() || project.briefAttachment?.extractedText?.trim();
+    if (!project.title.trim() || !suppliedScript) {
+      throw new BadRequestException("A project title and pasted or uploaded script are required.");
     }
 
     if (project.scenes.some((scene) => scene.take)) {
@@ -258,6 +274,7 @@ export class PerformanceProjectsService {
           notes: project.notes,
           objective: project.objective,
           productionBriefText: project.briefAttachment?.extractedText ?? null,
+          script: suppliedScript,
           targetAiTool: project.targetAiTool,
           title: project.title,
           type: project.type,
@@ -293,24 +310,30 @@ export class PerformanceProjectsService {
           where: { projectId: project.id },
         }),
         this.prisma.client.performanceScene.deleteMany({ where: { projectId: project.id } }),
+        this.prisma.client.performanceAssignment.deleteMany({ where: { projectId: project.id } }),
         this.prisma.client.performanceScene.createMany({
           data: generated.brief.scenes.map((scene, position) => ({
             bodyPosition: scene.bodyMovement,
             captureRequirements: scene.captureRequirements,
             dialogue: scene.dialogue,
             direction: scene.actingIntent,
+            emotionalProgression: scene.emotionalProgression,
             duration: scene.timing,
             eyeline: scene.eyeDirection,
             framing: scene.framingCamera,
             gestures: scene.gestures,
             position,
             projectId: project.id,
+            startingPosition: scene.startingPosition,
             title: scene.title,
           })),
         }),
         this.prisma.client.performanceProject.update({
           data: {
-            currentStep: "brief",
+            actorGuide: Prisma.DbNull,
+            aiEnginePrompt: null,
+            currentStep: "plan",
+            outputsBriefVersion: null,
             performerPath: null,
             workflowStatus: PerformanceWorkflowStatus.BriefReview,
           },
@@ -363,7 +386,7 @@ export class PerformanceProjectsService {
   async approveBrief(user: AuthenticatedUser, id: string): Promise<unknown> {
     const project = await this.requireOwnedProject(user, id);
 
-    if (!project.brief || project.scenes.length === 0) {
+    if (!project.brief || project.scenes.length !== 1) {
       throw new ConflictException("Generate the Director Brief before approving it.");
     }
 
@@ -389,7 +412,7 @@ export class PerformanceProjectsService {
       }),
       this.prisma.client.performanceProject.update({
         data: {
-          currentStep: "source",
+          currentStep: "actor",
           performerPath: null,
           workflowStatus: PerformanceWorkflowStatus.BriefApproved,
         },
@@ -406,6 +429,196 @@ export class PerformanceProjectsService {
     });
 
     return this.projectResponse(await this.requireOwnedProject(user, project.id));
+  }
+
+  async generateOutputs(user: AuthenticatedUser, id: string): Promise<unknown> {
+    const project = await this.requireOwnedProject(user, id);
+    if (
+      !project.brief?.approvedAt ||
+      !project.brief.approvedVersion ||
+      project.brief.approvedVersion !== project.brief.version ||
+      project.scenes.length !== 1
+    ) {
+      throw new ConflictException("Approve the current one-scene shooting plan first.");
+    }
+    if (
+      project.actorGuide &&
+      project.aiEnginePrompt &&
+      project.outputsBriefVersion === project.brief.approvedVersion
+    ) {
+      return this.projectResponse(project);
+    }
+
+    const scene = project.scenes[0]!;
+    const outputs = buildPerformanceOutputs({
+      capturePlan: asRecord(project.brief.capturePlan),
+      globalDirection: project.brief.globalDirection,
+      qaCriteria: stringArray(project.brief.qaCriteria),
+      scene,
+      targetAiTool: project.targetAiTool,
+      title: project.title,
+    });
+    await this.prisma.client.performanceProject.update({
+      data: {
+        actorGuide: outputs.actorGuide as unknown as Prisma.InputJsonObject,
+        aiEnginePrompt: outputs.aiEnginePrompt,
+        currentStep: "actor",
+        outputsBriefVersion: project.brief.approvedVersion,
+        performerPath: PerformancePath.ActByMePerformer,
+        workflowStatus: PerformanceWorkflowStatus.ActorSelection,
+      },
+      where: { id: project.id },
+    });
+    await this.prisma.audit({
+      action: "PERFORMANCE_OUTPUTS_GENERATED",
+      entityId: project.id,
+      entityType: "PerformanceProject",
+      metadata: { approvedBriefVersion: project.brief.approvedVersion },
+      userId: user.id,
+    });
+    return this.projectResponse(await this.requireOwnedProject(user, project.id));
+  }
+
+  async recommendActors(user: AuthenticatedUser, id: string) {
+    const project = await this.requireOwnedProject(user, id);
+    if (!project.brief?.approvedAt || !project.actorGuide || !project.aiEnginePrompt) {
+      throw new ConflictException("Generate outputs from the approved shooting plan first.");
+    }
+    const actors = await this.prisma.client.actorProfile.findMany({
+      include: { accents: true, languages: true, skills: true },
+      where: { isDemo: false, status: ActorProfileStatus.Approved },
+    });
+    const casting = asRecord(project.brief.talentRequirements);
+    const requirementText = [casting.performerProfile, casting.notes]
+      .filter((value): value is string => typeof value === "string")
+      .join(" ")
+      .toLowerCase();
+    const skills = [
+      "acting",
+      "voice",
+      "comedy",
+      "drama",
+      "ugc ads",
+      "corporate",
+      "body movement",
+      "emotional performance",
+    ].filter((skill) => requirementText.includes(skill));
+    const ranked = recommendActors(actors, {
+      accent: stringValue(casting.accent),
+      language: project.language || stringValue(casting.language),
+      skills,
+    });
+    const byId = new Map(actors.map((actor) => [actor.id, actor]));
+    return ranked.map((recommendation) => ({
+      ...recommendation,
+      actor: byId.get(recommendation.actorId),
+    }));
+  }
+
+  async assignActor(user: AuthenticatedUser, id: string, actorProfileId: string) {
+    const project = await this.requireOwnedProject(user, id);
+    if (!project.actorGuide || !project.aiEnginePrompt || project.scenes.length !== 1) {
+      throw new ConflictException(
+        "Generate approved shooting-plan outputs before assigning an actor.",
+      );
+    }
+    if (project.scenes[0]?.take) {
+      throw new ConflictException("The actor cannot be changed after a performance upload starts.");
+    }
+    const actor = await this.prisma.client.actorProfile.findFirst({
+      where: {
+        id: actorProfileId,
+        isDemo: false,
+        status: ActorProfileStatus.Approved,
+      },
+    });
+    if (!actor) throw new NotFoundException("Approved actor profile not found.");
+
+    await this.prisma.client.$transaction([
+      this.prisma.client.performanceAssignment.upsert({
+        create: { actorProfileId, projectId: id },
+        update: {
+          acceptedAt: null,
+          actorProfileId,
+          status: PerformanceAssignmentStatus.Selected,
+          submittedAt: null,
+        },
+        where: { projectId: id },
+      }),
+      this.prisma.client.performanceProject.update({
+        data: {
+          currentStep: "performance",
+          performerPath: PerformancePath.ActByMePerformer,
+          workflowStatus: PerformanceWorkflowStatus.PerformanceProgress,
+        },
+        where: { id },
+      }),
+    ]);
+    await this.prisma.audit({
+      action: "PERFORMANCE_ACTOR_ASSIGNED",
+      actorProfileId,
+      entityId: id,
+      entityType: "PerformanceProject",
+      metadata: { actorProfileId },
+      userId: user.id,
+    });
+    return this.projectResponse(await this.requireOwnedProject(user, id));
+  }
+
+  async findActorRequests(user: AuthenticatedUser) {
+    const assignments = await this.prisma.client.performanceAssignment.findMany({
+      include: { project: { include: projectInclude } },
+      orderBy: { updatedAt: "desc" },
+      where: { actorProfile: { userId: user.id } },
+    });
+    return assignments.map((assignment) => this.actorRequestResponse(assignment));
+  }
+
+  async findActorRequest(user: AuthenticatedUser, assignmentId: string) {
+    return this.actorRequestResponse(await this.requireActorAssignment(user, assignmentId));
+  }
+
+  async acceptActorRequest(user: AuthenticatedUser, assignmentId: string) {
+    const assignment = await this.requireActorAssignment(user, assignmentId);
+    if (assignment.status === PerformanceAssignmentStatus.Selected) {
+      await this.prisma.client.performanceAssignment.update({
+        data: { acceptedAt: new Date(), status: PerformanceAssignmentStatus.Accepted },
+        where: { id: assignment.id },
+      });
+    }
+    return this.findActorRequest(user, assignmentId);
+  }
+
+  async submitActorPerformance(user: AuthenticatedUser, assignmentId: string) {
+    const assignment = await this.requireActorAssignment(user, assignmentId);
+    const scene = assignment.project.scenes[0];
+    const take = scene?.take;
+    if (!scene || !take || take.uploadStatus !== PerformanceTakeUploadStatus.Uploaded) {
+      throw new ConflictException("Upload the performance before submitting it.");
+    }
+    if (
+      assignment.status !== PerformanceAssignmentStatus.Accepted &&
+      assignment.status !== PerformanceAssignmentStatus.QaFailed
+    ) {
+      throw new ConflictException("Accept the request before submitting the performance.");
+    }
+    await this.prisma.client.performanceAssignment.update({
+      data: {
+        status: PerformanceAssignmentStatus.Submitted,
+        submittedAt: new Date(),
+      },
+      where: { id: assignment.id },
+    });
+    try {
+      await this.runTakeQa(user, assignment.projectId, scene.id, take.id);
+    } catch (error) {
+      await this.prisma.client.performanceAssignment.update({
+        data: { status: PerformanceAssignmentStatus.QaFailed },
+        where: { id: assignment.id },
+      });
+      throw error;
+    }
+    return this.findActorRequest(user, assignmentId);
   }
 
   async selectPerformerPath(
@@ -680,16 +893,24 @@ export class PerformanceProjectsService {
     dto: CreatePerformanceTakeUploadDto,
   ) {
     this.assertSupportedVideo(dto.fileName, dto.contentType);
-    const project = await this.requireOwnedProject(user, projectId);
+    const project = await this.requireAccessibleProject(user, projectId);
     if (
       project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
       project.deliveryCompletedAt
     ) {
       throw new ConflictException("Completed delivery takes cannot be replaced.");
     }
-    if (!project.brief?.approvedAt || project.performerPath !== PerformancePath.Self) {
+    const ownerUpload =
+      project.ownerId === user.id && project.performerPath === PerformancePath.Self;
+    const actorUpload =
+      project.assignment?.actorProfile.userId === user.id &&
+      project.performerPath === PerformancePath.ActByMePerformer &&
+      [PerformanceAssignmentStatus.Accepted, PerformanceAssignmentStatus.QaFailed].includes(
+        project.assignment.status as PerformanceAssignmentStatus,
+      );
+    if (!project.brief?.approvedAt || (!ownerUpload && !actorUpload)) {
       throw new ConflictException(
-        "Approve the Director Brief and select Self before uploading performance takes.",
+        "Only the project owner using Self, or the assigned actor after acceptance, can upload this performance.",
       );
     }
     const scene = project.scenes.find((candidate) => candidate.id === sceneId);
@@ -746,6 +967,18 @@ export class PerformanceProjectsService {
       where: { sceneId },
     });
 
+    if (actorUpload && project.assignment) {
+      await this.prisma.client.performanceAssignment.update({
+        data: {
+          status: assignmentStatusForReplacement(
+            project.assignment.status,
+          ) as PerformanceAssignmentStatus,
+          submittedAt: null,
+        },
+        where: { id: project.assignment.id },
+      });
+    }
+
     await this.touchProject(projectId);
 
     return {
@@ -766,7 +999,7 @@ export class PerformanceProjectsService {
     takeId: string,
     dto: CompletePerformanceTakeUploadDto,
   ) {
-    const take = await this.requireOwnedTake(user, projectId, sceneId, takeId);
+    const take = await this.requireAccessibleTake(user, projectId, sceneId, takeId);
     this.assertCurrentAttempt(take.uploadAttemptId, dto.uploadAttemptId);
 
     const storageKey = this.storageKey(take.storageBucket, take.storagePath);
@@ -821,7 +1054,7 @@ export class PerformanceProjectsService {
     takeId: string,
     dto: FailPerformanceTakeUploadDto,
   ) {
-    const take = await this.requireOwnedTake(user, projectId, sceneId, takeId);
+    const take = await this.requireAccessibleTake(user, projectId, sceneId, takeId);
     this.assertCurrentAttempt(take.uploadAttemptId, dto.uploadAttemptId);
 
     if (take.uploadStatus === PerformanceTakeUploadStatus.Uploaded) {
@@ -842,7 +1075,7 @@ export class PerformanceProjectsService {
     sceneId: string,
     takeId: string,
   ) {
-    const take = await this.requireOwnedTake(user, projectId, sceneId, takeId);
+    const take = await this.requireAccessibleTake(user, projectId, sceneId, takeId);
 
     if (take.uploadStatus !== PerformanceTakeUploadStatus.Uploaded) {
       throw new ConflictException("The performance take has not finished uploading.");
@@ -921,11 +1154,7 @@ export class PerformanceProjectsService {
     return this.projectResponse(await this.requireOwnedProject(user, projectId));
   }
 
-  async saveConsent(
-    user: AuthenticatedUser,
-    projectId: string,
-    dto: SavePerformanceConsentDto,
-  ) {
+  async saveConsent(user: AuthenticatedUser, projectId: string, dto: SavePerformanceConsentDto) {
     const project = await this.requireOwnedProject(user, projectId);
     this.assertConsentCanBeDocumented(project);
     const currentConsent = project.consents[0];
@@ -1042,19 +1271,19 @@ export class PerformanceProjectsService {
     takeId: string,
   ) {
     const project = await this.requireOwnedProject(user, projectId);
-    if (
-      project.workflowStatus !== PerformanceWorkflowStatus.ApprovedDelivery ||
-      !project.deliveryCompletedAt
-    ) {
-      throw new ConflictException("Complete the approved delivery before accessing its files.");
-    }
-    this.assertDeliveryReady(project);
-
     const scene = project.scenes.find((candidate) => candidate.id === sceneId);
     const take = scene?.take?.id === takeId ? scene.take : null;
-    if (!scene || !take || take.takeStatus !== PerformanceTakeStatus.Approved) {
+    const assignedPerformancePassed =
+      project.assignment?.status === PerformanceAssignmentStatus.QaPassed &&
+      take?.takeStatus === PerformanceTakeStatus.QaPassed;
+    const legacyDeliveryReady =
+      project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery &&
+      Boolean(project.deliveryCompletedAt) &&
+      take?.takeStatus === PerformanceTakeStatus.Approved;
+    if (!scene || !take || (!assignedPerformancePassed && !legacyDeliveryReady)) {
       throw new NotFoundException("Approved delivery take not found.");
     }
+    if (!assignedPerformancePassed) this.assertDeliveryReady(project);
 
     const storageKey = this.storageKey(take.storageBucket, take.storagePath);
     const expiresInSeconds = 600;
@@ -1069,7 +1298,7 @@ export class PerformanceProjectsService {
   }
 
   async runTakeQa(user: AuthenticatedUser, projectId: string, sceneId: string, takeId: string) {
-    const project = await this.requireOwnedProject(user, projectId);
+    const project = await this.requireAccessibleProject(user, projectId);
     if (
       project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
       project.deliveryCompletedAt
@@ -1083,12 +1312,14 @@ export class PerformanceProjectsService {
       throw new NotFoundException("Performance take not found.");
     }
     if (
-      project.performerPath !== PerformancePath.Self ||
+      ![PerformancePath.Self, PerformancePath.ActByMePerformer].includes(
+        project.performerPath as PerformancePath,
+      ) ||
       !project.brief?.approvedAt ||
       !project.brief.approvedVersion
     ) {
       throw new ConflictException(
-        "Technical QA requires an approved Director Brief and the Self performer path.",
+        "Technical QA requires an approved shooting plan and an authorized performer.",
       );
     }
     if (take.uploadStatus !== PerformanceTakeUploadStatus.Uploaded || !take.uploadedAt) {
@@ -1173,6 +1404,12 @@ export class PerformanceProjectsService {
         },
         where: { id: projectId },
       });
+      if (project.assignment) {
+        await transaction.performanceAssignment.update({
+          data: { status: PerformanceAssignmentStatus.QaRunning },
+          where: { id: project.assignment.id },
+        });
+      }
       return run;
     });
 
@@ -1246,6 +1483,25 @@ export class PerformanceProjectsService {
         if (completed.count !== 1) {
           throw new ConflictException("The take was replaced while technical QA was running.");
         }
+        if (project.assignment) {
+          await transaction.performanceAssignment.update({
+            data: {
+              status: assignmentStatusForQaResult(result) as PerformanceAssignmentStatus,
+            },
+            where: { id: project.assignment.id },
+          });
+        }
+        await transaction.performanceProject.update({
+          data: {
+            currentStep: "performance",
+            deliveryCompletedAt: result === PerformanceQaResultStatus.Pass ? new Date() : null,
+            workflowStatus:
+              result === PerformanceQaResultStatus.Pass
+                ? PerformanceWorkflowStatus.ApprovedDelivery
+                : PerformanceWorkflowStatus.PerformanceProgress,
+          },
+          where: { id: projectId },
+        });
       });
 
       await this.prisma.audit({
@@ -1255,7 +1511,10 @@ export class PerformanceProjectsService {
         metadata: { result, sceneId, takeId },
         userId: user.id,
       });
-      return this.projectResponse(await this.requireOwnedProject(user, projectId));
+      if (project.ownerId === user.id) {
+        return this.projectResponse(await this.requireOwnedProject(user, projectId));
+      }
+      return this.findActorRequest(user, project.assignment!.id);
     } catch (error) {
       const message = this.qaProcessingErrorMessage(error);
       await this.prisma.client.$transaction([
@@ -1275,6 +1534,14 @@ export class PerformanceProjectsService {
             uploadAttemptId: take.uploadAttemptId,
           },
         }),
+        ...(project.assignment
+          ? [
+              this.prisma.client.performanceAssignment.update({
+                data: { status: PerformanceAssignmentStatus.QaFailed },
+                where: { id: project.assignment.id },
+              }),
+            ]
+          : []),
       ]);
       if (error instanceof ConflictException) throw error;
       throw new ServiceUnavailableException(message);
@@ -1334,7 +1601,7 @@ export class PerformanceProjectsService {
   }
 
   async deleteTake(user: AuthenticatedUser, projectId: string, sceneId: string, takeId: string) {
-    const project = await this.requireOwnedProject(user, projectId);
+    const project = await this.requireAccessibleProject(user, projectId);
     if (
       project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
       project.deliveryCompletedAt
@@ -1350,6 +1617,82 @@ export class PerformanceProjectsService {
     await this.prisma.client.performanceTake.delete({ where: { id: take.id } });
     await this.touchProject(projectId);
     return { deleted: true };
+  }
+
+  private async requireAccessibleProject(user: AuthenticatedUser, id: string) {
+    const project = await this.prisma.client.performanceProject.findUnique({
+      include: projectInclude,
+      where: { id },
+    });
+    if (
+      !project ||
+      !canAccessAssignedProject({
+        assignedActorUserId: project.assignment?.actorProfile.userId,
+        ownerId: project.ownerId,
+        userId: user.id,
+      })
+    ) {
+      throw new NotFoundException("Performance project not found.");
+    }
+    return project;
+  }
+
+  private async requireActorAssignment(user: AuthenticatedUser, assignmentId: string) {
+    const assignment = await this.prisma.client.performanceAssignment.findFirst({
+      include: { project: { include: projectInclude } },
+      where: { actorProfile: { userId: user.id }, id: assignmentId },
+    });
+    if (!assignment) throw new NotFoundException("Performance request not found.");
+    return assignment;
+  }
+
+  private actorRequestResponse<
+    T extends {
+      acceptedAt: Date | null;
+      createdAt: Date;
+      id: string;
+      status: string;
+      submittedAt: Date | null;
+      updatedAt: Date;
+      project: PerformanceProjectWithDetails;
+    },
+  >(assignment: T) {
+    const scene = assignment.project.scenes[0] ?? null;
+    const take = scene?.take;
+    return {
+      acceptedAt: assignment.acceptedAt,
+      actorGuide: assignment.project.actorGuide,
+      createdAt: assignment.createdAt,
+      id: assignment.id,
+      project: {
+        id: assignment.project.id,
+        language: assignment.project.language,
+        title: assignment.project.title,
+      },
+      scene: scene
+        ? {
+            dialogue: scene.dialogue,
+            duration: scene.duration,
+            id: scene.id,
+            take: take
+              ? {
+                  contentType: take.contentType,
+                  id: take.id,
+                  originalFileName: take.originalFileName,
+                  qaRuns: take.qaRuns,
+                  takeStatus: take.takeStatus,
+                  uploadedAt: take.uploadedAt,
+                  uploadAttemptId: take.uploadAttemptId,
+                  uploadError: take.uploadError,
+                  uploadStatus: take.uploadStatus,
+                }
+              : null,
+          }
+        : null,
+      status: assignment.status,
+      submittedAt: assignment.submittedAt,
+      updatedAt: assignment.updatedAt,
+    };
   }
 
   private async requireOwnedProject(user: AuthenticatedUser, id: string) {
@@ -1383,13 +1726,8 @@ export class PerformanceProjectsService {
       throw new ConflictException("Delivery requires at least one approved scene take.");
     }
     const consent = project.consents[0];
-    if (
-      !consent?.acceptedAt ||
-      consent.approvedBriefVersion !== project.brief.approvedVersion
-    ) {
-      throw new ConflictException(
-        "Review and accept the current consent version before delivery.",
-      );
+    if (!consent?.acceptedAt || consent.approvedBriefVersion !== project.brief.approvedVersion) {
+      throw new ConflictException("Review and accept the current consent version before delivery.");
     }
 
     const incompleteScene = project.scenes.find((scene) => {
@@ -1474,6 +1812,24 @@ export class PerformanceProjectsService {
     return take;
   }
 
+  private async requireAccessibleTake(
+    user: AuthenticatedUser,
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+  ) {
+    await this.requireAccessibleProject(user, projectId);
+    const take = await this.prisma.client.performanceTake.findFirst({
+      where: {
+        id: takeId,
+        projectId,
+        sceneId,
+      },
+    });
+    if (!take) throw new NotFoundException("Performance take not found.");
+    return take;
+  }
+
   private async requireOwnedBriefAttachment(
     user: AuthenticatedUser,
     projectId: string,
@@ -1550,6 +1906,7 @@ export class PerformanceProjectsService {
       location: dto.project.location.label,
       locationData: dto.project.location as unknown as Prisma.InputJsonObject,
       notes: dto.project.notes,
+      script: dto.project.script ?? null,
       objective: dto.project.objective,
       organizationType: dto.company.type,
       performerPath: dto.performerPath ?? null,
@@ -1574,6 +1931,7 @@ export class PerformanceProjectsService {
       bodyPosition: scene.bodyPosition,
       dialogue: scene.dialogue,
       direction: scene.direction,
+      emotionalProgression: scene.emotionalProgression,
       duration: scene.duration,
       eyeline: scene.eyeline,
       framing: scene.framing,
@@ -1582,6 +1940,7 @@ export class PerformanceProjectsService {
       position,
       referenceUrl: scene.reference,
       title: scene.title,
+      startingPosition: scene.startingPosition,
     };
   }
 
@@ -1711,4 +2070,20 @@ function errorName(error: unknown) {
 
 function stackFrames(error: unknown) {
   return error instanceof Error ? error.stack?.split("\n").slice(1).join("\n") : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }

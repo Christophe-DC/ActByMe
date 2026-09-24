@@ -118,3 +118,12 @@ export enum PerformanceBriefAttachmentStatus {
   Ready = "READY",
   Failed = "FAILED",
 }
+
+export enum PerformanceAssignmentStatus {
+  Selected = "SELECTED",
+  Accepted = "ACCEPTED",
+  Submitted = "SUBMITTED",
+  QaRunning = "QA_RUNNING",
+  QaPassed = "QA_PASSED",
+  QaFailed = "QA_FAILED",
+}

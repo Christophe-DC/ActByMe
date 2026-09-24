@@ -128,6 +128,22 @@ export type UploadNamespace =
 
 export type PerformancePath = "SELF" | "TEAM_MEMBER" | "ACTBYME_PERFORMER";
 
+export type PerformanceAssignmentStatus =
+  | "SELECTED"
+  | "ACCEPTED"
+  | "SUBMITTED"
+  | "QA_RUNNING"
+  | "QA_PASSED"
+  | "QA_FAILED";
+
+export interface ActorGuide {
+  duration: string;
+  overview: string;
+  steps: Array<{ order: number; title: string; instruction: string }>;
+  dialogue: string;
+  finalChecklist: string[];
+}
+
 export type PerformanceTakeUploadStatus = "UPLOADING" | "UPLOADED" | "FAILED";
 
 export type PerformanceTakeStatus =
@@ -312,12 +328,16 @@ export interface PerformanceProjectSaveRequest {
     capturePlan: {
       location: string;
       camera: string;
+      cameraPosition: string;
+      cameraHeight: string;
       framing: string;
+      orientation: string;
       lighting: string;
       audio: string;
       background: string;
       continuity: string;
       fileFormat: string;
+      recordingRequirements: string;
     };
     talentRequirements: {
       performerProfile: string;
@@ -342,6 +362,7 @@ export interface PerformanceProjectSaveRequest {
     language: string;
     location: PerformanceLocation;
     notes: string;
+    script?: string;
     objective: string;
     targetAiTool: string;
     title: string;
@@ -351,6 +372,7 @@ export interface PerformanceProjectSaveRequest {
     bodyPosition: string;
     dialogue: string;
     direction: string;
+    emotionalProgression: string;
     duration: string;
     eyeline: string;
     framing: string;
@@ -358,6 +380,7 @@ export interface PerformanceProjectSaveRequest {
     captureRequirements: string;
     id?: string;
     reference: string;
+    startingPosition: string;
     title: string;
   }>;
   currentStep: string;
@@ -365,6 +388,20 @@ export interface PerformanceProjectSaveRequest {
 }
 
 export interface PerformanceProjectResponse {
+  actorGuide: ActorGuide | null;
+  aiEnginePrompt: string | null;
+  outputsBriefVersion: number | null;
+  assignment: {
+    acceptedAt: string | null;
+    actorProfileId: string;
+    actorProfile: ActorListItem;
+    createdAt: string;
+    id: string;
+    projectId: string;
+    status: PerformanceAssignmentStatus;
+    submittedAt: string | null;
+    updatedAt: string;
+  } | null;
   briefAttachment: PerformanceBriefAttachment | null;
   consent: PerformanceConsent | null;
   brief: {
@@ -374,12 +411,16 @@ export interface PerformanceProjectResponse {
     capturePlan: {
       location: string;
       camera: string;
+      cameraPosition: string;
+      cameraHeight: string;
       framing: string;
+      orientation: string;
       lighting: string;
       audio: string;
       background: string;
       continuity: string;
       fileFormat: string;
+      recordingRequirements: string;
     };
     talentRequirements: {
       performerProfile: string;
@@ -408,6 +449,7 @@ export interface PerformanceProjectResponse {
   location: string | null;
   locationData: PerformanceLocation | null;
   notes: string | null;
+  script: string | null;
   objective: string | null;
   organizationType: string | null;
   ownerId: string;
@@ -416,6 +458,7 @@ export interface PerformanceProjectResponse {
     bodyPosition: string | null;
     dialogue: string | null;
     direction: string | null;
+    emotionalProgression: string | null;
     duration: string | null;
     eyeline: string | null;
     framing: string | null;
@@ -424,6 +467,7 @@ export interface PerformanceProjectResponse {
     id: string;
     position: number;
     referenceUrl: string | null;
+    startingPosition: string | null;
     take: PerformanceTake | null;
     title: string;
   }>;
@@ -433,4 +477,28 @@ export interface PerformanceProjectResponse {
   type: string;
   updatedAt: string;
   workflowStatus: PerformanceWorkflowStatus;
+}
+
+export interface ActorRecommendation {
+  actorId: string;
+  score: number;
+  matches: string[];
+  actor: ActorListItem;
+}
+
+export interface PerformanceRequest {
+  acceptedAt: string | null;
+  actorGuide: ActorGuide;
+  createdAt: string;
+  id: string;
+  project: { id: string; language: string | null; title: string };
+  scene: {
+    dialogue: string | null;
+    duration: string | null;
+    id: string;
+    take: PerformanceTake | null;
+  } | null;
+  status: PerformanceAssignmentStatus;
+  submittedAt: string | null;
+  updatedAt: string;
 }

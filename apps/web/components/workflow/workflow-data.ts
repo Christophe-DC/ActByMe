@@ -47,6 +47,8 @@ export type SceneDraft = {
   reference: string;
   dialogue: string;
   direction: string;
+  emotionalProgression: string;
+  startingPosition: string;
   bodyPosition: string;
   eyeline: string;
   gestures: string;
@@ -69,12 +71,16 @@ export type BriefDraft = {
   capturePlan: {
     location: string;
     camera: string;
+    cameraPosition: string;
+    cameraHeight: string;
     framing: string;
+    orientation: string;
     lighting: string;
     audio: string;
     background: string;
     continuity: string;
     fileFormat: string;
+    recordingRequirements: string;
   };
   qaCriteria: string[];
 };
