@@ -336,8 +336,9 @@ export const performanceProjectsApi = {
       method: "POST",
     }),
 
-  generateOutputs: async (id: string): Promise<PerformanceProjectResponse> =>
+  generateOutputs: async (id: string, force = false): Promise<PerformanceProjectResponse> =>
     apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}/generate-outputs`, {
+      body: JSON.stringify({ force }),
       method: "POST",
     }),
 

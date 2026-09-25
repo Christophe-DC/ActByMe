@@ -62,7 +62,7 @@ export class GeminiDirectorService {
 
       let response: Response;
       try {
-        response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        response = await fetch("https://generativelanguage.googleapis.com/v1/interactions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -79,7 +79,7 @@ export class GeminiDirectorService {
               schema: request.schema,
             },
           }),
-          signal: AbortSignal.timeout(75_000),
+          signal: AbortSignal.timeout(180_000),
         });
       } catch (error) {
         this.logger.error(

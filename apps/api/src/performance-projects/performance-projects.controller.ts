@@ -17,6 +17,7 @@ import { Roles } from "../auth/roles.decorator.js";
 import { RolesGuard } from "../auth/roles.guard.js";
 import {
   AssignPerformanceActorDto,
+  GeneratePerformanceOutputsDto,
   SavePerformanceProjectDto,
   SavePerformanceConsentDto,
   SelectPerformancePathDto,
@@ -89,8 +90,9 @@ export class PerformanceProjectsController {
   generateOutputs(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto?: GeneratePerformanceOutputsDto,
   ): Promise<unknown> {
-    return this.projects.generateOutputs(user, id);
+    return this.projects.generateOutputs(user, id, dto?.force === true);
   }
 
   @Get(":id/actor-recommendations")

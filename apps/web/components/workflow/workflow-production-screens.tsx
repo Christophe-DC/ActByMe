@@ -1040,9 +1040,7 @@ function TechnicalQaReview({ controller }: { controller: WorkflowController }) {
               <CheckCircle2 className="size-5 shrink-0" /> All scene takes have passed technical QA
               and are approved.
             </div>
-            <PrimaryButton
-              onClick={() => controller.goTo("consent")}
-            >
+            <PrimaryButton onClick={() => controller.goTo("consent")}>
               <FileText className="size-4" /> Review consent
             </PrimaryButton>
           </div>
@@ -1140,9 +1138,7 @@ function ConsentDocumentation({ controller }: { controller: WorkflowController }
           )}
         </div>
         {controller.deliveryError ? (
-          <p className="mt-4 text-right text-sm text-[#FF9A44]">
-            {controller.deliveryError}
-          </p>
+          <p className="mt-4 text-right text-sm text-[#FF9A44]">{controller.deliveryError}</p>
         ) : null}
       </WorkflowContainer>
     );
@@ -1232,9 +1228,7 @@ function ConsentDocumentation({ controller }: { controller: WorkflowController }
           />
         </div>
         {localError || controller.consentError ? (
-          <p className="mt-4 text-sm text-[#FF9A44]">
-            {localError || controller.consentError}
-          </p>
+          <p className="mt-4 text-sm text-[#FF9A44]">{localError || controller.consentError}</p>
         ) : null}
         <div className="mt-6 flex justify-end border-t border-white/[0.06] pt-6">
           <PrimaryButton disabled={controller.consentBusy} onClick={() => void reviewConsent()}>
@@ -1376,7 +1370,10 @@ function ConsentSummary({ consent }: { consent: PerformanceConsent }) {
       </div>
       <dl className="grid gap-4 sm:grid-cols-2">
         {rows.map(([label, value]) => (
-          <div className={label === "Usage purpose" || label === "Restrictions" ? "sm:col-span-2" : ""} key={label}>
+          <div
+            className={label === "Usage purpose" || label === "Restrictions" ? "sm:col-span-2" : ""}
+            key={label}
+          >
             <dt className="text-xs text-[#5a5a72]">{label}</dt>
             <dd className="mt-1 whitespace-pre-wrap text-sm leading-5 text-white">
               {value || "Not provided"}
@@ -1412,8 +1409,8 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
       <WorkflowContainer size="small">
         <Panel className="p-6 text-center">
           <p className="text-sm text-[#a3a3b8]">
-            Delivery is available after every required scene has a QA-passed, approved take and
-            the current consent version has been accepted.
+            Delivery is available after every required scene has a QA-passed, approved take and the
+            current consent version has been accepted.
           </p>
           <div className="mt-5 flex justify-center">
             <PrimaryButton onClick={() => controller.goTo("qa")}>Return to QA</PrimaryButton>
@@ -1452,7 +1449,8 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
             const take = scene.take;
             const run = currentQaRun(take);
             const passedChecks = run?.checks.filter((check) => check.result === "PASS").length ?? 0;
-            const failedHistory = take?.qaRuns?.filter((item) => item.result === "FAIL").length ?? 0;
+            const failedHistory =
+              take?.qaRuns?.filter((item) => item.result === "FAIL").length ?? 0;
 
             return (
               <Panel className="overflow-hidden border-[#66E0C2]/20" key={scene.id}>
@@ -1478,9 +1476,7 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
                   <p className="font-semibold text-white">
                     Scene {index + 1}: {scene.title}
                   </p>
-                  <p className="mt-1 truncate text-xs text-[#5a5a72]">
-                    {take?.originalFileName}
-                  </p>
+                  <p className="mt-1 truncate text-xs text-[#5a5a72]">{take?.originalFileName}</p>
                   <div className="mt-3 flex items-center justify-between text-xs">
                     <span className="text-[#66E0C2]">
                       {passedChecks}/{run?.checks.length ?? 0} QA checks passed
@@ -1555,7 +1551,10 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ["Approved scenes", scenes.length],
-            ["Current checks passed", currentChecks.filter((check) => check.result === "PASS").length],
+            [
+              "Current checks passed",
+              currentChecks.filter((check) => check.result === "PASS").length,
+            ],
             ["Completed QA runs", completedRuns.length],
             ["Corrected QA runs", failedRuns.length],
           ].map(([label, value]) => (
@@ -1569,9 +1568,13 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
           {scenes.map((scene) => {
             const run = currentQaRun(scene.take);
             return (
-              <details className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4" key={scene.id}>
+              <details
+                className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4"
+                key={scene.id}
+              >
                 <summary className="cursor-pointer text-sm font-semibold text-white">
-                  {scene.title} · {run?.checks.filter((check) => check.result === "PASS").length ?? 0}/
+                  {scene.title} ·{" "}
+                  {run?.checks.filter((check) => check.result === "PASS").length ?? 0}/
                   {run?.checks.length ?? 0} checks passed
                 </summary>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1596,7 +1599,10 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
         {correctionInstructions.length ? (
           <div className="mt-4 space-y-2">
             {correctionInstructions.map((correction, index) => (
-              <div className="rounded-lg bg-[#FF9A44]/[0.06] p-3" key={`${correction.sceneTitle}-${correction.type}-${index}`}>
+              <div
+                className="rounded-lg bg-[#FF9A44]/[0.06] p-3"
+                key={`${correction.sceneTitle}-${correction.type}-${index}`}
+              >
                 <p className="text-xs font-semibold text-white">
                   {correction.sceneTitle} · {correction.type}
                 </p>
@@ -1633,13 +1639,7 @@ function ApprovedDelivery({ controller }: { controller: WorkflowController }) {
   );
 }
 
-function BriefSummaryList({
-  title,
-  values,
-}: {
-  title: string;
-  values: Array<[string, string]>;
-}) {
+function BriefSummaryList({ title, values }: { title: string; values: Array<[string, string]> }) {
   return (
     <div className="rounded-xl bg-white/[0.03] p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-[#5a5a72]">{title}</p>

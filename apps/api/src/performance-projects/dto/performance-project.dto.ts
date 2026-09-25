@@ -285,6 +285,16 @@ export class AssignPerformanceActorDto {
   actorProfileId!: string;
 }
 
+export class GeneratePerformanceOutputsDto {
+  @ApiPropertyOptional({
+    description: "Explicitly regenerate outputs for the same approved brief version.",
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
+}
+
 export class SavePerformanceConsentDto {
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()

@@ -52,7 +52,7 @@ export class OpenAiDirectorService {
           text: {
             format: {
               type: "json_schema",
-              name: "actbyme_director_brief",
+              name: request.schemaName,
               strict: true,
               schema: request.schema,
             },

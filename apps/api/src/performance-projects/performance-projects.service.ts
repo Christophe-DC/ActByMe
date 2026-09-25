@@ -47,7 +47,6 @@ import {
   canAccessAssignedProject,
   recommendActors,
 } from "./actor-matching.js";
-import { buildPerformanceOutputs } from "./performance-outputs.js";
 
 const projectInclude = {
   assignment: {
@@ -334,6 +333,10 @@ export class PerformanceProjectsService {
             aiEnginePrompt: null,
             currentStep: "plan",
             outputsBriefVersion: null,
+            outputsGeneratedAt: null,
+            outputsModel: null,
+            outputsProvider: null,
+            outputsResponseId: null,
             performerPath: null,
             workflowStatus: PerformanceWorkflowStatus.BriefReview,
           },
@@ -431,7 +434,7 @@ export class PerformanceProjectsService {
     return this.projectResponse(await this.requireOwnedProject(user, project.id));
   }
 
-  async generateOutputs(user: AuthenticatedUser, id: string): Promise<unknown> {
+  async generateOutputs(user: AuthenticatedUser, id: string, force = false): Promise<unknown> {
     const project = await this.requireOwnedProject(user, id);
     if (
       !project.brief?.approvedAt ||
@@ -444,26 +447,55 @@ export class PerformanceProjectsService {
     if (
       project.actorGuide &&
       project.aiEnginePrompt &&
-      project.outputsBriefVersion === project.brief.approvedVersion
+      project.outputsBriefVersion === project.brief.approvedVersion &&
+      !force
     ) {
       return this.projectResponse(project);
     }
 
+    if (force && project.assignment) {
+      throw new ConflictException(
+        "Outputs cannot be regenerated after an actor has been assigned.",
+      );
+    }
+
     const scene = project.scenes[0]!;
-    const outputs = buildPerformanceOutputs({
-      capturePlan: asRecord(project.brief.capturePlan),
+    const generated = await this.aiDirector.generateOutputs({
+      approvedBriefVersion: project.brief.approvedVersion,
+      captureRequirements: asRecord(project.brief.capturePlan),
+      castingRequirements: asRecord(project.brief.talentRequirements),
       globalDirection: project.brief.globalDirection,
+      project: {
+        language: project.language,
+        targetAiTool: project.targetAiTool,
+        title: project.title,
+      },
       qaCriteria: stringArray(project.brief.qaCriteria),
-      scene,
-      targetAiTool: project.targetAiTool,
-      title: project.title,
+      scene: {
+        bodyMovement: scene.bodyPosition,
+        captureRequirements: scene.captureRequirements,
+        dialogue: scene.dialogue,
+        direction: scene.direction,
+        duration: scene.duration,
+        emotionalProgression: scene.emotionalProgression,
+        eyeDirection: scene.eyeline,
+        framing: scene.framing,
+        gestures: scene.gestures,
+        startingPosition: scene.startingPosition,
+        title: scene.title,
+      },
     });
+    const generatedAt = new Date();
     await this.prisma.client.performanceProject.update({
       data: {
-        actorGuide: outputs.actorGuide as unknown as Prisma.InputJsonObject,
-        aiEnginePrompt: outputs.aiEnginePrompt,
+        actorGuide: generated.outputs.actorGuide as unknown as Prisma.InputJsonObject,
+        aiEnginePrompt: generated.outputs.aiEnginePrompt,
         currentStep: "actor",
         outputsBriefVersion: project.brief.approvedVersion,
+        outputsGeneratedAt: generatedAt,
+        outputsModel: generated.model,
+        outputsProvider: generated.provider,
+        outputsResponseId: generated.responseId,
         performerPath: PerformancePath.ActByMePerformer,
         workflowStatus: PerformanceWorkflowStatus.ActorSelection,
       },
@@ -473,7 +505,14 @@ export class PerformanceProjectsService {
       action: "PERFORMANCE_OUTPUTS_GENERATED",
       entityId: project.id,
       entityType: "PerformanceProject",
-      metadata: { approvedBriefVersion: project.brief.approvedVersion },
+      metadata: {
+        approvedBriefVersion: project.brief.approvedVersion,
+        force,
+        generatedAt: generatedAt.toISOString(),
+        model: generated.model,
+        provider: generated.provider,
+        responseId: generated.responseId,
+      },
       userId: user.id,
     });
     return this.projectResponse(await this.requireOwnedProject(user, project.id));

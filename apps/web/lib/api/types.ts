@@ -391,6 +391,10 @@ export interface PerformanceProjectResponse {
   actorGuide: ActorGuide | null;
   aiEnginePrompt: string | null;
   outputsBriefVersion: number | null;
+  outputsGeneratedAt: string | null;
+  outputsModel: string | null;
+  outputsProvider: string | null;
+  outputsResponseId: string | null;
   assignment: {
     acceptedAt: string | null;
     actorProfileId: string;

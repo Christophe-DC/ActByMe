@@ -176,7 +176,8 @@ export function directorInput(projectData: Record<string, unknown>) {
 export type DirectorProviderRequest = {
   input: string;
   instructions: string;
-  schema: typeof directorBriefJsonSchema;
+  schema: Record<string, unknown>;
+  schemaName: string;
 };
 
 export type DirectorProviderResponse = {

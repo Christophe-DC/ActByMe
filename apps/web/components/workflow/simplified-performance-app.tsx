@@ -253,6 +253,19 @@ export function SimplifiedPerformanceApp() {
     }
   }
 
+  async function regenerateOutputs() {
+    if (!project || project.assignment) return;
+    setBusy("outputs");
+    setError("");
+    try {
+      syncProject(await performanceProjectsApi.generateOutputs(project.id, true));
+    } catch (regenerateError) {
+      setError(errorMessage(regenerateError));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function assignActor(actorProfileId: string) {
     if (!project) return;
     setBusy(actorProfileId);
@@ -285,7 +298,9 @@ export function SimplifiedPerformanceApp() {
     setProject({ ...project, scenes: [{ ...project.scenes[0], [field]: value }] });
   }
 
-  const latestQa = project?.scenes[0]?.take?.qaRuns?.[0];
+  const qaRuns = project?.scenes[0]?.take?.qaRuns ?? [];
+  const latestQa = qaRuns[0];
+  const previousFailedQa = qaRuns.slice(1).filter((qa) => qa.result === "FAIL");
 
   return (
     <main className="min-h-screen bg-[#0b0b0d] px-4 py-10 text-white sm:px-6">
@@ -408,7 +423,11 @@ export function SimplifiedPerformanceApp() {
 
         {activeStep === 2 && project ? (
           <section className="space-y-6">
-            <OutputPanel project={project} />
+            <OutputPanel
+              busy={busy === "outputs"}
+              onRegenerate={regenerateOutputs}
+              project={project}
+            />
             <div className="rounded-2xl border border-white/10 bg-[#111214] p-5 sm:p-7">
               <div className="flex items-center gap-3">
                 <UserRound className="size-5 text-amber-300" />
@@ -475,6 +494,23 @@ export function SimplifiedPerformanceApp() {
               </p>
               <StatusBlock status={project.assignment?.status ?? "SELECTED"} />
               {latestQa ? <QaResults qa={latestQa} /> : null}
+              {previousFailedQa.length ? (
+                <div className="mt-6 border-t border-white/10 pt-5">
+                  <h3 className="text-sm font-semibold">Previous failed QA history</h3>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Earlier submissions remain visible after a successful retake.
+                  </p>
+                  <div className="mt-4 space-y-5">
+                    {previousFailedQa.map((qa, index) => (
+                      <QaResults
+                        key={qa.id}
+                        qa={qa}
+                        title={`Failed submission ${previousFailedQa.length - index}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {project.assignment?.status === "QA_PASSED" && project.scenes[0]?.take ? (
                 <DeliveryButtons project={project} />
               ) : null}
@@ -697,7 +733,15 @@ function TextArea({
   );
 }
 
-function OutputPanel({ project }: { project: PerformanceProjectResponse }) {
+function OutputPanel({
+  busy = false,
+  onRegenerate,
+  project,
+}: {
+  busy?: boolean;
+  onRegenerate?: () => Promise<void>;
+  project: PerformanceProjectResponse;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="rounded-2xl border border-white/10 bg-[#111214] p-5 sm:p-7">
@@ -705,12 +749,40 @@ function OutputPanel({ project }: { project: PerformanceProjectResponse }) {
       <p className="mt-1 text-sm text-zinc-400">
         The actor receives the guide. The AI Engine Prompt stays private to you.
       </p>
+      {project.outputsProvider && project.outputsModel ? (
+        <p className="mt-2 text-xs text-zinc-500">
+          Generated from approved plan v{project.outputsBriefVersion} by {project.outputsProvider} ·{" "}
+          {project.outputsModel}
+        </p>
+      ) : null}
       {project.actorGuide ? (
         <div className="mt-5 rounded-xl bg-black/25 p-4">
           <p className="text-sm font-semibold text-amber-200">
             Actor Guide · {project.actorGuide.duration}
           </p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">{project.actorGuide.overview}</p>
+          <ol className="mt-4 space-y-3">
+            {project.actorGuide.steps.map((step) => (
+              <li className="flex gap-3 text-sm leading-6 text-zinc-300" key={step.order}>
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-300/10 text-xs font-semibold text-amber-200">
+                  {step.order}
+                </span>
+                <span>
+                  <strong className="text-white">{step.title}.</strong> {step.instruction}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Final check
+            </p>
+            <ul className="mt-2 space-y-1 text-xs leading-5 text-zinc-400">
+              {project.actorGuide.finalChecklist.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       ) : null}
       {project.aiEnginePrompt ? (
@@ -733,6 +805,16 @@ function OutputPanel({ project }: { project: PerformanceProjectResponse }) {
             {project.aiEnginePrompt}
           </pre>
         </div>
+      ) : null}
+      {onRegenerate ? (
+        <button
+          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-zinc-200 hover:border-amber-300/40 hover:text-amber-200 disabled:opacity-50"
+          disabled={busy}
+          onClick={() => void onRegenerate()}
+        >
+          <RefreshCw className={`size-3.5 ${busy ? "animate-spin" : ""}`} />
+          {busy ? "Regenerating…" : "Regenerate guide and prompt"}
+        </button>
       ) : null}
     </div>
   );
@@ -767,14 +849,16 @@ function StatusBlock({ status }: { status: string }) {
 
 function QaResults({
   qa,
+  title = "QA results",
 }: {
   qa: NonNullable<
     NonNullable<PerformanceProjectResponse["scenes"][number]["take"]>["qaRuns"]
   >[number];
+  title?: string;
 }) {
   return (
     <div className="mt-5">
-      <h3 className="text-sm font-semibold">QA results</h3>
+      <h3 className="text-sm font-semibold">{title}</h3>
       <div className="mt-3 space-y-2">
         {qa.checks.map((check) => (
           <div
