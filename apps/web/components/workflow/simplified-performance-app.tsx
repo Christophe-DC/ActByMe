@@ -945,6 +945,9 @@ function QaResults({
                 {check.result}
               </span>
             </div>
+            {check.type === "VISUAL_COMPLIANCE" ? (
+              <VisualQaSummary value={check.measuredValue} />
+            ) : null}
             {check.correctionInstruction ? (
               <p className="mt-2 text-xs leading-5 text-zinc-400">{check.correctionInstruction}</p>
             ) : null}
@@ -955,6 +958,59 @@ function QaResults({
         <div className="mt-4 rounded-lg bg-black/20 p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Transcript</p>
           <p className="mt-2 text-sm text-zinc-300">{qa.transcript}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VisualQaSummary({ value }: { value: Record<string, unknown> }) {
+  const summary = typeof value.summary === "string" ? value.summary : null;
+  const items = [
+    ["Framing", value.framing],
+    ["Position", value.subjectPosition],
+    ["Eyeline", value.eyeline],
+    ["Background & lighting", value.backgroundLighting],
+    ["Movement & gesture", value.movementGesture],
+  ]
+    .map(([label, raw]) => {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+      const criterion = raw as Record<string, unknown>;
+      const result = typeof criterion.result === "string" ? criterion.result : null;
+      const observation =
+        typeof criterion.observation === "string" ? criterion.observation : null;
+      if (!result || !observation) return null;
+      return { label: String(label), observation, result };
+    })
+    .filter(
+      (item): item is { label: string; observation: string; result: string } =>
+        item !== null,
+    );
+
+  if (!summary && !items.length) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+      {summary ? <p className="text-xs leading-5 text-zinc-300">{summary}</p> : null}
+      {items.length ? (
+        <div className="mt-3 space-y-2">
+          {items.map((item) => (
+            <div className="flex items-start justify-between gap-3 text-xs" key={item.label}>
+              <span className="text-zinc-400">
+                <strong className="text-zinc-300">{item.label}:</strong> {item.observation}
+              </span>
+              <span
+                className={
+                  item.result === "FAIL"
+                    ? "text-red-300"
+                    : item.result === "PASS"
+                      ? "text-emerald-300"
+                      : "text-zinc-500"
+                }
+              >
+                {item.result === "NOT_OBSERVABLE" ? "Not observable" : item.result}
+              </span>
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

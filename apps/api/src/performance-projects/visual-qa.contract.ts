@@ -77,11 +77,12 @@ export function visualQaInput(requirements: Record<string, unknown>, frameCount:
 }
 
 export function visualQaFailedCriteria(result: VisualQaResult) {
-  return [
+  const criteria: Array<[string, VisualQaCriterion]> = [
     ["framing", result.framing],
     ["subjectPosition", result.subjectPosition],
     ["eyeline", result.eyeline],
     ["backgroundLighting", result.backgroundLighting],
     ["movementGesture", result.movementGesture],
-  ].filter((entry): entry is [string, VisualQaCriterion] => entry[1].result === "FAIL");
+  ];
+  return criteria.filter(([, criterion]) => criterion.result === "FAIL");
 }
