@@ -37,7 +37,7 @@ export class ActorsController {
   @Get("me")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   @ApiOperation({ summary: "Get the current actor profile from mock auth headers" })
   findMe(@CurrentUser() user: AuthenticatedUser): Promise<unknown> {
     return this.actors.findCurrentActor(user);
@@ -58,7 +58,7 @@ export class ActorsController {
   @Post("profile")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   @ApiOperation({ summary: "Create or replace the current actor profile draft" })
   createProfile(
     @CurrentUser() user: AuthenticatedUser,
@@ -70,7 +70,7 @@ export class ActorsController {
   @Patch("profile")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   @ApiOperation({ summary: "Update the current actor profile draft" })
   updateProfile(
     @CurrentUser() user: AuthenticatedUser,
@@ -82,7 +82,7 @@ export class ActorsController {
   @Post("profile/skills")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   addSkills(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AddActorSkillsDto,
@@ -93,7 +93,7 @@ export class ActorsController {
   @Post("profile/languages")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   addLanguages(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AddActorLanguagesDto,
@@ -104,7 +104,7 @@ export class ActorsController {
   @Post("profile/accents")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   addAccents(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AddActorAccentsDto,
@@ -115,7 +115,7 @@ export class ActorsController {
   @Post("profile/videos")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   addVideo(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AddActorVideoDto,
@@ -126,7 +126,7 @@ export class ActorsController {
   @Post("profile/consent")
   @ApiBearerAuth()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Actor)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
   acceptConsent(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AcceptActorConsentDto,

@@ -10,7 +10,7 @@ import { PerformanceProjectsService } from "./performance-projects.service.js";
 @ApiBearerAuth()
 @ApiTags("performances")
 @UseGuards(RolesGuard)
-@Roles(UserRole.Actor)
+@Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
 @Controller("performances")
 export class PerformanceRequestsController {
   constructor(private readonly projects: PerformanceProjectsService) {}

@@ -10,7 +10,7 @@ import { STORAGE_CLIENT, type StorageClient } from "./storage.types.js";
 @ApiSecurity("x-user-id")
 @ApiSecurity("x-user-role")
 @UseGuards(RolesGuard)
-@Roles(UserRole.Actor, UserRole.Admin)
+@Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
 @Controller("storage")
 export class StorageController {
   constructor(@Inject(STORAGE_CLIENT) private readonly storage: StorageClient) {}

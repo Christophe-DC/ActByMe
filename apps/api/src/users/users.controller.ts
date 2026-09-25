@@ -13,7 +13,7 @@ import { RolesGuard } from "../auth/roles.guard.js";
 export class UsersController {
   @Get("me")
   @UseGuards(RolesGuard)
-  @Roles(UserRole.Admin, UserRole.Actor, UserRole.Client)
+  @Roles(UserRole.Admin, UserRole.Actor, UserRole.Client, UserRole.Agency)
   findMe(@CurrentUser() user: AuthenticatedUser) {
     return user;
   }
