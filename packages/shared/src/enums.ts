@@ -50,3 +50,80 @@ export enum AgencyRequestStatus {
   Approved = "APPROVED",
   Rejected = "REJECTED",
 }
+
+export enum PerformancePath {
+  Self = "SELF",
+  TeamMember = "TEAM_MEMBER",
+  ActByMePerformer = "ACTBYME_PERFORMER",
+}
+
+export enum PerformanceWorkflowStatus {
+  Draft = "DRAFT",
+  ReadyForBrief = "READY_FOR_BRIEF",
+  GeneratingBrief = "GENERATING_BRIEF",
+  BriefReview = "BRIEF_REVIEW",
+  BriefApproved = "BRIEF_APPROVED",
+  PerformerSelection = "PERFORMER_SELECTION",
+  CompanyDetails = "COMPANY_DETAILS",
+  ProjectDetails = "PROJECT_DETAILS",
+  SetupReview = "SETUP_REVIEW",
+  BriefProcessing = "BRIEF_PROCESSING",
+  BriefReady = "BRIEF_READY",
+  PerformanceSource = "PERFORMANCE_SOURCE",
+  ActorSelection = "ACTOR_SELECTION",
+  RequestSummary = "REQUEST_SUMMARY",
+  PerformanceProgress = "PERFORMANCE_PROGRESS",
+  QaPending = "QA_PENDING",
+  ClientReview = "CLIENT_REVIEW",
+  ApprovedDelivery = "APPROVED_DELIVERY",
+}
+
+export enum PerformanceTakeUploadStatus {
+  Uploading = "UPLOADING",
+  Uploaded = "UPLOADED",
+  Failed = "FAILED",
+}
+
+export enum PerformanceTakeStatus {
+  Draft = "DRAFT",
+  Submitted = "SUBMITTED",
+  QaRunning = "QA_RUNNING",
+  QaFailed = "QA_FAILED",
+  QaPassed = "QA_PASSED",
+  Approved = "APPROVED",
+}
+
+export enum PerformanceQaRunStatus {
+  Running = "RUNNING",
+  Completed = "COMPLETED",
+  Error = "ERROR",
+}
+
+export enum PerformanceQaResultStatus {
+  Pass = "PASS",
+  Fail = "FAIL",
+}
+
+export enum PerformanceQaCheckType {
+  FileCodec = "FILE_CODEC",
+  Duration = "DURATION",
+  ResolutionOrientation = "RESOLUTION_ORIENTATION",
+  AudioPresence = "AUDIO_PRESENCE",
+  DialogueAccuracy = "DIALOGUE_ACCURACY",
+}
+
+export enum PerformanceBriefAttachmentStatus {
+  Uploading = "UPLOADING",
+  Parsing = "PARSING",
+  Ready = "READY",
+  Failed = "FAILED",
+}
+
+export enum PerformanceAssignmentStatus {
+  Selected = "SELECTED",
+  Accepted = "ACCEPTED",
+  Submitted = "SUBMITTED",
+  QaRunning = "QA_RUNNING",
+  QaPassed = "QA_PASSED",
+  QaFailed = "QA_FAILED",
+}

@@ -125,3 +125,384 @@ export type UploadNamespace =
   | "actor-private-video"
   | "platform-asset"
   | "actor-delivery";
+
+export type PerformancePath = "SELF" | "TEAM_MEMBER" | "ACTBYME_PERFORMER";
+
+export type PerformanceAssignmentStatus =
+  | "SELECTED"
+  | "ACCEPTED"
+  | "SUBMITTED"
+  | "QA_RUNNING"
+  | "QA_PASSED"
+  | "QA_FAILED";
+
+export interface ActorGuide {
+  duration: string;
+  overview: string;
+  steps: Array<{ order: number; title: string; instruction: string }>;
+  dialogue: string;
+  finalChecklist: string[];
+}
+
+export type PerformanceTakeUploadStatus = "UPLOADING" | "UPLOADED" | "FAILED";
+
+export type PerformanceTakeStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "QA_RUNNING"
+  | "QA_FAILED"
+  | "QA_PASSED"
+  | "APPROVED";
+
+export type PerformanceQaRunStatus = "RUNNING" | "COMPLETED" | "ERROR";
+
+export type PerformanceQaResultStatus = "PASS" | "FAIL";
+
+export type PerformanceQaCheckType =
+  | "FILE_CODEC"
+  | "DURATION"
+  | "RESOLUTION_ORIENTATION"
+  | "AUDIO_PRESENCE"
+  | "DIALOGUE_ACCURACY";
+
+export interface PerformanceQaCheckResult {
+  correctionInstruction: string | null;
+  createdAt: string;
+  id: string;
+  measuredValue: Record<string, unknown>;
+  qaRunId: string;
+  requiredValue: Record<string, unknown> | null;
+  result: PerformanceQaResultStatus;
+  type: PerformanceQaCheckType;
+}
+
+export interface PerformanceQaRun {
+  approvedBriefVersion: number;
+  checks: PerformanceQaCheckResult[];
+  completedAt: string | null;
+  createdAt: string;
+  id: string;
+  processingError: string | null;
+  projectId: string;
+  result: PerformanceQaResultStatus | null;
+  sceneId: string;
+  startedAt: string;
+  status: PerformanceQaRunStatus;
+  takeId: string;
+  transcript: string | null;
+  transcriptionModel: string | null;
+  updatedAt: string;
+  uploadAttemptId: string;
+}
+
+export type PerformanceBriefAttachmentStatus = "UPLOADING" | "PARSING" | "READY" | "FAILED";
+
+export type PerformanceBriefContentType =
+  | "application/pdf"
+  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  | "text/plain";
+
+export interface PerformanceBriefAttachment {
+  contentType: PerformanceBriefContentType;
+  createdAt: string;
+  extractionError: string | null;
+  id: string;
+  originalFileName: string;
+  parsedAt: string | null;
+  projectId: string;
+  sizeBytes: number;
+  status: PerformanceBriefAttachmentStatus;
+  storageBucket: string;
+  storagePath: string;
+  updatedAt: string;
+  uploadedAt: string | null;
+  uploadAttemptId: string;
+}
+
+export interface PerformanceBriefAttachmentUploadReservation {
+  attachment: PerformanceBriefAttachment;
+  upload: {
+    bucket: string;
+    path: string;
+    token: string;
+    uploadUrl: string;
+  };
+}
+
+export interface PerformanceConsent {
+  acceptedAt: string | null;
+  aiTransformationAllowed: boolean | null;
+  approvedBriefVersion: number;
+  commercialUse: boolean | null;
+  createdAt: string;
+  id: string;
+  modelTrainingAllowed: boolean | null;
+  performerEmail: string | null;
+  performerName: string | null;
+  projectId: string;
+  restrictions: string | null;
+  territory: string | null;
+  updatedAt: string;
+  usageDuration: string | null;
+  usagePurpose: string | null;
+  version: number;
+}
+
+export type PerformanceConsentDraft = Pick<
+  PerformanceConsent,
+  | "aiTransformationAllowed"
+  | "commercialUse"
+  | "modelTrainingAllowed"
+  | "performerEmail"
+  | "performerName"
+  | "restrictions"
+  | "territory"
+  | "usageDuration"
+  | "usagePurpose"
+>;
+
+export interface PerformanceTake {
+  contentType: string;
+  createdAt: string;
+  downloadUrl?: string;
+  id: string;
+  originalFileName: string;
+  projectId: string;
+  qaRuns?: PerformanceQaRun[];
+  readUrl?: string;
+  sceneId: string;
+  sizeBytes: number;
+  storageBucket: string;
+  storagePath: string;
+  takeStatus: PerformanceTakeStatus;
+  updatedAt: string;
+  uploadAttemptId: string;
+  uploadError: string | null;
+  uploadedAt: string | null;
+  uploadStatus: PerformanceTakeUploadStatus;
+}
+
+export interface PerformanceTakeUploadReservation {
+  take: PerformanceTake;
+  upload: {
+    bucket: string;
+    path: string;
+    token: string;
+    uploadUrl: string;
+  };
+}
+
+export type PerformanceWorkflowStatus =
+  | "DRAFT"
+  | "READY_FOR_BRIEF"
+  | "GENERATING_BRIEF"
+  | "BRIEF_REVIEW"
+  | "BRIEF_APPROVED"
+  | "PERFORMER_SELECTION"
+  | "COMPANY_DETAILS"
+  | "PROJECT_DETAILS"
+  | "SETUP_REVIEW"
+  | "BRIEF_PROCESSING"
+  | "BRIEF_READY"
+  | "PERFORMANCE_SOURCE"
+  | "ACTOR_SELECTION"
+  | "REQUEST_SUMMARY"
+  | "PERFORMANCE_PROGRESS"
+  | "QA_PENDING"
+  | "CLIENT_REVIEW"
+  | "APPROVED_DELIVERY";
+
+export interface PerformanceLocation {
+  label: string;
+  provider: "remote" | "manual" | "google";
+  isRemote: boolean;
+  placeId: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  countryCode: string | null;
+}
+
+export interface PerformanceProjectSaveRequest {
+  brief?: {
+    globalDirection: string;
+    capturePlan: {
+      location: string;
+      camera: string;
+      cameraPosition: string;
+      cameraHeight: string;
+      framing: string;
+      orientation: string;
+      lighting: string;
+      audio: string;
+      background: string;
+      continuity: string;
+      fileFormat: string;
+      recordingRequirements: string;
+    };
+    talentRequirements: {
+      performerProfile: string;
+      apparentAge: string;
+      genderPresentation: string;
+      language: string;
+      accent: string;
+      wardrobe: string;
+      notes: string;
+    };
+    qaCriteria: string[];
+  };
+  company: {
+    contactName: string;
+    contactRole: string;
+    name: string;
+    type: string;
+    website: string;
+  };
+  performerPath: PerformancePath | null;
+  project: {
+    language: string;
+    location: PerformanceLocation;
+    notes: string;
+    script?: string;
+    objective: string;
+    targetAiTool: string;
+    title: string;
+    type: string;
+  };
+  scenes: Array<{
+    bodyPosition: string;
+    dialogue: string;
+    direction: string;
+    emotionalProgression: string;
+    duration: string;
+    eyeline: string;
+    framing: string;
+    gestures: string;
+    captureRequirements: string;
+    id?: string;
+    reference: string;
+    startingPosition: string;
+    title: string;
+  }>;
+  currentStep: string;
+  workflowStatus: PerformanceWorkflowStatus;
+}
+
+export interface PerformanceProjectResponse {
+  actorGuide: ActorGuide | null;
+  aiEnginePrompt: string | null;
+  outputsBriefVersion: number | null;
+  outputsGeneratedAt: string | null;
+  outputsModel: string | null;
+  outputsProvider: string | null;
+  outputsResponseId: string | null;
+  assignment: {
+    acceptedAt: string | null;
+    actorProfileId: string;
+    actorProfile: ActorListItem;
+    createdAt: string;
+    id: string;
+    projectId: string;
+    status: PerformanceAssignmentStatus;
+    submittedAt: string | null;
+    updatedAt: string;
+  } | null;
+  briefAttachment: PerformanceBriefAttachment | null;
+  consent: PerformanceConsent | null;
+  brief: {
+    approvedAt: string | null;
+    approvedVersion: number | null;
+    globalDirection: string;
+    capturePlan: {
+      location: string;
+      camera: string;
+      cameraPosition: string;
+      cameraHeight: string;
+      framing: string;
+      orientation: string;
+      lighting: string;
+      audio: string;
+      background: string;
+      continuity: string;
+      fileFormat: string;
+      recordingRequirements: string;
+    };
+    talentRequirements: {
+      performerProfile: string;
+      apparentAge: string;
+      genderPresentation: string;
+      language: string;
+      accent: string;
+      wardrobe: string;
+      notes: string;
+    };
+    qaCriteria: string[];
+    model: string;
+    openaiResponseId: string | null;
+    generatedAt: string;
+    version: number;
+  } | null;
+  companyName: string;
+  companyWebsite: string | null;
+  contactName: string | null;
+  contactRole: string | null;
+  createdAt: string;
+  deliveryCompletedAt: string | null;
+  id: string;
+  currentStep: string;
+  language: string | null;
+  location: string | null;
+  locationData: PerformanceLocation | null;
+  notes: string | null;
+  script: string | null;
+  objective: string | null;
+  organizationType: string | null;
+  ownerId: string;
+  performerPath: PerformancePath | null;
+  scenes: Array<{
+    bodyPosition: string | null;
+    dialogue: string | null;
+    direction: string | null;
+    emotionalProgression: string | null;
+    duration: string | null;
+    eyeline: string | null;
+    framing: string | null;
+    gestures: string | null;
+    captureRequirements: string | null;
+    id: string;
+    position: number;
+    referenceUrl: string | null;
+    startingPosition: string | null;
+    take: PerformanceTake | null;
+    title: string;
+  }>;
+  sourceFileName: string | null;
+  targetAiTool: string | null;
+  title: string;
+  type: string;
+  updatedAt: string;
+  workflowStatus: PerformanceWorkflowStatus;
+}
+
+export interface ActorRecommendation {
+  actorId: string;
+  score: number;
+  matches: string[];
+  actor: ActorListItem;
+}
+
+export interface PerformanceRequest {
+  acceptedAt: string | null;
+  actorGuide: ActorGuide;
+  createdAt: string;
+  id: string;
+  project: { id: string; language: string | null; title: string };
+  scene: {
+    dialogue: string | null;
+    duration: string | null;
+    id: string;
+    take: PerformanceTake | null;
+  } | null;
+  status: PerformanceAssignmentStatus;
+  submittedAt: string | null;
+  updatedAt: string;
+}
