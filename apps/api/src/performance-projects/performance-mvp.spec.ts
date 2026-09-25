@@ -12,6 +12,7 @@ import { directorBriefSchema, directorInput } from "./ai-director.contract.js";
 import { AiDirectorService } from "./ai-director.service.js";
 import { PerformanceProjectsService } from "./performance-projects.service.js";
 import { performanceOutputsInput, performanceOutputsSchema } from "./performance-outputs.js";
+import { visualQaFailedCriteria, visualQaSchema } from "./visual-qa.contract.js";
 
 const validBrief = {
   globalDirection: "Begin warmly, then finish with quiet confidence.",
@@ -457,4 +458,53 @@ test("failed QA requires a new retake but technical QA errors can retry the same
     false,
     "a replacement upload may be submitted",
   );
+});
+
+
+test("visual QA contract is conservative about sampled-frame uncertainty", () => {
+  const parsed = visualQaSchema.parse({
+    summary: "Framing matches; movement cannot be confirmed from still frames.",
+    framing: { result: "PASS", observation: "Medium framing is consistent.", correction: "" },
+    subjectPosition: { result: "PASS", observation: "Performer remains centered.", correction: "" },
+    eyeline: {
+      result: "NOT_OBSERVABLE",
+      observation: "Eye direction is not clear enough in the sampled frames.",
+      correction: "",
+    },
+    backgroundLighting: {
+      result: "PASS",
+      observation: "Background and front lighting remain consistent.",
+      correction: "",
+    },
+    movementGesture: {
+      result: "NOT_OBSERVABLE",
+      observation: "The requested gesture cannot be reliably inferred from still samples.",
+      correction: "",
+    },
+  });
+  assert.equal(visualQaFailedCriteria(parsed).length, 0);
+});
+
+test("visual QA exposes only explicit visible failures as retake blockers", () => {
+  const parsed = visualQaSchema.parse({
+    summary: "The framing is visibly too tight.",
+    framing: {
+      result: "FAIL",
+      observation: "Only head and shoulders are visible instead of the approved medium shot.",
+      correction: "Move the camera back until the approved medium framing is visible.",
+    },
+    subjectPosition: { result: "PASS", observation: "Centered.", correction: "" },
+    eyeline: { result: "PASS", observation: "Looking toward the lens.", correction: "" },
+    backgroundLighting: {
+      result: "NOT_OBSERVABLE",
+      observation: "The exact approved lighting source is not verifiable.",
+      correction: "",
+    },
+    movementGesture: {
+      result: "NOT_OBSERVABLE",
+      observation: "Motion cannot be confirmed.",
+      correction: "",
+    },
+  });
+  assert.deepEqual(visualQaFailedCriteria(parsed).map(([name]) => name), ["framing"]);
 });

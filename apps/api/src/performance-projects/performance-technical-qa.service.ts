@@ -11,7 +11,7 @@ import { visualQaFailedCriteria, type VisualQaResult } from "./visual-qa.contrac
 
 const DIALOGUE_PASS_THRESHOLD = 0.85;
 
-type QaJson = Record<string, boolean | number | string | null | string[]>;
+type QaJson = Record<string, unknown>;
 
 export type TechnicalQaCheck = {
   correctionInstruction: string | null;
@@ -150,7 +150,7 @@ export class PerformanceTechnicalQaService {
         300_000,
       );
       const frameFiles = (await readdir(directory))
-        .filter((file) => /^frame-\\d+\\.jpg$/.test(file))
+        .filter((file) => /^frame-\d+\.jpg$/.test(file))
         .sort();
       if (!frameFiles.length) {
         throw new ServiceUnavailableException("Visual QA could not extract video frames.");
