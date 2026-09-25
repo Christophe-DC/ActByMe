@@ -13,6 +13,9 @@ export function SiteHeader() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authOpen, setAuthOpen] = useState(false);
   const isWorkflow = pathname === "/create-performance";
+  const isPreview = pathname === "/preview";
+  const homeHref = isPreview ? "/preview" : "/";
+  const howItWorksHref = isPreview ? "/preview#how-it-works" : "/#how-it-works";
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -47,7 +50,7 @@ export function SiteHeader() {
         <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 md:px-6 lg:px-10">
           <Link
             className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-80"
-            href="/"
+            href={homeHref}
           >
             <span className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#6C4DFF] to-[#5b3fd6] shadow-lg shadow-[#6C4DFF]/20">
               <Clapperboard className="size-5 text-white" strokeWidth={2.2} />
@@ -76,7 +79,7 @@ export function SiteHeader() {
             </Link>
             <Link
               className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
-              href="/#how-it-works"
+              href={howItWorksHref}
             >
               How It Works
             </Link>
