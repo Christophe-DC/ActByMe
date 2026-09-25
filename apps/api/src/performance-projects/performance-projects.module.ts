@@ -7,6 +7,7 @@ import { GeminiDirectorService } from "./gemini-director.service.js";
 import { OpenAiDirectorService } from "./openai-director.service.js";
 import { BriefContentExtractorService } from "./brief-content-extractor.service.js";
 import { OpenAiTranscriptionService } from "./openai-transcription.service.js";
+import { OpenAiVisualQaService } from "./openai-visual-qa.service.js";
 import { PerformanceTechnicalQaService } from "./performance-technical-qa.service.js";
 import { PerformanceRequestsController } from "./performance-requests.controller.js";
 
@@ -19,6 +20,7 @@ import { PerformanceRequestsController } from "./performance-requests.controller
     GeminiDirectorService,
     OpenAiDirectorService,
     OpenAiTranscriptionService,
+    OpenAiVisualQaService,
     PerformanceProjectsService,
     PerformanceTechnicalQaService,
   ],

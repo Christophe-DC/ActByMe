@@ -1,11 +1,13 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PerformanceQaCheckType, PerformanceQaResultStatus } from "@actbyme/shared";
 import { OpenAiTranscriptionService } from "./openai-transcription.service.js";
+import { OpenAiVisualQaService } from "./openai-visual-qa.service.js";
+import { visualQaFailedCriteria, type VisualQaResult } from "./visual-qa.contract.js";
 
 const DIALOGUE_PASS_THRESHOLD = 0.85;
 
@@ -33,6 +35,10 @@ export type TechnicalQaInput = {
     dialogue?: string | null;
     duration?: string | null;
     framing?: string | null;
+    startingPosition?: string | null;
+    bodyPosition?: string | null;
+    eyeline?: string | null;
+    gestures?: string | null;
   };
 };
 
@@ -63,6 +69,7 @@ export class PerformanceTechnicalQaService {
   constructor(
     private readonly config: ConfigService,
     private readonly transcription: OpenAiTranscriptionService,
+    private readonly visualQa: OpenAiVisualQaService,
   ) {}
 
   async evaluate(input: TechnicalQaInput) {
@@ -106,7 +113,68 @@ export class PerformanceTechnicalQaService {
       }
     }
 
+    const visualRequirements = buildVisualRequirements(input, capturePlan);
+    if (hasVisualRequirements(visualRequirements)) {
+      const visual = await this.evaluateVisualFrames(input.file.signedUrl, visualRequirements);
+      checks.push(visualComplianceCheck(visual.result, visualRequirements, visual.model));
+    }
+
     return { checks, transcript, transcriptionModel };
+  }
+
+  private async evaluateVisualFrames(
+    signedUrl: string,
+    requirements: Record<string, unknown>,
+  ) {
+    const directory = await mkdtemp(join(tmpdir(), "actbyme-visual-qa-"));
+    const framePattern = join(directory, "frame-%02d.jpg");
+    const binary = this.config.get<string>("FFMPEG_PATH")?.trim() || "ffmpeg";
+
+    try {
+      await runBinary(
+        binary,
+        [
+          "-v",
+          "error",
+          "-nostdin",
+          "-i",
+          signedUrl,
+          "-vf",
+          "fps=1/5,scale=768:-2",
+          "-frames:v",
+          "5",
+          "-q:v",
+          "3",
+          framePattern,
+        ],
+        300_000,
+      );
+      const frameFiles = (await readdir(directory))
+        .filter((file) => /^frame-\\d+\\.jpg$/.test(file))
+        .sort();
+      if (!frameFiles.length) {
+        throw new ServiceUnavailableException("Visual QA could not extract video frames.");
+      }
+      const frames = await Promise.all(
+        frameFiles.map((file) => readFile(join(directory, file))),
+      );
+      return await this.visualQa.evaluate(frames, requirements);
+    } catch (error) {
+      if (isMissingBinary(error)) {
+        throw new ServiceUnavailableException(
+          "Visual QA requires ffmpeg. Install it or configure FFMPEG_PATH.",
+        );
+      }
+      if (isTimedOut(error)) {
+        throw new ServiceUnavailableException("Visual QA frame extraction timed out.");
+      }
+      if (error instanceof ServiceUnavailableException) throw error;
+      throw new ServiceUnavailableException("Visual QA could not prepare video frames.", {
+        cause: error,
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true }).catch(() => undefined);
+    }
   }
 
   private async probe(signedUrl: string): Promise<ProbeResult | null> {
@@ -361,6 +429,76 @@ function dialogueCheck(expected: string, transcript: string): TechnicalQaCheck {
     },
     result: passed ? PerformanceQaResultStatus.Pass : PerformanceQaResultStatus.Fail,
     type: PerformanceQaCheckType.DialogueAccuracy,
+  };
+}
+
+function buildVisualRequirements(input: TechnicalQaInput, capturePlan: Record<string, unknown>) {
+  return {
+    framing: [
+      input.scene.framing,
+      stringValue(capturePlan.framing),
+      stringValue(capturePlan.camera),
+    ]
+      .filter(Boolean)
+      .join(" | "),
+    subjectPosition: [
+      input.scene.startingPosition,
+      stringValue(capturePlan.cameraPosition),
+      stringValue(capturePlan.cameraHeight),
+    ]
+      .filter(Boolean)
+      .join(" | "),
+    eyeline: input.scene.eyeline?.trim() || "",
+    backgroundLighting: [
+      stringValue(capturePlan.background),
+      stringValue(capturePlan.lighting),
+      stringValue(capturePlan.continuity),
+    ]
+      .filter(Boolean)
+      .join(" | "),
+    movementGesture: [
+      input.scene.bodyPosition,
+      input.scene.gestures,
+      input.scene.captureRequirements,
+    ]
+      .filter(Boolean)
+      .join(" | "),
+  };
+}
+
+function hasVisualRequirements(requirements: Record<string, unknown>) {
+  return Object.values(requirements).some(
+    (value) => typeof value === "string" && value.trim().length > 0,
+  );
+}
+
+function visualComplianceCheck(
+  result: VisualQaResult,
+  requirements: Record<string, unknown>,
+  model: string,
+): TechnicalQaCheck {
+  const failed = visualQaFailedCriteria(result);
+  const passed = failed.length === 0;
+  const corrections = [
+    ...new Set(failed.map(([, criterion]) => criterion.correction.trim()).filter(Boolean)),
+  ];
+
+  return {
+    correctionInstruction: passed
+      ? null
+      : corrections.join(" ") || "Re-record the take to match the approved visual setup.",
+    measuredValue: {
+      model,
+      summary: result.summary,
+      framing: result.framing,
+      subjectPosition: result.subjectPosition,
+      eyeline: result.eyeline,
+      backgroundLighting: result.backgroundLighting,
+      movementGesture: result.movementGesture,
+    },
+    requiredValue: requirements as QaJson,
+    result: passed ? PerformanceQaResultStatus.Pass : PerformanceQaResultStatus.Fail,
+    type: PerformanceQaCheckType.VisualCompliance,
   };
 }
 

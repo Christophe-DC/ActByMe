@@ -1544,6 +1544,10 @@ export class PerformanceProjectsService {
           dialogue: scene.dialogue,
           duration: scene.duration,
           framing: scene.framing,
+          startingPosition: scene.startingPosition,
+          bodyPosition: scene.bodyPosition,
+          eyeline: scene.eyeline,
+          gestures: scene.gestures,
         },
       });
       const result = evaluated.checks.some(
