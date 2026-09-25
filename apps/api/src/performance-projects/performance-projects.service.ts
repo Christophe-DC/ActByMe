@@ -591,10 +591,11 @@ export class PerformanceProjectsService {
 
     await this.prisma.client.$transaction([
       this.prisma.client.performanceAssignment.upsert({
-        create: { actorProfileId, projectId: id },
+        create: { actorProfileId, projectId: id, sentAt: new Date() },
         update: {
           acceptedAt: null,
           actorProfileId,
+          sentAt: new Date(),
           status: PerformanceAssignmentStatus.Selected,
           submittedAt: null,
         },
@@ -636,9 +637,18 @@ export class PerformanceProjectsService {
   async acceptActorRequest(user: AuthenticatedUser, assignmentId: string) {
     const assignment = await this.requireActorAssignment(user, assignmentId);
     if (assignment.status === PerformanceAssignmentStatus.Selected) {
+      const acceptedAt = new Date();
       await this.prisma.client.performanceAssignment.update({
-        data: { acceptedAt: new Date(), status: PerformanceAssignmentStatus.Accepted },
+        data: { acceptedAt, status: PerformanceAssignmentStatus.Accepted },
         where: { id: assignment.id },
+      });
+      await this.prisma.audit({
+        action: "PERFORMANCE_ASSIGNMENT_ACCEPTED",
+        actorProfileId: assignment.actorProfileId,
+        entityId: assignment.id,
+        entityType: "PerformanceAssignment",
+        metadata: { acceptedAt: acceptedAt.toISOString(), projectId: assignment.projectId },
+        userId: user.id,
       });
     }
     return this.findActorRequest(user, assignmentId);
@@ -671,15 +681,31 @@ export class PerformanceProjectsService {
         "This performance failed QA. Upload a new retake before submitting again.",
       );
     }
+    const submittedAt = new Date();
     await this.prisma.client.performanceAssignment.update({
       data: {
         status: PerformanceAssignmentStatus.Submitted,
-        submittedAt: new Date(),
+        submittedAt,
       },
       where: { id: assignment.id },
     });
+    await this.prisma.audit({
+      action: "PERFORMANCE_SUBMITTED",
+      actorProfileId: assignment.actorProfileId,
+      entityId: take.id,
+      entityType: "PerformanceTake",
+      metadata: {
+        assignmentId: assignment.id,
+        projectId: assignment.projectId,
+        submittedAt: submittedAt.toISOString(),
+        uploadAttemptId: take.uploadAttemptId,
+      },
+      userId: user.id,
+    });
     try {
-      await this.runTakeQa(user, assignment.projectId, scene.id, take.id);
+      await this.runTakeQa(user, assignment.projectId, scene.id, take.id, {
+        allowAssignedActor: true,
+      });
     } catch (error) {
       await this.prisma.client.performanceAssignment.update({
         data: { status: PerformanceAssignmentStatus.QaFailed },
@@ -1378,8 +1404,16 @@ export class PerformanceProjectsService {
     return { downloadUrl, expiresInSeconds, playbackUrl };
   }
 
-  async runTakeQa(user: AuthenticatedUser, projectId: string, sceneId: string, takeId: string) {
-    const project = await this.requireAccessibleProject(user, projectId);
+  async runTakeQa(
+    user: AuthenticatedUser,
+    projectId: string,
+    sceneId: string,
+    takeId: string,
+    options: { allowAssignedActor?: boolean } = {},
+  ) {
+    const project = options.allowAssignedActor
+      ? await this.requireAccessibleProject(user, projectId)
+      : await this.requireOwnedProject(user, projectId);
     if (
       project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
       project.deliveryCompletedAt
@@ -1682,7 +1716,7 @@ export class PerformanceProjectsService {
   }
 
   async deleteTake(user: AuthenticatedUser, projectId: string, sceneId: string, takeId: string) {
-    const project = await this.requireAccessibleProject(user, projectId);
+    const project = await this.requireOwnedProject(user, projectId);
     if (
       project.workflowStatus === PerformanceWorkflowStatus.ApprovedDelivery ||
       project.deliveryCompletedAt
