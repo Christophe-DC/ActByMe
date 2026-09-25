@@ -1042,6 +1042,18 @@ export class PerformanceProjectsService {
     this.assertCurrentAttempt(take.uploadAttemptId, dto.uploadAttemptId);
 
     const storageKey = this.storageKey(take.storageBucket, take.storagePath);
+    if (take.uploadStatus === PerformanceTakeUploadStatus.Uploaded) {
+      try {
+        const readUrl = await this.storage.createSignedReadUrl(storageKey, 3600);
+        return { ...take, readUrl };
+      } catch {
+        return take;
+      }
+    }
+    if (take.uploadStatus !== PerformanceTakeUploadStatus.Uploading) {
+      throw new ConflictException("This performance upload is not active.");
+    }
+
     const objectInfo = await this.storage.getObjectInfo(storageKey);
 
     if (

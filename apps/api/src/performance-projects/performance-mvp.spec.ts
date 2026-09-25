@@ -338,3 +338,40 @@ test("QA pass/fail and retake replacement produce the expected assignment states
   assert.equal(assignmentStatusForQaResult("FAIL"), "QA_FAILED");
   assert.equal(assignmentStatusForReplacement("QA_FAILED"), "ACCEPTED");
 });
+
+test("completing an already uploaded take is idempotent and preserves its QA state", async () => {
+  const take = {
+    id: "take-1",
+    storageBucket: "private",
+    storagePath: "performance-take/actor/project/scene/take.mp4",
+    takeStatus: "QA_PASSED",
+    uploadAttemptId: "attempt-1",
+    uploadStatus: "UPLOADED",
+  };
+  const service = new PerformanceProjectsService(
+    {} as never,
+    {
+      createSignedReadUrl: async () => "https://signed.example/performance",
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+  (
+    service as unknown as {
+      requireAccessibleTake: () => Promise<typeof take>;
+    }
+  ).requireAccessibleTake = async () => take;
+
+  const result = (await service.completeTakeUpload(
+    { id: "actor" } as never,
+    "project-1",
+    "scene-1",
+    take.id,
+    { uploadAttemptId: take.uploadAttemptId } as never,
+  )) as { readUrl?: string; takeStatus: string; uploadStatus: string };
+
+  assert.equal(result.uploadStatus, "UPLOADED");
+  assert.equal(result.takeStatus, "QA_PASSED");
+  assert.equal(result.readUrl, "https://signed.example/performance");
+});
