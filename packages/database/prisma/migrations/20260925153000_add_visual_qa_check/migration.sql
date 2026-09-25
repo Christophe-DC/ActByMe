@@ -1,0 +1,1 @@
+ALTER TYPE "PerformanceQaCheckType" ADD VALUE 'VISUAL_COMPLIANCE';

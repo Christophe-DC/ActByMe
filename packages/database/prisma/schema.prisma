@@ -119,6 +119,7 @@ enum PerformanceQaCheckType {
   RESOLUTION_ORIENTATION
   AUDIO_PRESENCE
   DIALOGUE_ACCURACY
+  VISUAL_COMPLIANCE
 }
 
 enum PerformanceBriefAttachmentStatus {
