@@ -163,7 +163,8 @@ export type PerformanceQaCheckType =
   | "DURATION"
   | "RESOLUTION_ORIENTATION"
   | "AUDIO_PRESENCE"
-  | "DIALOGUE_ACCURACY";
+  | "DIALOGUE_ACCURACY"
+  | "VISUAL_COMPLIANCE";
 
 export interface PerformanceQaCheckResult {
   correctionInstruction: string | null;
