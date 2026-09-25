@@ -4,7 +4,9 @@ import {
   assignmentStatusForQaResult,
   assignmentStatusForReplacement,
   canAccessAssignedProject,
+  canChangeActorAssignment,
   recommendActors,
+  requiresRetakeBeforeResubmission,
 } from "./actor-matching.js";
 import { directorBriefSchema, directorInput } from "./ai-director.contract.js";
 import { AiDirectorService } from "./ai-director.service.js";
@@ -374,4 +376,85 @@ test("completing an already uploaded take is idempotent and preserves its QA sta
   assert.equal(result.uploadStatus, "UPLOADED");
   assert.equal(result.takeStatus, "QA_PASSED");
   assert.equal(result.readUrl, "https://signed.example/performance");
+});
+
+
+test("actor assignment can change only before acceptance and before upload starts", () => {
+  assert.equal(
+    canChangeActorAssignment({
+      assignmentStatus: "SELECTED",
+      currentActorProfileId: "actor-a",
+      nextActorProfileId: "actor-b",
+      hasTake: false,
+    }),
+    true,
+  );
+  assert.equal(
+    canChangeActorAssignment({
+      assignmentStatus: "ACCEPTED",
+      currentActorProfileId: "actor-a",
+      nextActorProfileId: "actor-b",
+      hasTake: false,
+    }),
+    false,
+  );
+  assert.equal(
+    canChangeActorAssignment({
+      assignmentStatus: "SELECTED",
+      currentActorProfileId: "actor-a",
+      nextActorProfileId: "actor-b",
+      hasTake: true,
+    }),
+    false,
+  );
+  assert.equal(
+    canChangeActorAssignment({
+      assignmentStatus: "QA_PASSED",
+      currentActorProfileId: "actor-a",
+      nextActorProfileId: "actor-a",
+      hasTake: true,
+    }),
+    true,
+    "re-selecting the same actor remains idempotent",
+  );
+});
+
+test("failed QA requires a new retake but technical QA errors can retry the same upload", () => {
+  assert.equal(
+    requiresRetakeBeforeResubmission({
+      assignmentStatus: "QA_FAILED",
+      currentUploadAttemptId: "attempt-1",
+      latestQaRun: {
+        result: "FAIL",
+        status: "COMPLETED",
+        uploadAttemptId: "attempt-1",
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    requiresRetakeBeforeResubmission({
+      assignmentStatus: "QA_FAILED",
+      currentUploadAttemptId: "attempt-1",
+      latestQaRun: {
+        result: null,
+        status: "ERROR",
+        uploadAttemptId: "attempt-1",
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    requiresRetakeBeforeResubmission({
+      assignmentStatus: "QA_FAILED",
+      currentUploadAttemptId: "attempt-2",
+      latestQaRun: {
+        result: "FAIL",
+        status: "COMPLETED",
+        uploadAttemptId: "attempt-1",
+      },
+    }),
+    false,
+    "a replacement upload may be submitted",
+  );
 });

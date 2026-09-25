@@ -97,6 +97,7 @@ export function SimplifiedPerformanceApp() {
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [recommendations, setRecommendations] = useState<ActorRecommendation[]>([]);
+  const [showActorPicker, setShowActorPicker] = useState(false);
 
   const syncProject = useCallback((next: PerformanceProjectResponse) => {
     setProject(next);
@@ -123,13 +124,23 @@ export function SimplifiedPerformanceApp() {
     return 3;
   })();
 
+  const loadRecommendations = useCallback(async () => {
+    if (!project) return;
+    setBusy("recommendations");
+    setError("");
+    try {
+      setRecommendations(await performanceProjectsApi.recommendActors(project.id));
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setBusy("");
+    }
+  }, [project]);
+
   useEffect(() => {
     if (activeStep !== 2 || !project) return;
-    void performanceProjectsApi
-      .recommendActors(project.id)
-      .then(setRecommendations)
-      .catch((loadError) => setError(errorMessage(loadError)));
-  }, [activeStep, project]);
+    void loadRecommendations();
+  }, [activeStep, project?.id, loadRecommendations]);
 
   useEffect(() => {
     if (
@@ -272,6 +283,7 @@ export function SimplifiedPerformanceApp() {
     setError("");
     try {
       syncProject(await performanceProjectsApi.assignActor(project.id, actorProfileId));
+      setShowActorPicker(false);
     } catch (assignmentError) {
       setError(errorMessage(assignmentError));
     } finally {
@@ -377,7 +389,10 @@ export function SimplifiedPerformanceApp() {
               <textarea
                 className="mt-2 min-h-48 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-amber-300/60"
                 value={script}
-                onChange={(event) => setScript(event.target.value)}
+                onChange={(event) => {
+                  setScript(event.target.value);
+                  if (event.target.value) setScriptFile(null);
+                }}
                 placeholder="Paste the exact words the actor should say…"
               />
             </label>
@@ -393,7 +408,11 @@ export function SimplifiedPerformanceApp() {
                 className="sr-only"
                 type="file"
                 accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                onChange={(event) => setScriptFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => {
+                  const nextFile = event.target.files?.[0] ?? null;
+                  setScriptFile(nextFile);
+                  if (nextFile) setScript("");
+                }}
               />
             </label>
             {uploadProgress ? (
@@ -429,9 +448,19 @@ export function SimplifiedPerformanceApp() {
               project={project}
             />
             <div className="rounded-2xl border border-white/10 bg-[#111214] p-5 sm:p-7">
-              <div className="flex items-center gap-3">
-                <UserRound className="size-5 text-amber-300" />
-                <h2 className="text-xl font-semibold">Recommended actors</h2>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <UserRound className="size-5 text-amber-300" />
+                  <h2 className="text-xl font-semibold">Recommended actors</h2>
+                </div>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-zinc-200 disabled:opacity-50"
+                  disabled={Boolean(busy)}
+                  onClick={() => void loadRecommendations()}
+                >
+                  <RefreshCw className={`size-3.5 ${busy === "recommendations" ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
               </div>
               <p className="mt-2 text-sm text-zinc-400">
                 Only approved, real ActByMe profiles are considered.
@@ -492,7 +521,45 @@ export function SimplifiedPerformanceApp() {
               <p className="mt-3 text-zinc-300">
                 Assigned to <strong>{project.assignment?.actorProfile.stageName}</strong>
               </p>
-              <StatusBlock status={project.assignment?.status ?? "SELECTED"} />
+              <StatusBlock
+                status={project.assignment?.status ?? "SELECTED"}
+                takeUploaded={project.scenes[0]?.take?.uploadStatus === "UPLOADED"}
+              />
+              {project.assignment?.status === "SELECTED" && !project.scenes[0]?.take ? (
+                <div className="mt-4">
+                  <button
+                    className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-zinc-200"
+                    onClick={() => {
+                      setShowActorPicker((current) => !current);
+                      if (!showActorPicker) void loadRecommendations();
+                    }}
+                  >
+                    {showActorPicker ? "Keep current actor" : "Change actor"}
+                  </button>
+                  {showActorPicker ? (
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {recommendations
+                        .filter((item) => item.actorId !== project.assignment?.actorProfileId)
+                        .map((item) => (
+                          <article
+                            className="rounded-xl border border-white/10 bg-black/20 p-4"
+                            key={item.actorId}
+                          >
+                            <h3 className="font-semibold">{item.actor.stageName}</h3>
+                            <p className="mt-1 text-xs text-zinc-500">{item.score}% match</p>
+                            <button
+                              className="mt-3 w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+                              disabled={Boolean(busy)}
+                              onClick={() => void assignActor(item.actorId)}
+                            >
+                              {busy === item.actorId ? "Assigning…" : "Assign instead"}
+                            </button>
+                          </article>
+                        ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {latestQa ? <QaResults qa={latestQa} /> : null}
               {previousFailedQa.length ? (
                 <div className="mt-6 border-t border-white/10 pt-5">
@@ -820,10 +887,12 @@ function OutputPanel({
   );
 }
 
-function StatusBlock({ status }: { status: string }) {
+function StatusBlock({ status, takeUploaded = false }: { status: string; takeUploaded?: boolean }) {
   const label: Record<string, string> = {
     SELECTED: "Waiting for actor to accept",
-    ACCEPTED: "Actor is preparing the performance",
+    ACCEPTED: takeUploaded
+      ? "Video uploaded — waiting for actor to submit"
+      : "Actor is preparing the performance",
     SUBMITTED: "Performance submitted",
     QA_RUNNING: "Quality checks are running",
     QA_FAILED: "Retake required",
@@ -859,6 +928,11 @@ function QaResults({
   return (
     <div className="mt-5">
       <h3 className="text-sm font-semibold">{title}</h3>
+      {qa.processingError ? (
+        <p className="mt-3 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm leading-6 text-red-100">
+          {qa.processingError}
+        </p>
+      ) : null}
       <div className="mt-3 space-y-2">
         {qa.checks.map((check) => (
           <div

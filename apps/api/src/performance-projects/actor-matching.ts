@@ -77,3 +77,31 @@ export function assignmentStatusForQaResult(result: "PASS" | "FAIL") {
 export function assignmentStatusForReplacement(current: string) {
   return current === "QA_FAILED" ? "ACCEPTED" : current;
 }
+
+
+export function canChangeActorAssignment(input: {
+  assignmentStatus?: string | null;
+  currentActorProfileId?: string | null;
+  nextActorProfileId: string;
+  hasTake: boolean;
+}) {
+  if (input.currentActorProfileId === input.nextActorProfileId) return true;
+  return !input.hasTake && (!input.assignmentStatus || input.assignmentStatus === "SELECTED");
+}
+
+export function requiresRetakeBeforeResubmission(input: {
+  assignmentStatus: string;
+  currentUploadAttemptId: string;
+  latestQaRun?: {
+    uploadAttemptId: string;
+    status: string;
+    result?: string | null;
+  } | null;
+}) {
+  return (
+    input.assignmentStatus === "QA_FAILED" &&
+    input.latestQaRun?.uploadAttemptId === input.currentUploadAttemptId &&
+    input.latestQaRun.status === "COMPLETED" &&
+    input.latestQaRun.result === "FAIL"
+  );
+}

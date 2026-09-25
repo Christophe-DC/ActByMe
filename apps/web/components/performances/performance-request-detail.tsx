@@ -88,8 +88,18 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
       </main>
     );
   const guide = request.actorGuide;
-  const latestQa = request.scene?.take?.qaRuns?.[0];
+  const take = request.scene?.take;
+  const latestQa = take?.qaRuns?.[0];
   const canUpload = request.status === "ACCEPTED" || request.status === "QA_FAILED";
+  const currentQaFailed =
+    request.status === "QA_FAILED" &&
+    latestQa?.uploadAttemptId === take?.uploadAttemptId &&
+    latestQa.status === "COMPLETED" &&
+    latestQa.result === "FAIL";
+  const currentQaErrored =
+    request.status === "QA_FAILED" &&
+    latestQa?.uploadAttemptId === take?.uploadAttemptId &&
+    latestQa.status === "ERROR";
 
   return (
     <main className="min-h-screen bg-[#0b0b0d] px-4 py-8 text-white sm:px-6">
@@ -197,7 +207,7 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
                 </button>
               </>
             ) : null}
-            {request.scene?.take?.uploadStatus === "UPLOADED" && canUpload ? (
+            {take?.uploadStatus === "UPLOADED" && canUpload && !currentQaFailed ? (
               <button
                 className="ml-3 mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
                 disabled={Boolean(busy)}
@@ -208,10 +218,18 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
                 ) : (
                   <Check className="size-4" />
                 )}{" "}
-                Submit Performance
+                {currentQaErrored
+                  ? "Retry QA"
+                  : latestQa && latestQa.uploadAttemptId !== take?.uploadAttemptId
+                    ? "Submit Retake"
+                    : "Submit Performance"}
               </button>
             ) : null}
-            <ActorStatus status={request.status} />
+            <ActorStatus
+              status={request.status}
+              qaErrored={currentQaErrored}
+              qaFailed={currentQaFailed}
+            />
             {latestQa ? (
               <div className="mt-4 space-y-2">
                 {latestQa.processingError ? (
@@ -238,13 +256,25 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
   );
 }
 
-function ActorStatus({ status }: { status: PerformanceRequest["status"] }) {
+function ActorStatus({
+  status,
+  qaErrored,
+  qaFailed,
+}: {
+  status: PerformanceRequest["status"];
+  qaErrored: boolean;
+  qaFailed: boolean;
+}) {
   if (["ACCEPTED", "SELECTED"].includes(status)) return null;
   const label =
     status === "QA_PASSED"
       ? "Performance Approved"
       : status === "QA_FAILED"
-        ? "Retake required — follow the corrections below and replace your video."
+        ? qaErrored
+          ? "Quality checks could not complete. Retry QA with the same video, or replace it if needed."
+          : qaFailed
+            ? "Retake required — follow the corrections below and upload a new video."
+            : "Upload the retake, then submit it for QA."
         : status === "QA_RUNNING"
           ? "Quality checks are running…"
           : "Performance uploaded.";

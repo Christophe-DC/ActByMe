@@ -45,7 +45,9 @@ import {
   assignmentStatusForQaResult,
   assignmentStatusForReplacement,
   canAccessAssignedProject,
+  canChangeActorAssignment,
   recommendActors,
+  requiresRetakeBeforeResubmission,
 } from "./actor-matching.js";
 
 const projectInclude = {
@@ -561,8 +563,22 @@ export class PerformanceProjectsService {
         "Generate approved shooting-plan outputs before assigning an actor.",
       );
     }
-    if (project.scenes[0]?.take) {
-      throw new ConflictException("The actor cannot be changed after a performance upload starts.");
+    if (
+      !canChangeActorAssignment({
+        assignmentStatus: project.assignment?.status,
+        currentActorProfileId: project.assignment?.actorProfileId,
+        nextActorProfileId: actorProfileId,
+        hasTake: Boolean(project.scenes[0]?.take),
+      })
+    ) {
+      throw new ConflictException(
+        project.assignment?.status === PerformanceAssignmentStatus.Selected
+          ? "The actor cannot be changed after a performance upload starts."
+          : "The actor cannot be changed after accepting the performance request.",
+      );
+    }
+    if (project.assignment?.actorProfileId === actorProfileId) {
+      return this.projectResponse(project);
     }
     const actor = await this.prisma.client.actorProfile.findFirst({
       where: {
@@ -640,6 +656,20 @@ export class PerformanceProjectsService {
       assignment.status !== PerformanceAssignmentStatus.QaFailed
     ) {
       throw new ConflictException("Accept the request before submitting the performance.");
+    }
+    const latestQaForCurrentUpload = take.qaRuns.find(
+      (run) => run.uploadAttemptId === take.uploadAttemptId,
+    );
+    if (
+      requiresRetakeBeforeResubmission({
+        assignmentStatus: assignment.status,
+        currentUploadAttemptId: take.uploadAttemptId,
+        latestQaRun: latestQaForCurrentUpload,
+      })
+    ) {
+      throw new ConflictException(
+        "This performance failed QA. Upload a new retake before submitting again.",
+      );
     }
     await this.prisma.client.performanceAssignment.update({
       data: {
