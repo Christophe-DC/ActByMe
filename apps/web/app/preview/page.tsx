@@ -17,9 +17,9 @@ import {
 import {
   PRESENTATION_VIDEO_POSTER_SRC,
   PRESENTATION_VIDEO_SRC,
-} from "../components/cinematic/video-platform";
-import { earlyAccessApi } from "../lib/api/client";
-import { MOCK_ACTORS } from "../lib/mock-actors";
+} from "@/components/cinematic/video-platform";
+import { earlyAccessApi } from "@/lib/api/client";
+import { MOCK_ACTORS } from "@/lib/mock-actors";
 
 const featuredActors = MOCK_ACTORS.slice(0, 3);
 
