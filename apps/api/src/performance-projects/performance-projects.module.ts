@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { StorageModule } from "../storage/storage.module.js";
+import { NotificationsModule } from "../notifications/notifications.module.js";
 import { AiDirectorService } from "./ai-director.service.js";
 import { PerformanceProjectsController } from "./performance-projects.controller.js";
 import { PerformanceProjectsService } from "./performance-projects.service.js";
@@ -12,7 +13,7 @@ import { PerformanceTechnicalQaService } from "./performance-technical-qa.servic
 import { PerformanceRequestsController } from "./performance-requests.controller.js";
 
 @Module({
-  imports: [StorageModule],
+  imports: [NotificationsModule, StorageModule],
   controllers: [PerformanceProjectsController, PerformanceRequestsController],
   providers: [
     AiDirectorService,

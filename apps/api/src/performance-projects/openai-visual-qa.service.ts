@@ -87,7 +87,9 @@ export class OpenAiVisualQaService {
     if (result.status !== "completed") {
       const reason = result.incomplete_details?.reason;
       throw new ServiceUnavailableException(
-        reason ? `Visual QA response was incomplete (${reason}).` : "Visual QA response was incomplete.",
+        reason
+          ? `Visual QA response was incomplete (${reason}).`
+          : "Visual QA response was incomplete.",
       );
     }
 

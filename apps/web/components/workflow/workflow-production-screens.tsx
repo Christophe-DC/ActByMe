@@ -803,6 +803,11 @@ const QA_CHECK_PRESENTATION = {
     description: "Server-side speech-to-text is compared with the approved scene dialogue.",
     label: "Dialogue accuracy",
   },
+  VISUAL_COMPLIANCE: {
+    description:
+      "Sampled frames are checked against the approved framing, position, eyeline, lighting, and visible movement requirements.",
+    label: "Visual compliance",
+  },
 } satisfies Record<PerformanceQaCheckResult["type"], { description: string; label: string }>;
 
 function TechnicalQaReview({ controller }: { controller: WorkflowController }) {

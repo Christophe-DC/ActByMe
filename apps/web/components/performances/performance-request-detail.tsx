@@ -16,7 +16,10 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
   useEffect(() => {
     void performanceRequestsApi
       .get(id)
-      .then(setRequest)
+      .then((loadedRequest) => {
+        setRequest(loadedRequest);
+        window.dispatchEvent(new Event("actbyme:notifications-changed"));
+      })
       .catch((loadError: unknown) => setError(message(loadError)));
   }, [id]);
 
@@ -25,6 +28,7 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
     setError("");
     try {
       setRequest(await performanceRequestsApi.accept(id));
+      window.dispatchEvent(new Event("actbyme:notifications-changed"));
     } catch (actionError) {
       setError(message(actionError));
     } finally {
@@ -93,12 +97,14 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
   const canUpload = request.status === "ACCEPTED" || request.status === "QA_FAILED";
   const currentQaFailed =
     request.status === "QA_FAILED" &&
-    latestQa?.uploadAttemptId === take?.uploadAttemptId &&
+    latestQa !== undefined &&
+    latestQa.uploadAttemptId === take?.uploadAttemptId &&
     latestQa.status === "COMPLETED" &&
     latestQa.result === "FAIL";
   const currentQaErrored =
     request.status === "QA_FAILED" &&
-    latestQa?.uploadAttemptId === take?.uploadAttemptId &&
+    latestQa !== undefined &&
+    latestQa.uploadAttemptId === take?.uploadAttemptId &&
     latestQa.status === "ERROR";
 
   return (

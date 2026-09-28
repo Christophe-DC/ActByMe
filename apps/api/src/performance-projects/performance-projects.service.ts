@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { Prisma } from "@actbyme/database";
+import { NotificationType, Prisma } from "@actbyme/database";
 import {
   ActorProfileStatus,
   PerformanceAssignmentStatus,
@@ -22,6 +22,10 @@ import {
 } from "@actbyme/shared";
 import type { AuthenticatedUser } from "../auth/auth.types.js";
 import { PrismaService } from "../database/prisma.service.js";
+import {
+  PerformanceRequestEmailService,
+  type PerformanceRequestEmailInput,
+} from "../notifications/performance-request-email.service.js";
 import { STORAGE_CLIENT, type StorageClient } from "../storage/storage.types.js";
 import type {
   SavePerformanceConsentDto,
@@ -99,6 +103,7 @@ export class PerformanceProjectsService {
     private readonly aiDirector: AiDirectorService,
     private readonly briefContentExtractor: BriefContentExtractorService,
     private readonly technicalQa: PerformanceTechnicalQaService,
+    private readonly performanceRequestEmail: PerformanceRequestEmailService,
   ) {}
 
   findCurrent(user: AuthenticatedUser): Promise<unknown> {
@@ -578,9 +583,49 @@ export class PerformanceProjectsService {
       );
     }
     if (project.assignment?.actorProfileId === actorProfileId) {
+      if (project.assignment.status !== PerformanceAssignmentStatus.Selected) {
+        return this.projectResponse(project);
+      }
+      const actor = await this.prisma.client.actorProfile.findUnique({
+        include: { user: { select: { email: true } } },
+        where: { id: actorProfileId },
+      });
+      if (!actor) return this.projectResponse(project);
+
+      const notification = await this.prisma.client.notification.upsert({
+        create: {
+          body: `You have been selected for "${project.title}".`,
+          link: `/performances/${project.assignment.id}`,
+          metadata: { projectId: project.id },
+          performanceAssignmentId: project.assignment.id,
+          title: "New performance request",
+          type: NotificationType.PERFORMANCE_REQUEST,
+          userId: actor.userId,
+        },
+        update: {
+          body: `You have been selected for "${project.title}".`,
+          link: `/performances/${project.assignment.id}`,
+          metadata: { projectId: project.id },
+          title: "New performance request",
+        },
+        where: {
+          performanceAssignmentId_type: {
+            performanceAssignmentId: project.assignment.id,
+            type: NotificationType.PERFORMANCE_REQUEST,
+          },
+        },
+      });
+      await this.sendPerformanceRequestEmail(notification, {
+        actorEmail: actor.user.email,
+        actorStageName: actor.stageName,
+        assignmentId: project.assignment.id,
+        projectTitle: project.title,
+        userId: actor.userId,
+      });
       return this.projectResponse(project);
     }
     const actor = await this.prisma.client.actorProfile.findFirst({
+      include: { user: { select: { email: true } } },
       where: {
         id: actorProfileId,
         isDemo: false,
@@ -589,27 +634,57 @@ export class PerformanceProjectsService {
     });
     if (!actor) throw new NotFoundException("Approved actor profile not found.");
 
-    await this.prisma.client.$transaction([
-      this.prisma.client.performanceAssignment.upsert({
-        create: { actorProfileId, projectId: id, sentAt: new Date() },
-        update: {
-          acceptedAt: null,
-          actorProfileId,
-          sentAt: new Date(),
-          status: PerformanceAssignmentStatus.Selected,
-          submittedAt: null,
-        },
-        where: { projectId: id },
-      }),
-      this.prisma.client.performanceProject.update({
-        data: {
-          currentStep: "performance",
-          performerPath: PerformancePath.ActByMePerformer,
-          workflowStatus: PerformanceWorkflowStatus.PerformanceProgress,
-        },
-        where: { id },
-      }),
-    ]);
+    const { assignment, notification } = await this.prisma.client.$transaction(
+      async (transaction) => {
+        const assignment = await transaction.performanceAssignment.upsert({
+          create: { actorProfileId, projectId: id, sentAt: new Date() },
+          update: {
+            acceptedAt: null,
+            actorProfileId,
+            sentAt: new Date(),
+            status: PerformanceAssignmentStatus.Selected,
+            submittedAt: null,
+          },
+          where: { projectId: id },
+        });
+        const notification = await transaction.notification.upsert({
+          create: {
+            body: `You have been selected for "${project.title}".`,
+            link: `/performances/${assignment.id}`,
+            metadata: { projectId: project.id },
+            performanceAssignmentId: assignment.id,
+            title: "New performance request",
+            type: NotificationType.PERFORMANCE_REQUEST,
+            userId: actor.userId,
+          },
+          update: {
+            body: `You have been selected for "${project.title}".`,
+            emailError: null,
+            emailSentAt: null,
+            link: `/performances/${assignment.id}`,
+            metadata: { projectId: project.id },
+            readAt: null,
+            title: "New performance request",
+            userId: actor.userId,
+          },
+          where: {
+            performanceAssignmentId_type: {
+              performanceAssignmentId: assignment.id,
+              type: NotificationType.PERFORMANCE_REQUEST,
+            },
+          },
+        });
+        await transaction.performanceProject.update({
+          data: {
+            currentStep: "performance",
+            performerPath: PerformancePath.ActByMePerformer,
+            workflowStatus: PerformanceWorkflowStatus.PerformanceProgress,
+          },
+          where: { id },
+        });
+        return { assignment, notification };
+      },
+    );
     await this.prisma.audit({
       action: "PERFORMANCE_ACTOR_ASSIGNED",
       actorProfileId,
@@ -618,30 +693,65 @@ export class PerformanceProjectsService {
       metadata: { actorProfileId },
       userId: user.id,
     });
+    await this.sendPerformanceRequestEmail(notification, {
+      actorEmail: actor.user.email,
+      actorStageName: actor.stageName,
+      assignmentId: assignment.id,
+      projectTitle: project.title,
+      userId: actor.userId,
+    });
     return this.projectResponse(await this.requireOwnedProject(user, id));
   }
 
   async findActorRequests(user: AuthenticatedUser) {
     const assignments = await this.prisma.client.performanceAssignment.findMany({
-      include: { project: { include: projectInclude } },
+      include: {
+        notifications: {
+          where: { type: NotificationType.PERFORMANCE_REQUEST, userId: user.id },
+        },
+        project: { include: projectInclude },
+      },
       orderBy: { updatedAt: "desc" },
       where: { actorProfile: { userId: user.id } },
     });
-    return assignments.map((assignment) => this.actorRequestResponse(assignment));
+    return assignments
+      .map((assignment) => this.actorRequestResponse(assignment))
+      .sort((left, right) => Number(right.isUnread) - Number(left.isUnread));
   }
 
   async findActorRequest(user: AuthenticatedUser, assignmentId: string) {
-    return this.actorRequestResponse(await this.requireActorAssignment(user, assignmentId));
+    const assignment = await this.requireActorAssignment(user, assignmentId);
+    await this.prisma.client.notification.updateMany({
+      data: { readAt: new Date() },
+      where: {
+        performanceAssignmentId: assignment.id,
+        readAt: null,
+        type: NotificationType.PERFORMANCE_REQUEST,
+        userId: user.id,
+      },
+    });
+    return this.actorRequestResponse(assignment, false);
   }
 
   async acceptActorRequest(user: AuthenticatedUser, assignmentId: string) {
     const assignment = await this.requireActorAssignment(user, assignmentId);
     if (assignment.status === PerformanceAssignmentStatus.Selected) {
       const acceptedAt = new Date();
-      await this.prisma.client.performanceAssignment.update({
-        data: { acceptedAt, status: PerformanceAssignmentStatus.Accepted },
-        where: { id: assignment.id },
-      });
+      await this.prisma.client.$transaction([
+        this.prisma.client.performanceAssignment.update({
+          data: { acceptedAt, status: PerformanceAssignmentStatus.Accepted },
+          where: { id: assignment.id },
+        }),
+        this.prisma.client.notification.updateMany({
+          data: { readAt: acceptedAt },
+          where: {
+            performanceAssignmentId: assignment.id,
+            readAt: null,
+            type: NotificationType.PERFORMANCE_REQUEST,
+            userId: user.id,
+          },
+        }),
+      ]);
       await this.prisma.audit({
         action: "PERFORMANCE_ASSIGNMENT_ACCEPTED",
         actorProfileId: assignment.actorProfileId,
@@ -649,6 +759,16 @@ export class PerformanceProjectsService {
         entityType: "PerformanceAssignment",
         metadata: { acceptedAt: acceptedAt.toISOString(), projectId: assignment.projectId },
         userId: user.id,
+      });
+    } else {
+      await this.prisma.client.notification.updateMany({
+        data: { readAt: new Date() },
+        where: {
+          performanceAssignmentId: assignment.id,
+          readAt: null,
+          type: NotificationType.PERFORMANCE_REQUEST,
+          userId: user.id,
+        },
       });
     }
     return this.findActorRequest(user, assignmentId);
@@ -1774,8 +1894,9 @@ export class PerformanceProjectsService {
       submittedAt: Date | null;
       updatedAt: Date;
       project: PerformanceProjectWithDetails;
+      notifications?: Array<{ readAt: Date | null }>;
     },
-  >(assignment: T) {
+  >(assignment: T, isUnread = assignment.notifications?.some((item) => !item.readAt) ?? false) {
     const scene = assignment.project.scenes[0] ?? null;
     const take = scene?.take;
     return {
@@ -1783,6 +1904,7 @@ export class PerformanceProjectsService {
       actorGuide: assignment.project.actorGuide,
       createdAt: assignment.createdAt,
       id: assignment.id,
+      isUnread,
       project: {
         id: assignment.project.id,
         language: assignment.project.language,
@@ -1812,6 +1934,38 @@ export class PerformanceProjectsService {
       submittedAt: assignment.submittedAt,
       updatedAt: assignment.updatedAt,
     };
+  }
+
+  private async sendPerformanceRequestEmail(
+    notification: { emailSentAt: Date | null; id: string; userId: string },
+    input: PerformanceRequestEmailInput,
+  ) {
+    if (notification.emailSentAt) return;
+
+    try {
+      const result = await this.performanceRequestEmail.send(input);
+      await this.prisma.client.notification.updateMany({
+        data: result.sent
+          ? { emailError: null, emailSentAt: new Date() }
+          : { emailError: `Skipped: ${result.reason}` },
+        where: { emailSentAt: null, id: notification.id, userId: notification.userId },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Resend error";
+      this.logger.error(
+        `Performance request email failed assignmentId=${input.assignmentId}: ${message}`,
+      );
+      await this.prisma.client.notification
+        .updateMany({
+          data: { emailError: message.slice(0, 2000) },
+          where: { emailSentAt: null, id: notification.id, userId: notification.userId },
+        })
+        .catch((persistenceError: unknown) => {
+          this.logger.error(
+            `Could not persist performance request email error notificationId=${notification.id}: ${persistenceError instanceof Error ? persistenceError.message : "Unknown database error"}`,
+          );
+        });
+    }
   }
 
   private async requireOwnedProject(user: AuthenticatedUser, id: string) {

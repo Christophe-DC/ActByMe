@@ -458,7 +458,9 @@ export function SimplifiedPerformanceApp() {
                   disabled={Boolean(busy)}
                   onClick={() => void loadRecommendations()}
                 >
-                  <RefreshCw className={`size-3.5 ${busy === "recommendations" ? "animate-spin" : ""}`} />
+                  <RefreshCw
+                    className={`size-3.5 ${busy === "recommendations" ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </button>
               </div>
@@ -519,7 +521,7 @@ export function SimplifiedPerformanceApp() {
                 <h2 className="text-xl font-semibold">Performance</h2>
               </div>
               <p className="mt-3 text-zinc-300">
-                Assigned to <strong>{project.assignment?.actorProfile.stageName}</strong>
+                Request sent to <strong>{project.assignment?.actorProfile.stageName}</strong>
               </p>
               <StatusBlock
                 status={project.assignment?.status ?? "SELECTED"}
@@ -977,14 +979,12 @@ function VisualQaSummary({ value }: { value: Record<string, unknown> }) {
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
       const criterion = raw as Record<string, unknown>;
       const result = typeof criterion.result === "string" ? criterion.result : null;
-      const observation =
-        typeof criterion.observation === "string" ? criterion.observation : null;
+      const observation = typeof criterion.observation === "string" ? criterion.observation : null;
       if (!result || !observation) return null;
       return { label: String(label), observation, result };
     })
     .filter(
-      (item): item is { label: string; observation: string; result: string } =>
-        item !== null,
+      (item): item is { label: string; observation: string; result: string } => item !== null,
     );
 
   if (!summary && !items.length) return null;

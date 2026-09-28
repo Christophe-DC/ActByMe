@@ -6,12 +6,9 @@ import { useEffect, useState } from "react";
 import { BadgeCheck, Clapperboard, LogOut, UserRound } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { RoleGate } from "../../components/auth/role-gate";
+import { usersApi } from "@/lib/api/client";
+import type { CurrentUserProfile } from "@/lib/api/types";
 import { supabase } from "@/lib/supabase/client";
-
-type ProfileState = {
-  email: string;
-  name: string;
-};
 
 export default function ProfilePage() {
   return (
@@ -23,23 +20,12 @@ export default function ProfilePage() {
 
 function ProfileContent() {
   const router = useRouter();
-  const [profile, setProfile] = useState<ProfileState | null>(null);
+  const [profile, setProfile] = useState<CurrentUserProfile | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        return;
-      }
-
-      setProfile({
-        email: user.email ?? "",
-        name: user.user_metadata?.stageName ?? user.user_metadata?.name ?? "ActByMe profile",
-      });
+      setProfile(await usersApi.me());
     }
 
     void loadProfile();
@@ -77,7 +63,9 @@ function ProfileContent() {
               </span>
               <div>
                 <p className="text-sm text-[#9CA3AF]">Signed in as</p>
-                <h2 className="text-2xl font-semibold">{profile?.name ?? "Loading..."}</h2>
+                <h2 className="text-2xl font-semibold">
+                  {profile?.actorProfile?.stageName ?? profile?.name ?? "Loading..."}
+                </h2>
               </div>
             </div>
             <div className="mt-6 space-y-3 text-sm text-[#D1D5DB]">
@@ -93,13 +81,25 @@ function ProfileContent() {
               <h2 className="text-2xl font-semibold">Your ActByMe workspace</h2>
             </div>
             <p className="mt-4 text-sm leading-7 text-[#9CA3AF]">
-              Every account can browse actors, request creator access, and become an actor by
-              completing the onboarding when ready.
+              {profile?.actorProfile
+                ? "Manage your actor profile and respond to private performance requests without leaving your creator account."
+                : "Every account can browse actors, request creator access, and become an actor by completing the onboarding when ready."}
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Button asChild>
-                <Link href="/onboarding/actor">Become an actor</Link>
-              </Button>
+              {profile?.actorProfile ? (
+                <>
+                  <Button asChild>
+                    <Link href="/performances">Performance requests</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/onboarding/actor">Edit actor profile</Link>
+                  </Button>
+                </>
+              ) : (
+                <Button asChild>
+                  <Link href="/onboarding/actor">Become an actor</Link>
+                </Button>
+              )}
               <Button asChild variant="outline">
                 <Link href="/agency-access">Request access</Link>
               </Button>

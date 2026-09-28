@@ -78,7 +78,6 @@ export function assignmentStatusForReplacement(current: string) {
   return current === "QA_FAILED" ? "ACCEPTED" : current;
 }
 
-
 export function canChangeActorAssignment(input: {
   assignmentStatus?: string | null;
   currentActorProfileId?: string | null;

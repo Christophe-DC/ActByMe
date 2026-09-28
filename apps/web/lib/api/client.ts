@@ -19,6 +19,8 @@ import type {
   PerformancePath,
   ActorRecommendation,
   PerformanceRequest,
+  Notification,
+  CurrentUserProfile,
 } from "./types";
 import { supabase } from "@/lib/supabase/client";
 
@@ -391,6 +393,23 @@ export const performanceRequestsApi = {
 
   submit: async (id: string): Promise<PerformanceRequest> =>
     apiFetch<PerformanceRequest>(`/performances/${id}/submit`, { method: "POST" }),
+};
+
+export const notificationsApi = {
+  list: async (): Promise<Notification[]> => apiFetch<Notification[]>("/notifications"),
+
+  unreadCount: async (): Promise<{ count: number }> =>
+    apiFetch<{ count: number }>("/notifications/unread-count"),
+
+  markRead: async (id: string): Promise<Notification> =>
+    apiFetch<Notification>(`/notifications/${id}/read`, { method: "PATCH" }),
+
+  markAllRead: async (): Promise<{ count: number }> =>
+    apiFetch<{ count: number }>("/notifications/read-all", { method: "POST" }),
+};
+
+export const usersApi = {
+  me: async (): Promise<CurrentUserProfile> => apiFetch<CurrentUserProfile>("/users/me"),
 };
 
 export const performanceBriefAttachmentsApi = {

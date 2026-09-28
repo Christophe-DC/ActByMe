@@ -33,8 +33,7 @@ function createGuard(input: {
   const prisma = {
     client: {
       user: {
-        findUnique: async () =>
-          input.persistedRole ? { role: input.persistedRole } : null,
+        findUnique: async () => (input.persistedRole ? { role: input.persistedRole } : null),
       },
     },
   };

@@ -122,10 +122,7 @@ export class PerformanceTechnicalQaService {
     return { checks, transcript, transcriptionModel };
   }
 
-  private async evaluateVisualFrames(
-    signedUrl: string,
-    requirements: Record<string, unknown>,
-  ) {
+  private async evaluateVisualFrames(signedUrl: string, requirements: Record<string, unknown>) {
     const directory = await mkdtemp(join(tmpdir(), "actbyme-visual-qa-"));
     const framePattern = join(directory, "frame-%02d.jpg");
     const binary = this.config.get<string>("FFMPEG_PATH")?.trim() || "ffmpeg";
@@ -155,9 +152,7 @@ export class PerformanceTechnicalQaService {
       if (!frameFiles.length) {
         throw new ServiceUnavailableException("Visual QA could not extract video frames.");
       }
-      const frames = await Promise.all(
-        frameFiles.map((file) => readFile(join(directory, file))),
-      );
+      const frames = await Promise.all(frameFiles.map((file) => readFile(join(directory, file))));
       return await this.visualQa.evaluate(frames, requirements);
     } catch (error) {
       if (isMissingBinary(error)) {

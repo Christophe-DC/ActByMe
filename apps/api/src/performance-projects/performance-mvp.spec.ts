@@ -216,6 +216,7 @@ test("output generation uses the persisted approved version, replaces stale outp
     aiDirector as never,
     {} as never,
     {} as never,
+    {} as never,
   );
   const user = { id: project.ownerId, role: "CLIENT" } as never;
 
@@ -237,6 +238,7 @@ test("output generation uses the persisted approved version, replaces stale outp
 
 test("actor-facing assignment response includes the guide but never the creator AI prompt", () => {
   const service = new PerformanceProjectsService(
+    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -359,6 +361,7 @@ test("completing an already uploaded take is idempotent and preserves its QA sta
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
   (
     service as unknown as {
@@ -378,7 +381,6 @@ test("completing an already uploaded take is idempotent and preserves its QA sta
   assert.equal(result.takeStatus, "QA_PASSED");
   assert.equal(result.readUrl, "https://signed.example/performance");
 });
-
 
 test("actor assignment can change only before acceptance and before upload starts", () => {
   assert.equal(
@@ -460,7 +462,6 @@ test("failed QA requires a new retake but technical QA errors can retry the same
   );
 });
 
-
 test("visual QA contract is conservative about sampled-frame uncertainty", () => {
   const parsed = visualQaSchema.parse({
     summary: "Framing matches; movement cannot be confirmed from still frames.",
@@ -506,5 +507,223 @@ test("visual QA exposes only explicit visible failures as retake blockers", () =
       correction: "",
     },
   });
-  assert.deepEqual(visualQaFailedCriteria(parsed).map(([name]) => name), ["framing"]);
+  assert.deepEqual(
+    visualQaFailedCriteria(parsed).map(([name]) => name),
+    ["framing"],
+  );
+});
+
+function assignmentHarness(options: { emailFailure?: boolean } = {}) {
+  const actorProfiles = {
+    "actor-a": {
+      id: "actor-a",
+      isDemo: false,
+      stageName: "Actor A",
+      status: "APPROVED",
+      user: { email: "actor-a@example.com" },
+      userId: "user-a",
+    },
+    "actor-b": {
+      id: "actor-b",
+      isDemo: false,
+      stageName: "Actor B",
+      status: "APPROVED",
+      user: { email: "actor-b@example.com" },
+      userId: "user-b",
+    },
+  };
+  let project = {
+    actorGuide: validOutputs.actorGuide,
+    aiEnginePrompt: validOutputs.aiEnginePrompt,
+    assignment: null as Record<string, unknown> | null,
+    brief: { approvedAt: new Date(), approvedVersion: 1 },
+    briefAttachment: null,
+    consents: [],
+    id: "project-1",
+    language: "English",
+    ownerId: "creator",
+    scenes: [{ id: "scene-1", take: null }],
+    title: "Autumn Campaign",
+  };
+  let notification: Record<string, unknown> | null = null;
+  const assignmentUpserts: Array<Record<string, unknown>> = [];
+  const emailInputs: Array<Record<string, unknown>> = [];
+
+  const transaction = {
+    notification: {
+      upsert: async ({
+        create,
+        update,
+      }: {
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        notification = notification
+          ? { ...notification, ...update }
+          : {
+              ...create,
+              emailError: null,
+              emailSentAt: null,
+              id: "notification-1",
+              readAt: null,
+            };
+        return notification;
+      },
+    },
+    performanceAssignment: {
+      upsert: async ({
+        create,
+        update,
+      }: {
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        const data = project.assignment ? update : create;
+        assignmentUpserts.push(data);
+        const actorProfileId = data.actorProfileId as keyof typeof actorProfiles;
+        const assignment = {
+          acceptedAt: null,
+          actorProfile: actorProfiles[actorProfileId],
+          actorProfileId,
+          createdAt: new Date(),
+          id: "assignment-1",
+          projectId: project.id,
+          sentAt: new Date(),
+          status: "SELECTED",
+          submittedAt: null,
+          updatedAt: new Date(),
+        };
+        project = { ...project, assignment };
+        return assignment;
+      },
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        project = { ...project, assignment: { ...project.assignment, ...data } };
+        return project.assignment;
+      },
+    },
+    performanceProject: { update: async () => project },
+  };
+  const prisma = {
+    audit: async () => undefined,
+    client: {
+      $transaction: async (input: unknown) =>
+        typeof input === "function"
+          ? (input as (client: typeof transaction) => Promise<unknown>)(transaction)
+          : Promise.all(input as Promise<unknown>[]),
+      actorProfile: {
+        findFirst: async ({ where }: { where: { id: keyof typeof actorProfiles } }) =>
+          actorProfiles[where.id] ?? null,
+        findUnique: async ({ where }: { where: { id: keyof typeof actorProfiles } }) =>
+          actorProfiles[where.id] ?? null,
+      },
+      notification: {
+        findUnique: async () => notification,
+        updateMany: async ({
+          data,
+          where,
+        }: {
+          data: Record<string, unknown>;
+          where: Record<string, unknown>;
+        }) => {
+          if (notification?.id === where.id || where.performanceAssignmentId === "assignment-1") {
+            notification = { ...notification, ...data };
+            return { count: 1 };
+          }
+          return { count: 0 };
+        },
+        upsert: transaction.notification.upsert,
+      },
+      performanceAssignment: transaction.performanceAssignment,
+    },
+  };
+  const email = {
+    send: async (input: Record<string, unknown>) => {
+      emailInputs.push(input);
+      if (options.emailFailure) throw new Error("Resend unavailable");
+      return { sent: true };
+    },
+  };
+  const service = new PerformanceProjectsService(
+    prisma as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    email as never,
+  );
+  (service as unknown as { requireOwnedProject: () => Promise<unknown> }).requireOwnedProject =
+    async () => project;
+  (service as unknown as { projectResponse: (value: unknown) => unknown }).projectResponse = (
+    value,
+  ) => value;
+
+  return {
+    assignmentUpserts,
+    emailInputs,
+    getNotification: () => notification,
+    getProject: () => project,
+    service,
+  };
+}
+
+test("assigning and reassigning an actor atomically moves the persistent notification", async () => {
+  const harness = assignmentHarness();
+  const creator = { id: "creator", role: "CLIENT" } as never;
+
+  await harness.service.assignActor(creator, "project-1", "actor-a");
+  assert.equal(harness.assignmentUpserts.length, 1);
+  assert.equal(harness.getNotification()?.userId, "user-a");
+  assert.equal(harness.getNotification()?.link, "/performances/assignment-1");
+
+  await harness.service.assignActor(creator, "project-1", "actor-b");
+  assert.equal(harness.assignmentUpserts.length, 2);
+  assert.equal(harness.getNotification()?.userId, "user-b");
+  assert.equal(harness.getNotification()?.readAt, null);
+  assert.deepEqual(
+    harness.emailInputs.map((input) => input.userId),
+    ["user-a", "user-b"],
+  );
+
+  await harness.service.assignActor(creator, "project-1", "actor-b");
+  assert.equal(harness.assignmentUpserts.length, 2, "replayed assignment must be idempotent");
+  assert.equal(harness.emailInputs.length, 2, "replayed assignment must not duplicate email");
+});
+
+test("a Resend failure is recorded but never fails actor assignment", async () => {
+  const harness = assignmentHarness({ emailFailure: true });
+  const response = await harness.service.assignActor(
+    { id: "creator", role: "CLIENT" } as never,
+    "project-1",
+    "actor-a",
+  );
+
+  assert.equal(
+    (response as { assignment: { actorProfileId: string } }).assignment.actorProfileId,
+    "actor-a",
+  );
+  assert.equal(harness.getNotification()?.userId, "user-a");
+  assert.equal(harness.getNotification()?.emailError, "Resend unavailable");
+});
+
+test("opening and accepting an owned actor request mark its notification read", async () => {
+  const harness = assignmentHarness();
+  const creator = { id: "creator", role: "CLIENT" } as never;
+  const actor = { id: "user-a", role: "ACTOR" } as never;
+  await harness.service.assignActor(creator, "project-1", "actor-a");
+
+  const assignment = {
+    ...(harness.getProject().assignment as Record<string, unknown>),
+    project: harness.getProject(),
+  };
+  (
+    harness.service as unknown as { requireActorAssignment: () => Promise<unknown> }
+  ).requireActorAssignment = async () => assignment;
+
+  await harness.service.findActorRequest(actor, "assignment-1");
+  assert.ok(harness.getNotification()?.readAt instanceof Date);
+
+  Object.assign(harness.getNotification()!, { readAt: null });
+  await harness.service.acceptActorRequest(actor, "assignment-1");
+  assert.ok(harness.getNotification()?.readAt instanceof Date);
+  assert.equal((harness.getProject().assignment as { status: string }).status, "ACCEPTED");
 });

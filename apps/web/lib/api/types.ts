@@ -496,6 +496,7 @@ export interface PerformanceRequest {
   actorGuide: ActorGuide;
   createdAt: string;
   id: string;
+  isUnread: boolean;
   project: { id: string; language: string | null; title: string };
   scene: {
     dialogue: string | null;
@@ -506,4 +507,28 @@ export interface PerformanceRequest {
   status: PerformanceAssignmentStatus;
   submittedAt: string | null;
   updatedAt: string;
+}
+
+export interface Notification {
+  body: string;
+  createdAt: string;
+  id: string;
+  link: string;
+  metadata: Record<string, unknown> | null;
+  readAt: string | null;
+  title: string;
+  type: "PERFORMANCE_REQUEST";
+}
+
+export interface CurrentUserProfile {
+  actorProfile: {
+    id: string;
+    slug: string;
+    stageName: string;
+    status: "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "SUSPENDED";
+  } | null;
+  email: string | null;
+  id: string;
+  name: string | null;
+  role: "ADMIN" | "ACTOR" | "CLIENT" | "AGENCY";
 }
