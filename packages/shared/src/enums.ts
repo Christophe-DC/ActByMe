@@ -110,6 +110,7 @@ export enum PerformanceQaCheckType {
   ResolutionOrientation = "RESOLUTION_ORIENTATION",
   AudioPresence = "AUDIO_PRESENCE",
   DialogueAccuracy = "DIALOGUE_ACCURACY",
+  VisualCompliance = "VISUAL_COMPLIANCE",
 }
 
 export enum PerformanceBriefAttachmentStatus {

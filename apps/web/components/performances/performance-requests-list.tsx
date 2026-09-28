@@ -42,7 +42,7 @@ export function PerformanceRequestsList() {
         <div className="mt-8 space-y-3">
           {requests.map((request) => (
             <Link
-              className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#111214] p-5 transition hover:border-amber-300/30"
+              className={`flex items-center justify-between rounded-2xl border p-5 transition hover:border-amber-300/40 ${request.isUnread ? "border-amber-300/35 bg-amber-300/[0.07]" : "border-white/10 bg-[#111214]"}`}
               href={`/performances/${request.id}`}
               key={request.id}
             >
@@ -51,7 +51,14 @@ export function PerformanceRequestsList() {
                   <Video className="size-5 text-amber-200" />
                 </div>
                 <div>
-                  <h2 className="font-semibold">{request.project.title}</h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-semibold">{request.project.title}</h2>
+                    {request.isUnread ? (
+                      <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+                        New request
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-sm text-zinc-400">{statusLabel(request.status)}</p>
                 </div>
               </div>

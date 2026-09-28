@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { UserRole } from "@actbyme/shared";
+import { PrismaService } from "../database/prisma.service.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import type { RequestWithUser } from "./auth.types.js";
 import { ROLES_KEY } from "./roles.decorator.js";
@@ -16,6 +17,7 @@ export class RolesGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly supabase: SupabaseService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -45,10 +47,8 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const adminOnly = requiredRoles.every((role) => role === UserRole.Admin);
-
-    if (adminOnly) {
-      throw new ForbiddenException("Admin access is required for this resource.");
+    if (!requiredRoles.includes(request.user.role)) {
+      throw new ForbiddenException("Your account does not have access to this resource.");
     }
 
     return true;
@@ -68,10 +68,17 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException("Invalid Supabase token.");
     }
 
-    const metadataRole = data.user.user_metadata?.role;
-    const role = Object.values(UserRole).includes(metadataRole)
-      ? (metadataRole as UserRole)
-      : UserRole.Actor;
+    const persistedUser = await this.prisma.client.user.findUnique({
+      select: { role: true },
+      where: { id: data.user.id },
+    });
+    const appMetadataRole = data.user.app_metadata?.role;
+    const role =
+      persistedUser && Object.values(UserRole).includes(persistedUser.role as UserRole)
+        ? (persistedUser.role as UserRole)
+        : Object.values(UserRole).includes(appMetadataRole as UserRole)
+          ? (appMetadataRole as UserRole)
+          : UserRole.Actor;
 
     return {
       email: data.user.email,

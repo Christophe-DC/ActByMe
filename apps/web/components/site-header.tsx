@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Clapperboard, RotateCcw, Sparkles } from "lucide-react";
+import { Bell, Clapperboard, RotateCcw, Sparkles } from "lucide-react";
 import { AuthModal } from "./auth/auth-modal";
+import { notificationsApi, usersApi } from "@/lib/api/client";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasActorProfile, setHasActorProfile] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authOpen, setAuthOpen] = useState(false);
   const isWorkflow = pathname === "/create-performance";
@@ -22,23 +25,60 @@ export function SiteHeader() {
 
     let active = true;
 
+    async function loadActorWorkspaceState() {
+      try {
+        const [profile, unread] = await Promise.all([
+          usersApi.me(),
+          notificationsApi.unreadCount(),
+        ]);
+        if (active) {
+          setHasActorProfile(Boolean(profile.actorProfile));
+          setUnreadCount(unread.count);
+        }
+      } catch {
+        if (active) {
+          setHasActorProfile(false);
+          setUnreadCount(0);
+        }
+      }
+    }
+
     async function loadSession() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (active) setIsAuthenticated(Boolean(session?.user));
+      if (!active) return;
+
+      const authenticated = Boolean(session?.user);
+      setIsAuthenticated(authenticated);
+      if (!authenticated) {
+        setHasActorProfile(false);
+        setUnreadCount(0);
+        return;
+      }
+      await loadActorWorkspaceState();
     }
 
     void loadSession();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session?.user));
+      const authenticated = Boolean(session?.user);
+      setIsAuthenticated(authenticated);
+      if (!authenticated) {
+        setHasActorProfile(false);
+        setUnreadCount(0);
+        return;
+      }
+      window.setTimeout(() => void loadActorWorkspaceState(), 0);
     });
+    const refreshNotifications = () => void loadActorWorkspaceState();
+    window.addEventListener("actbyme:notifications-changed", refreshNotifications);
 
     return () => {
       active = false;
       subscription.unsubscribe();
+      window.removeEventListener("actbyme:notifications-changed", refreshNotifications);
     };
   }, []);
 
@@ -107,12 +147,34 @@ export function SiteHeader() {
             )}
 
             {isAuthenticated ? (
-              <Link
-                className="inline-flex h-10 items-center rounded-lg border border-white/10 px-3.5 text-sm font-semibold text-white transition hover:border-white/20"
-                href="/profile"
-              >
-                Profile
-              </Link>
+              <>
+                {hasActorProfile ? (
+                  <Link
+                    aria-label={
+                      unreadCount
+                        ? `Actor workspace, ${unreadCount} unread request${unreadCount === 1 ? "" : "s"}`
+                        : "Actor workspace"
+                    }
+                    className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-white/10 px-3 text-sm font-semibold text-[#e4e4ef] transition hover:border-amber-300/30 hover:text-white"
+                    href="/performances"
+                    title="Actor workspace"
+                  >
+                    <Bell className="size-4 text-amber-300" />
+                    <span className="hidden xl:inline">Actor workspace</span>
+                    {unreadCount ? (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 py-0.5 text-[11px] font-bold leading-none text-black">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    ) : null}
+                  </Link>
+                ) : null}
+                <Link
+                  className="inline-flex h-10 items-center rounded-lg border border-white/10 px-3.5 text-sm font-semibold text-white transition hover:border-white/20"
+                  href="/profile"
+                >
+                  Profile
+                </Link>
+              </>
             ) : (
               <>
                 <button

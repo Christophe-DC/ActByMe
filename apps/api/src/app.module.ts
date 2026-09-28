@@ -10,6 +10,7 @@ import { MockAuthMiddleware } from "./auth/mock-auth.middleware.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { EarlyAccessModule } from "./early-access/early-access.module.js";
 import { PerformanceProjectsModule } from "./performance-projects/performance-projects.module.js";
+import { NotificationsModule } from "./notifications/notifications.module.js";
 import { SkillsModule } from "./skills/skills.module.js";
 import { StorageModule } from "./storage/storage.module.js";
 import { SupabaseModule } from "./supabase/supabase.module.js";
@@ -33,6 +34,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../.
     VideosModule,
     AgencyAccessModule,
     EarlyAccessModule,
+    NotificationsModule,
     PerformanceProjectsModule,
     AdminModule,
     StorageModule,
