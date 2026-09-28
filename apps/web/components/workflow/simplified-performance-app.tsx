@@ -612,7 +612,9 @@ function PlanEditor({
             label="Duration"
             value={scene.duration ?? ""}
             disabled={locked}
+            maxLength={120}
             onChange={(value) => onSceneChange("duration", value)}
+            placeholder="e.g. 18 seconds or 15–30 seconds"
           />
           <FieldArea
             label="Starting position"
@@ -689,12 +691,16 @@ function PlanEditor({
 function FieldArea({
   disabled,
   label,
+  maxLength,
   onChange,
+  placeholder,
   value,
 }: {
   disabled: boolean;
   label: string;
+  maxLength?: number;
   onChange: (value: string) => void;
+  placeholder?: string;
   value: string;
 }) {
   return (
@@ -703,6 +709,8 @@ function FieldArea({
       <input
         disabled={disabled}
         className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white disabled:opacity-70"
+        maxLength={maxLength}
+        placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

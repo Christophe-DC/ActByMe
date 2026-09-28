@@ -40,6 +40,7 @@ import type {
 } from "./dto/performance-take.dto.js";
 import { AiDirectorService } from "./ai-director.service.js";
 import { BriefContentExtractorService } from "./brief-content-extractor.service.js";
+import { normalizeDurationRequirement } from "./duration-requirement.js";
 import { PerformanceTechnicalQaService } from "./performance-technical-qa.service.js";
 import {
   assignmentStatusForQaResult,
@@ -317,7 +318,7 @@ export class PerformanceProjectsService {
             dialogue: scene.dialogue,
             direction: scene.actingIntent,
             emotionalProgression: scene.emotionalProgression,
-            duration: scene.timing,
+            duration: normalizeDurationRequirement(scene.timing),
             eyeline: scene.eyeDirection,
             framing: scene.framingCamera,
             gestures: scene.gestures,
@@ -1983,7 +1984,7 @@ export class PerformanceProjectsService {
       dialogue: scene.dialogue,
       direction: scene.direction,
       emotionalProgression: scene.emotionalProgression,
-      duration: scene.duration,
+      duration: normalizeDurationRequirement(scene.duration),
       eyeline: scene.eyeline,
       framing: scene.framing,
       gestures: scene.gestures,

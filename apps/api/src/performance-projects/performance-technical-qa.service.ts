@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PerformanceQaCheckType, PerformanceQaResultStatus } from "@actbyme/shared";
+import { parseDurationRequirement } from "./duration-requirement.js";
 import { OpenAiTranscriptionService } from "./openai-transcription.service.js";
 
 const DIALOGUE_PASS_THRESHOLD = 0.85;
@@ -375,34 +376,6 @@ function displayDimensions(video?: ProbeStream) {
   const height = swapsAxes ? video.width : video.height;
   const orientation = width === height ? "square" : width > height ? "landscape" : "portrait";
   return { height, orientation, rotation, width };
-}
-
-function parseDurationRequirement(value: string) {
-  const normalized = value.toLowerCase().replace(/,/g, ".");
-  const range = normalized.match(
-    /(\d+(?:\.\d+)?)\s*(?:-|–|—|to)\s*(\d+(?:\.\d+)?)\s*(seconds?|secs?|s|minutes?|mins?|m)\b/,
-  );
-  if (range) {
-    const multiplier = /^(?:minutes?|mins?|m)$/.test(range[3] ?? "") ? 60 : 1;
-    const first = Number(range[1]) * multiplier;
-    const second = Number(range[2]) * multiplier;
-    return { maximum: Math.max(first, second), minimum: Math.min(first, second) };
-  }
-
-  const timecode = normalized.match(/\b(?:(\d+):)?(\d{1,2}):(\d{2}(?:\.\d+)?)\b/);
-  const seconds = timecode
-    ? Number(timecode[1] ?? 0) * 3600 + Number(timecode[2]) * 60 + Number(timecode[3])
-    : parseDurationNumber(normalized);
-  if (!Number.isFinite(seconds) || seconds <= 0) return null;
-  const tolerance = Math.max(1, seconds * 0.1);
-  return { maximum: seconds + tolerance, minimum: Math.max(0.01, seconds - tolerance) };
-}
-
-function parseDurationNumber(value: string) {
-  const match = value.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|s|minutes?|mins?|m)\b/);
-  if (!match) return Number.NaN;
-  const multiplier = /^(?:minutes?|mins?|m)$/.test(match[2] ?? "") ? 60 : 1;
-  return Number(match[1]) * multiplier;
 }
 
 function parseOrientation(value: string): "landscape" | "portrait" | "square" | null {

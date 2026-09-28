@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeDurationRequirement } from "./duration-requirement.js";
 
 export const directorBriefSchema = z.object({
   globalDirection: z.string(),
@@ -35,7 +36,7 @@ export const directorBriefSchema = z.object({
         emotionalProgression: z.string(),
         startingPosition: z.string(),
         eyeDirection: z.string(),
-        timing: z.string(),
+        timing: z.string().transform(normalizeDurationRequirement).pipe(z.string().min(1).max(120)),
         bodyMovement: z.string(),
         gestures: z.string(),
         framingCamera: z.string(),
@@ -126,7 +127,11 @@ export const directorBriefJsonSchema = {
           emotionalProgression: stringField,
           startingPosition: stringField,
           eyeDirection: stringField,
-          timing: stringField,
+          timing: {
+            ...stringField,
+            description:
+              "Overall take duration only, expressed as seconds or a seconds range, for example '18 seconds' or '15–30 seconds'. Do not include a beat-by-beat timeline.",
+          },
           bodyMovement: stringField,
           gestures: stringField,
           framingCamera: stringField,
@@ -165,6 +170,7 @@ export const directorInstructions = [
   "Do not invent brand facts, uploaded-file contents, rights, pricing, performers, or delivery promises.",
   "You may make clearly actionable creative and technical directing decisions needed to execute the performance.",
   "Return exactly one scene and preserve the supplied script as the dialogue; do not add, rewrite, or omit factual claims.",
+  "For timing, return only the overall take duration as seconds or a seconds range, such as '18 seconds' or '15–30 seconds'; put beat-by-beat actions in the acting, movement, gesture, and emotional-progression fields.",
   "Specify emotional progression, starting position, movement, eyeline, gestures, camera position and height, framing, orientation, lighting, audio, background, wardrobe continuity, recording requirements, and objective QA criteria.",
   "Make every field specific, editable, internally consistent, safe for remote video capture, and suitable for MP4 or MOV upload.",
 ].join(" ");

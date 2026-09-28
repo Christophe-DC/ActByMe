@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { plainToInstance } from "class-transformer";
+import { validateSync } from "class-validator";
 import {
   assignmentStatusForQaResult,
   assignmentStatusForReplacement,
@@ -8,6 +10,8 @@ import {
 } from "./actor-matching.js";
 import { directorBriefSchema, directorInput } from "./ai-director.contract.js";
 import { AiDirectorService } from "./ai-director.service.js";
+import { PerformanceSceneDto } from "./dto/performance-project.dto.js";
+import { normalizeDurationRequirement, parseDurationRequirement } from "./duration-requirement.js";
 import { PerformanceProjectsService } from "./performance-projects.service.js";
 import { performanceOutputsInput, performanceOutputsSchema } from "./performance-outputs.js";
 
@@ -67,6 +71,38 @@ test("AI Director contract accepts exactly one logical scene and retains the sup
     false,
   );
   assert.match(directorInput({ script: "Exact words" }), /Exact words/);
+});
+
+test("scene duration normalizes generated and legacy beat timelines", () => {
+  const detailedTiming =
+    "0:00–0:02 silent breath and warm look to camera; 0:02–0:08 deliver dialogue cleanly at a relaxed conversational pace; 0:08–0:15 gesture outward toward the room with a pleased smile; 0:15–0:18 return gaze to camera and hold closing expression.";
+  const parsedBrief = directorBriefSchema.parse({
+    ...validBrief,
+    scenes: [{ ...validBrief.scenes[0], timing: detailedTiming }],
+  });
+  const duration = parseDurationRequirement(detailedTiming);
+  const legacyScene = plainToInstance(PerformanceSceneDto, {
+    bodyPosition: "Remain centred.",
+    captureRequirements: "One continuous take.",
+    dialogue: "This is the supplied script.",
+    direction: "Speak naturally.",
+    duration: detailedTiming,
+    emotionalProgression: "Warm to confident.",
+    eyeline: "Look into the lens.",
+    framing: "Medium shot.",
+    gestures: "One open-hand gesture.",
+    reference: "",
+    startingPosition: "Stand centred.",
+    title: "Complete performance",
+  });
+
+  assert.equal(detailedTiming.length > 120, true);
+  assert.equal(normalizeDurationRequirement(detailedTiming), "18 seconds");
+  assert.equal(parsedBrief.scenes[0]?.timing, "18 seconds");
+  assert.equal(legacyScene.duration, "18 seconds");
+  assert.equal(validateSync(legacyScene).length, 0);
+  assert.equal(duration?.minimum, 16.2);
+  assert.equal(duration?.maximum, 19.8);
 });
 
 const validOutputs = {

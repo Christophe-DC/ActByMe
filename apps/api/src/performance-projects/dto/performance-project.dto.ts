@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
   IsArray,
@@ -17,6 +17,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { PerformancePath, PerformanceWorkflowStatus } from "@actbyme/shared";
+import { normalizeDurationRequirement } from "../duration-requirement.js";
 
 export class PerformanceCompanyDto {
   @ApiProperty()
@@ -158,6 +159,9 @@ export class PerformanceSceneDto {
   @MaxLength(200)
   title!: string;
 
+  @Transform(({ value }) =>
+    typeof value === "string" ? normalizeDurationRequirement(value) : value,
+  )
   @IsString()
   @MaxLength(120)
   duration!: string;
