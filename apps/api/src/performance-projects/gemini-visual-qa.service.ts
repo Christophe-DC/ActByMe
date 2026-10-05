@@ -52,13 +52,18 @@ export class GeminiVisualQaService {
         store: false,
         system_instruction: visualQaInstructions,
         input: [
-          { type: "text", text: visualQaInput(requirements, frames.length) },
-          ...frames.map((frame) => ({
-            type: "image",
-            data: Buffer.from(frame).toString("base64"),
-            mime_type: "image/jpeg",
-            resolution: "high",
-          })),
+          {
+            type: "user_input",
+            content: [
+              { type: "text", text: visualQaInput(requirements, frames.length) },
+              ...frames.map((frame) => ({
+                type: "image",
+                data: Buffer.from(frame).toString("base64"),
+                mime_type: "image/jpeg",
+                resolution: "high",
+              })),
+            ],
+          },
         ],
         response_format: {
           type: "text",
