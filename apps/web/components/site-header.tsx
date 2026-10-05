@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, Clapperboard, RotateCcw, Sparkles } from "lucide-react";
+import { Bell, Clapperboard, Plus, Sparkles } from "lucide-react";
 import { AuthModal } from "./auth/auth-modal";
 import { notificationsApi, usersApi } from "@/lib/api/client";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
@@ -113,7 +113,7 @@ export function SiteHeader() {
             </Link>
             <Link
               className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
-              href="/create-performance"
+              href="/projects"
             >
               Projects
             </Link>
@@ -134,16 +134,15 @@ export function SiteHeader() {
                 <Sparkles className="size-3.5" /> Create Performance
               </Link>
             ) : (
-              <button
+              <Link
                 aria-label="Create a new performance project"
                 className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-[#a3a3b8] transition hover:border-white/20 hover:text-white"
-                onClick={() => window.dispatchEvent(new Event("actbyme:new-performance-project"))}
+                href="/create-performance?new=1"
                 title="Create a new performance project"
-                type="button"
               >
-                <RotateCcw className="size-3.5" />
+                <Plus className="size-3.5" />
                 <span className="hidden sm:inline">New Project</span>
-              </button>
+              </Link>
             )}
 
             {isAuthenticated ? (
