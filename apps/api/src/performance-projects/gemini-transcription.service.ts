@@ -2,7 +2,7 @@ import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 const MAX_TRANSCRIPTION_BYTES = 19_000_000;
-const DEFAULT_MODEL = "gemini-3.8-flash";
+const DEFAULT_MODEL = "gemini-3.5-transcribe";
 
 type GeminiInteraction = {
   id?: string;
@@ -33,15 +33,12 @@ export class GeminiTranscriptionService {
       );
     }
 
+    const configuredModel = this.config.get<string>("GEMINI_TRANSCRIPTION_MODEL")?.trim();
     const model =
-      this.config.get<string>("GEMINI_TRANSCRIPTION_MODEL")?.trim() ||
-      this.config.get<string>("GEMINI_DIRECTOR_MODEL")?.trim() ||
-      DEFAULT_MODEL;
-    const languageHint = language?.trim()
-      ? ` The expected spoken language is ${language.trim()}.`
-      : "";
+      configuredModel?.startsWith("gemini-3.5-transcribe") ? configuredModel : DEFAULT_MODEL;
+    const languageCode = resolveLanguageCode(language);
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1/interactions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -52,22 +49,17 @@ export class GeminiTranscriptionService {
         store: false,
         input: [
           {
-            type: "user_input",
-            content: [
-              {
-                type: "text",
-                text:
-                  "Transcribe the spoken dialogue exactly. Return only the transcript with no commentary." +
-                  languageHint,
-              },
-              {
-                type: "audio",
-                data: Buffer.from(audio).toString("base64"),
-                mime_type: "audio/mp3",
-              },
-            ],
+            type: "audio",
+            data: Buffer.from(audio).toString("base64"),
+            mime_type: "audio/mp3",
           },
         ],
+        generation_config: {
+          transcription_config: {
+            language_codes: languageCode ? [languageCode] : [],
+            mode: "verbatim",
+          },
+        },
       }),
       signal: AbortSignal.timeout(300_000),
     }).catch((error: unknown) => {
@@ -92,12 +84,41 @@ export class GeminiTranscriptionService {
       ?.filter((step) => step.type === "model_output")
       .flatMap((step) => step.content ?? [])
       .filter((content) => content.type === "text" && content.text)
-      .at(-1)?.text;
+      .map((content) => content.text!.trim())
+      .filter(Boolean)
+      .join("\n")
+      .trim();
 
-    if (!text?.trim()) {
-      throw new ServiceUnavailableException("Gemini speech-to-text returned an empty transcript.");
+    if (!text) {
+      throw new ServiceUnavailableException(
+        "Gemini speech-to-text returned no transcript for this audio.",
+      );
     }
 
-    return { model: result.model ?? model, text: text.trim() };
+    return { model: result.model ?? model, text };
   }
+}
+
+function resolveLanguageCode(language?: string | null) {
+  if (!language) return undefined;
+  const normalized = language.trim().toLowerCase();
+  if (/^[a-z]{2}$/.test(normalized)) return normalized;
+
+  const languageCodes: Record<string, string> = {
+    arabic: "ar",
+    chinese: "zh",
+    dutch: "nl",
+    english: "en",
+    french: "fr",
+    german: "de",
+    hindi: "hi",
+    italian: "it",
+    japanese: "ja",
+    korean: "ko",
+    portuguese: "pt",
+    russian: "ru",
+    spanish: "es",
+  };
+
+  return languageCodes[normalized];
 }
