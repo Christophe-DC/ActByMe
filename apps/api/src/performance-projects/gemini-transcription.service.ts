@@ -52,15 +52,20 @@ export class GeminiTranscriptionService {
         store: false,
         input: [
           {
-            type: "text",
-            text:
-              "Transcribe the spoken dialogue exactly. Return only the transcript with no commentary." +
-              languageHint,
-          },
-          {
-            type: "audio",
-            data: Buffer.from(audio).toString("base64"),
-            mime_type: "audio/mp3",
+            type: "user_input",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Transcribe the spoken dialogue exactly. Return only the transcript with no commentary." +
+                  languageHint,
+              },
+              {
+                type: "audio",
+                data: Buffer.from(audio).toString("base64"),
+                mime_type: "audio/mp3",
+              },
+            ],
           },
         ],
       }),
