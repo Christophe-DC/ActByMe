@@ -50,24 +50,6 @@ test("Gemini Director uses the stable Interactions API", async () => {
 test("Gemini transcription uses the dedicated Transcribe model and v1beta audio input", async () => {
   const originalFetch = globalThis.fetch;
   let requestBody: Record<string, unknown> | undefined;
-  globalThis.fetch = async (_input, init) => {
-    requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-    return new Response(
-      JSON.stringify({
-        id: "interaction-audio",
-        model: "gemini-3.8-flash",
-        status: "completed",
-        steps: [
-          {
-            type: "model_output",
-            content: [{ type: "text", text: "Hello world" }],
-          },
-        ],
-      }),
-      { status: 200 },
-    );
-  };
-
   try {
     let requestedUrl = "";
     globalThis.fetch = async (input, init) => {
