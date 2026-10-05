@@ -86,7 +86,13 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
 
-export function SimplifiedPerformanceApp() {
+export function SimplifiedPerformanceApp({
+  initialProjectId,
+  startNew = false,
+}: {
+  initialProjectId?: string;
+  startNew?: boolean;
+}) {
   const [project, setProject] = useState<PerformanceProjectResponse | null>(null);
   const [title, setTitle] = useState("");
   const [script, setScript] = useState("");
@@ -108,14 +114,37 @@ export function SimplifiedPerformanceApp() {
   }, []);
 
   useEffect(() => {
-    void performanceProjectsApi
-      .getCurrent()
-      .then(syncProject)
-      .catch((loadError) => {
-        if (!(loadError instanceof APIError) || loadError.status !== 404)
-          setError(errorMessage(loadError));
-      });
-  }, [syncProject]);
+    if (startNew) return;
+
+    const request = initialProjectId
+      ? performanceProjectsApi.get(initialProjectId)
+      : performanceProjectsApi.getCurrent();
+
+    void request.then(syncProject).catch((loadError) => {
+      if (!(loadError instanceof APIError) || loadError.status !== 404) {
+        setError(errorMessage(loadError));
+      }
+    });
+  }, [initialProjectId, startNew, syncProject]);
+
+  useEffect(() => {
+    function resetForNewProject() {
+      setProject(null);
+      setTitle("");
+      setScript("");
+      setLanguage("");
+      setTargetAiTool("");
+      setScriptFile(null);
+      setRecommendations([]);
+      setShowActorPicker(false);
+      setError("");
+      setBusy("");
+      window.history.replaceState(null, "", "/create-performance?new=1");
+    }
+
+    window.addEventListener("actbyme:new-performance-project", resetForNewProject);
+    return () => window.removeEventListener("actbyme:new-performance-project", resetForNewProject);
+  }, []);
 
   const activeStep = (() => {
     if (!project?.brief) return 0;
@@ -151,7 +180,7 @@ export function SimplifiedPerformanceApp() {
       return;
     const timer = window.setInterval(() => {
       void performanceProjectsApi
-        .getCurrent()
+        .get(project.id)
         .then(syncProject)
         .catch(() => undefined);
     }, 5000);

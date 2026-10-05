@@ -140,41 +140,36 @@ test("performance output contract requires a plain 4–7 step actor guide", () =
   assert.match(performanceOutputsInput({ approvedBriefVersion: 3 }), /approvedBriefVersion/);
 });
 
-test("AI Director generates outputs through the configured provider and rejects malformed JSON", async () => {
+test("AI Director generates outputs through Gemini and rejects malformed JSON", async () => {
   let capturedRequest: { input?: string; schemaName?: string } | undefined;
-  const config = { get: (key: string) => (key === "AI_PROVIDER" ? "openai" : undefined) };
-  const openai = {
+  const gemini = {
     generate: async (request: { input: string; schemaName: string }) => {
       capturedRequest = request;
       return {
-        model: "test-openai-model",
+        model: "test-gemini-model",
         outputText: JSON.stringify(validOutputs),
         responseId: "response-1",
       };
     },
   };
-  const service = new AiDirectorService(config as never, {} as never, openai as never);
+  const service = new AiDirectorService(gemini as never);
   const generated = await service.generateOutputs({
     approvedBriefVersion: 2,
     project: { targetAiTool: "Runway" },
   });
 
-  assert.equal(generated.provider, "openai");
+  assert.equal(generated.provider, "gemini");
   assert.equal(generated.outputs.actorGuide.steps.length, 4);
   assert.equal(capturedRequest?.schemaName, "actbyme_performance_outputs");
   assert.match(capturedRequest?.input ?? "", /approvedBriefVersion/);
 
-  const malformedService = new AiDirectorService(
-    config as never,
-    {} as never,
-    {
-      generate: async () => ({
-        model: "test-openai-model",
-        outputText: JSON.stringify({ ...validOutputs, actorGuide: { steps: [] } }),
-        responseId: null,
-      }),
-    } as never,
-  );
+  const malformedService = new AiDirectorService({
+    generate: async () => ({
+      model: "test-gemini-model",
+      outputText: JSON.stringify({ ...validOutputs, actorGuide: { steps: [] } }),
+      responseId: null,
+    }),
+  } as never);
   await assert.rejects(
     () => malformedService.generateOutputs({ approvedBriefVersion: 2 }),
     /invalid structured performance outputs/,

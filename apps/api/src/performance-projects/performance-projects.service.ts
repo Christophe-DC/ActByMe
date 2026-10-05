@@ -107,6 +107,16 @@ export class PerformanceProjectsService {
     private readonly performanceRequestEmail: PerformanceRequestEmailService,
   ) {}
 
+  findAll(user: AuthenticatedUser): Promise<unknown> {
+    return this.prisma.client.performanceProject
+      .findMany({
+        include: projectInclude,
+        orderBy: { updatedAt: "desc" },
+        where: { ownerId: user.id },
+      })
+      .then((projects) => projects.map((project) => this.projectResponse(project)));
+  }
+
   findCurrent(user: AuthenticatedUser): Promise<unknown> {
     return this.prisma.client.performanceProject
       .findFirst({
@@ -120,6 +130,10 @@ export class PerformanceProjectsService {
         }
         return this.projectResponse(project);
       });
+  }
+
+  async findOne(user: AuthenticatedUser, id: string): Promise<unknown> {
+    return this.projectResponse(await this.requireOwnedProject(user, id));
   }
 
   async create(user: AuthenticatedUser, dto: SavePerformanceProjectDto): Promise<unknown> {
