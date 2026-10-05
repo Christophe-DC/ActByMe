@@ -107,7 +107,7 @@ export function SiteHeader() {
             </Link>
             <Link
               className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
-              href="/create-performance"
+              href="/create-performance?new=1"
             >
               Create Performance
             </Link>
@@ -129,7 +129,7 @@ export function SiteHeader() {
             {!isWorkflow ? (
               <Link
                 className="hidden items-center gap-1.5 rounded-lg bg-[#6C4DFF] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#6C4DFF]/25 transition hover:bg-[#7a5eff] md:flex"
-                href="/create-performance"
+                href="/create-performance?new=1"
               >
                 <Sparkles className="size-3.5" /> Create Performance
               </Link>
