@@ -47,7 +47,7 @@ test("Gemini Director uses the stable Interactions API", async () => {
 });
 
 
-test("Gemini transcription wraps audio content in a user_input step", async () => {
+test("Gemini transcription uses the dedicated Transcribe model and v1beta audio input", async () => {
   const originalFetch = globalThis.fetch;
   let requestBody: Record<string, unknown> | undefined;
   globalThis.fetch = async (_input, init) => {
@@ -69,6 +69,29 @@ test("Gemini transcription wraps audio content in a user_input step", async () =
   };
 
   try {
+    let requestedUrl = "";
+    globalThis.fetch = async (input, init) => {
+      requestedUrl = String(input);
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({
+          id: "interaction-audio",
+          model: "gemini-3.5-transcribe",
+          status: "completed",
+          steps: [
+            {
+              type: "model_output",
+              content: [
+                { type: "text", text: "Hello" },
+                { type: "text", text: "world" },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    };
+
     const service = new GeminiTranscriptionService(
       new ConfigService({
         GEMINI_API_KEY: "test-key",
@@ -78,14 +101,23 @@ test("Gemini transcription wraps audio content in a user_input step", async () =
     const result = await service.transcribe(new Uint8Array([1, 2, 3]), "English");
     const input = requestBody?.input as Array<{
       type?: string;
-      content?: Array<{ type?: string; mime_type?: string }>;
+      data?: string;
+      mime_type?: string;
     }>;
+    const generationConfig = requestBody?.generation_config as {
+      transcription_config?: { language_codes?: string[]; mode?: string };
+    };
 
-    assert.equal(input[0]?.type, "user_input");
-    assert.equal(input[0]?.content?.[0]?.type, "text");
-    assert.equal(input[0]?.content?.[1]?.type, "audio");
-    assert.equal(input[0]?.content?.[1]?.mime_type, "audio/mp3");
-    assert.equal(result.text, "Hello world");
+    assert.equal(
+      requestedUrl,
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
+    );
+    assert.equal(requestBody?.model, "gemini-3.5-transcribe");
+    assert.equal(input[0]?.type, "audio");
+    assert.equal(input[0]?.mime_type, "audio/mp3");
+    assert.equal(generationConfig.transcription_config?.mode, "verbatim");
+    assert.deepEqual(generationConfig.transcription_config?.language_codes, ["en"]);
+    assert.equal(result.text, "Hello\nworld");
   } finally {
     globalThis.fetch = originalFetch;
   }
