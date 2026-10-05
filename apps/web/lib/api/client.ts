@@ -310,8 +310,14 @@ export const storageApi = {
 };
 
 export const performanceProjectsApi = {
+  list: async (): Promise<PerformanceProjectResponse[]> =>
+    apiFetch<PerformanceProjectResponse[]>("/performance-projects"),
+
   getCurrent: async (): Promise<PerformanceProjectResponse> =>
     apiFetch<PerformanceProjectResponse>("/performance-projects/current"),
+
+  get: async (id: string): Promise<PerformanceProjectResponse> =>
+    apiFetch<PerformanceProjectResponse>(`/performance-projects/${id}`),
 
   create: async (request: PerformanceProjectSaveRequest): Promise<PerformanceProjectResponse> =>
     apiFetch<PerformanceProjectResponse>("/performance-projects", {
