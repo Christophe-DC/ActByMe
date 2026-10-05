@@ -1,5 +1,4 @@
 import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import {
   directorBriefJsonSchema,
   directorBriefSchema,
@@ -16,19 +15,14 @@ import {
   type PerformanceOutputsResult,
 } from "./performance-outputs.js";
 import { GeminiDirectorService } from "./gemini-director.service.js";
-import { OpenAiDirectorService } from "./openai-director.service.js";
 
-type AiProvider = "gemini" | "openai";
+type AiProvider = "gemini";
 
 @Injectable()
 export class AiDirectorService {
   private readonly logger = new Logger(AiDirectorService.name);
 
-  constructor(
-    private readonly config: ConfigService,
-    private readonly gemini: GeminiDirectorService,
-    private readonly openai: OpenAiDirectorService,
-  ) {}
+  constructor(private readonly gemini: GeminiDirectorService) {}
 
   async generate(projectData: Record<string, unknown>): Promise<{
     brief: DirectorBriefResult;
@@ -42,12 +36,9 @@ export class AiDirectorService {
       schema: directorBriefJsonSchema,
       schemaName: "actbyme_director_brief",
     };
-    const provider = this.resolveProvider();
+    const provider: AiProvider = "gemini";
     this.logger.log(`AI Director generation started provider=${provider}`);
-    const generated =
-      provider === "gemini"
-        ? await this.gemini.generate(request)
-        : await this.openai.generate(request);
+    const generated = await this.gemini.generate(request);
 
     let parsedOutput: unknown;
     try {
@@ -103,12 +94,9 @@ export class AiDirectorService {
       schema: performanceOutputsJsonSchema,
       schemaName: "actbyme_performance_outputs",
     };
-    const provider = this.resolveProvider();
+    const provider: AiProvider = "gemini";
     this.logger.log(`AI Director output generation started provider=${provider}`);
-    const generated =
-      provider === "gemini"
-        ? await this.gemini.generate(request)
-        : await this.openai.generate(request);
+    const generated = await this.gemini.generate(request);
 
     let parsedOutput: unknown;
     try {
@@ -152,15 +140,6 @@ export class AiDirectorService {
     };
   }
 
-  private resolveProvider(): AiProvider {
-    const configured = this.config.get<string>("AI_PROVIDER")?.trim().toLowerCase();
-    if (configured === "gemini" || configured === "openai") return configured;
-    if (configured) {
-      throw new ServiceUnavailableException('AI_PROVIDER must be either "gemini" or "openai".');
-    }
-
-    return this.config.get<string>("NODE_ENV") === "production" ? "openai" : "gemini";
-  }
 }
 
 function stackFrames(error: unknown) {
