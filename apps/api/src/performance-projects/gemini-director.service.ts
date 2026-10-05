@@ -4,10 +4,14 @@ import { setTimeout as wait } from "node:timers/promises";
 import type { DirectorProviderRequest, DirectorProviderResponse } from "./ai-director.contract.js";
 
 const DEFAULT_GEMINI_DIRECTOR_MODEL = "gemini-3.8-flash";
-const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.6-flash";
-const DEFAULT_GEMINI_FINAL_FALLBACK_MODEL = "gemini-3.1-flash-lite";
-const MAX_GEMINI_ATTEMPTS = 3;
-const RETRYABLE_GEMINI_STATUSES = new Set([429, 500, 502, 503, 504]);
+const DEFAULT_GEMINI_FALLBACK_MODELS = [
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+] as const;
+const MAX_GEMINI_ATTEMPTS = 5;
+const RETRYABLE_GEMINI_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 type GeminiInteraction = {
   error?: {
@@ -42,16 +46,27 @@ export class GeminiDirectorService {
 
     const primaryModel =
       this.config.get<string>("GEMINI_DIRECTOR_MODEL")?.trim() || DEFAULT_GEMINI_DIRECTOR_MODEL;
-    const fallbackModel =
-      this.config.get<string>("GEMINI_DIRECTOR_FALLBACK_MODEL")?.trim() ||
-      DEFAULT_GEMINI_FALLBACK_MODEL;
-    const finalFallbackModel =
-      this.config.get<string>("GEMINI_DIRECTOR_FINAL_FALLBACK_MODEL")?.trim() ||
-      DEFAULT_GEMINI_FINAL_FALLBACK_MODEL;
-    const uniqueModels = [...new Set([primaryModel, fallbackModel, finalFallbackModel])];
+    const configuredFallbacks =
+      this.config
+        .get<string>("GEMINI_DIRECTOR_FALLBACK_MODELS")
+        ?.split(",")
+        .map((model) => model.trim())
+        .filter(Boolean) ?? [];
+    const legacyFallbacks = [
+      this.config.get<string>("GEMINI_DIRECTOR_FALLBACK_MODEL")?.trim(),
+      this.config.get<string>("GEMINI_DIRECTOR_FINAL_FALLBACK_MODEL")?.trim(),
+    ].filter((model): model is string => Boolean(model));
+    const uniqueModels = [
+      ...new Set([
+        primaryModel,
+        ...configuredFallbacks,
+        ...legacyFallbacks,
+        ...DEFAULT_GEMINI_FALLBACK_MODELS,
+      ]),
+    ];
     const attemptModels = Array.from(
       { length: MAX_GEMINI_ATTEMPTS },
-      (_, index) => uniqueModels[Math.min(index, uniqueModels.length - 1)] ?? primaryModel,
+      (_, index) => uniqueModels[index] ?? uniqueModels.at(-1) ?? primaryModel,
     );
 
     for (let attempt = 1; attempt <= MAX_GEMINI_ATTEMPTS; attempt += 1) {
@@ -106,9 +121,7 @@ export class GeminiDirectorService {
           continue;
         }
         throw new ServiceUnavailableException(
-          retryable
-            ? "Gemini is temporarily unavailable after multiple attempts."
-            : `The AI Director request failed with status ${response.status}.`,
+          geminiFailureMessage(response.status, upstreamError),
         );
       }
 
@@ -170,9 +183,32 @@ async function readGeminiError(response: Response) {
 function retryDelayMilliseconds(attempt: number, retryAfter?: string | null) {
   const retryAfterSeconds = retryAfter ? Number(retryAfter) : Number.NaN;
   if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
-    return Math.min(10_000, retryAfterSeconds * 1_000);
+    return Math.min(15_000, retryAfterSeconds * 1_000);
   }
-  return 1_000 * 2 ** (attempt - 1);
+  const baseDelay = Math.min(8_000, 1_000 * 2 ** (attempt - 1));
+  return baseDelay + Math.floor(Math.random() * 250);
+}
+
+function geminiFailureMessage(
+  status: number,
+  error: { code?: string; message?: string },
+) {
+  const code = error.code?.toLowerCase() ?? "";
+  const message = error.message ?? "";
+
+  if (status === 429) {
+    if (code === "quota_exceeded" || /quota|credit|billing/i.test(message)) {
+      return "Gemini quota is exhausted. Check your Google AI quota or billing before retrying.";
+    }
+    return "Gemini rate limit was reached. Please retry in a moment.";
+  }
+  if (status === 503) {
+    return "Gemini is temporarily overloaded. Please retry in a moment.";
+  }
+  if (status >= 500) {
+    return "Gemini returned a temporary server error. Please retry in a moment.";
+  }
+  return `The AI Director request failed with status ${status}.`;
 }
 
 function stackFrames(error: unknown) {

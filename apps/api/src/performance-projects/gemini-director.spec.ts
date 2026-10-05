@@ -46,6 +46,103 @@ test("Gemini Director uses the stable Interactions API", async () => {
   }
 });
 
+test("Gemini Director falls back across stable models on temporary overload", async () => {
+  const originalFetch = globalThis.fetch;
+  const requestedModels: string[] = [];
+  let attempt = 0;
+
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { model?: string };
+    requestedModels.push(body.model ?? "");
+    attempt += 1;
+
+    if (attempt < 5) {
+      return new Response(
+        JSON.stringify({ error: { code: "service_unavailable", message: "overloaded" } }),
+        { status: 503, headers: { "retry-after": "0" } },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        id: "interaction-fallback",
+        model: body.model,
+        status: "completed",
+        steps: [
+          {
+            type: "model_output",
+            content: [{ type: "text", text: '{"ok":true}' }],
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+  };
+
+  try {
+    const service = new GeminiDirectorService(
+      new ConfigService({
+        GEMINI_API_KEY: "test-key",
+        GEMINI_DIRECTOR_MODEL: "gemini-3.8-flash",
+      }),
+    );
+    const result = await service.generate({
+      input: "Generate a test payload.",
+      instructions: "Return JSON.",
+      schema: { type: "object" },
+      schemaName: "test_payload",
+    });
+
+    assert.deepEqual(requestedModels, [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+    ]);
+    assert.equal(result.model, "gemini-3.5-flash-lite");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Gemini Director reports quota exhaustion instead of generic unavailability", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        error: {
+          code: "quota_exceeded",
+          message: "Daily quota exceeded for this project.",
+        },
+      }),
+      { status: 429, headers: { "retry-after": "0" } },
+    );
+
+  try {
+    const service = new GeminiDirectorService(
+      new ConfigService({
+        GEMINI_API_KEY: "test-key",
+        GEMINI_DIRECTOR_MODEL: "gemini-3.8-flash",
+      }),
+    );
+
+    await assert.rejects(
+      () =>
+        service.generate({
+          input: "Generate a test payload.",
+          instructions: "Return JSON.",
+          schema: { type: "object" },
+          schemaName: "test_payload",
+        }),
+      /Gemini quota is exhausted/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
 
 test("Gemini transcription uses the dedicated Transcribe model and v1beta audio input", async () => {
   const originalFetch = globalThis.fetch;
