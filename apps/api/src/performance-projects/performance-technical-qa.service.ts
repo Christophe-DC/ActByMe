@@ -6,8 +6,8 @@ import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PerformanceQaCheckType, PerformanceQaResultStatus } from "@actbyme/shared";
 import { parseDurationRequirement } from "./duration-requirement.js";
-import { OpenAiTranscriptionService } from "./openai-transcription.service.js";
-import { OpenAiVisualQaService } from "./openai-visual-qa.service.js";
+import { GeminiTranscriptionService } from "./gemini-transcription.service.js";
+import { GeminiVisualQaService } from "./gemini-visual-qa.service.js";
 import { visualQaFailedCriteria, type VisualQaResult } from "./visual-qa.contract.js";
 
 const DIALOGUE_PASS_THRESHOLD = 0.85;
@@ -69,8 +69,8 @@ type ProbeResult = {
 export class PerformanceTechnicalQaService {
   constructor(
     private readonly config: ConfigService,
-    private readonly transcription: OpenAiTranscriptionService,
-    private readonly visualQa: OpenAiVisualQaService,
+    private readonly transcription: GeminiTranscriptionService,
+    private readonly visualQa: GeminiVisualQaService,
   ) {}
 
   async evaluate(input: TechnicalQaInput) {
