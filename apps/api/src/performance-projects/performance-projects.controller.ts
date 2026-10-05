@@ -42,10 +42,25 @@ import { PerformanceProjectsService } from "./performance-projects.service.js";
 export class PerformanceProjectsController {
   constructor(private readonly projects: PerformanceProjectsService) {}
 
+  @Get()
+  @ApiOperation({ summary: "List the current user's performance projects" })
+  findAll(@CurrentUser() user: AuthenticatedUser): Promise<unknown> {
+    return this.projects.findAll(user);
+  }
+
   @Get("current")
   @ApiOperation({ summary: "Get the current user's most recently updated performance project" })
   findCurrent(@CurrentUser() user: AuthenticatedUser): Promise<unknown> {
     return this.projects.findCurrent(user);
+  }
+
+  @Get(":id")
+  @ApiOperation({ summary: "Get an owned performance workflow project" })
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<unknown> {
+    return this.projects.findOne(user, id);
   }
 
   @Post()
