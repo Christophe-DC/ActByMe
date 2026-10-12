@@ -8,6 +8,7 @@ type GeminiInteraction = {
   id?: string;
   model?: string;
   status?: string;
+  output_text?: string;
   steps?: Array<{
     type?: string;
     content?: Array<{ type?: string; text?: string }>;
@@ -34,8 +35,9 @@ export class GeminiTranscriptionService {
     }
 
     const configuredModel = this.config.get<string>("GEMINI_TRANSCRIPTION_MODEL")?.trim();
-    const model =
-      configuredModel?.startsWith("gemini-3.5-transcribe") ? configuredModel : DEFAULT_MODEL;
+    const model = configuredModel?.startsWith("gemini-3.5-transcribe")
+      ? configuredModel
+      : DEFAULT_MODEL;
     const languageCode = resolveLanguageCode(language);
 
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
@@ -77,10 +79,12 @@ export class GeminiTranscriptionService {
 
     const result = (await response.json()) as GeminiInteraction;
     if (result.status !== "completed") {
-      throw new ServiceUnavailableException("Gemini speech-to-text returned an incomplete response.");
+      throw new ServiceUnavailableException(
+        "Gemini speech-to-text returned an incomplete response.",
+      );
     }
 
-    const text = result.steps
+    const stepText = result.steps
       ?.filter((step) => step.type === "model_output")
       .flatMap((step) => step.content ?? [])
       .filter((content) => content.type === "text" && content.text)
@@ -89,11 +93,9 @@ export class GeminiTranscriptionService {
       .join("\n")
       .trim();
 
-    if (!text) {
-      throw new ServiceUnavailableException(
-        "Gemini speech-to-text returned no transcript for this audio.",
-      );
-    }
+    // A completed transcription can be empty for music, silence or unintelligible speech.
+    // Let dialogue QA report that outcome without aborting the other media checks.
+    const text = result.output_text?.trim() || stepText || "";
 
     return { model: result.model ?? model, text };
   }

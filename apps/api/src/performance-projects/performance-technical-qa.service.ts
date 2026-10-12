@@ -410,9 +410,11 @@ function dialogueCheck(expected: string, transcript: string): TechnicalQaCheck {
   return {
     correctionInstruction: passed
       ? null
-      : `Re-record and match the approved dialogue more closely${
-          missingWords.length ? `, especially: “${missingWords.join(" ")}”` : ""
-        }. Speak clearly and avoid adding or omitting words.`,
+      : !transcriptWords.length
+        ? "No intelligible spoken dialogue was transcribed. An audio track can contain music or background sound without speech. Verify that the approved dialogue is clearly audible and submit a new take."
+        : `Re-record and match the approved dialogue more closely${
+            missingWords.length ? `, especially: “${missingWords.join(" ")}”` : ""
+          }. Speak clearly and avoid adding or omitting words.`,
     measuredValue: {
       transcript,
       wordAccuracy: round(accuracy),
