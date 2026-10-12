@@ -332,6 +332,7 @@ model PerformanceProject {
   qaRuns              PerformanceQaRun[]
   consents            PerformanceConsent[]
   assignment          PerformanceAssignment?
+  directorStudio      DirectorStudio?
 
   @@index([ownerId, updatedAt])
   @@index([workflowStatus])
@@ -427,18 +428,20 @@ model PerformanceScene {
 }
 
 model PerformanceAssignment {
-  id             String                      @id @default(uuid()) @db.Uuid
-  projectId      String                      @unique @db.Uuid
-  actorProfileId String                      @db.Uuid
-  status         PerformanceAssignmentStatus @default(SELECTED)
-  sentAt         DateTime?
-  acceptedAt     DateTime?
-  submittedAt    DateTime?
-  createdAt      DateTime                    @default(now())
-  updatedAt      DateTime                    @updatedAt
-  project        PerformanceProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  actorProfile   ActorProfile                @relation(fields: [actorProfileId], references: [id], onDelete: Restrict)
-  notifications  Notification[]
+  id               String                      @id @default(uuid()) @db.Uuid
+  projectId        String                      @unique @db.Uuid
+  actorProfileId   String                      @db.Uuid
+  status           PerformanceAssignmentStatus @default(SELECTED)
+  sentAt           DateTime?
+  acceptedAt       DateTime?
+  submittedAt      DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  project          PerformanceProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorProfile     ActorProfile                @relation(fields: [actorProfileId], references: [id], onDelete: Restrict)
+  notifications    Notification[]
+  studioRevisionId String?                     @db.Uuid
+  studioRevision   DirectorStudioRevision?     @relation(fields: [studioRevisionId], references: [id], onDelete: Restrict)
 
   @@index([actorProfileId, status])
   @@index([status])
@@ -560,4 +563,50 @@ model AuditLog {
   @@index([actorProfileId])
   @@index([action])
   @@index([createdAt])
+}
+
+model DirectorStudio {
+  id        String                   @id @default(uuid()) @db.Uuid
+  projectId String                   @unique @db.Uuid
+  enabled   Boolean                  @default(true)
+  version   Int                      @default(0)
+  project   PerformanceProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions DirectorStudioRevision[]
+  jobs      DirectorStudioJob[]
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+}
+
+model DirectorStudioRevision {
+  id           String                  @id @default(uuid()) @db.Uuid
+  studioId     String                  @db.Uuid
+  version      Int
+  scene        Json
+  instructions String                  @db.Text
+  roleId       String?
+  inputHash    String
+  approvedAt   DateTime?
+  model        String?
+  responseId   String?
+  studio       DirectorStudio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  assignments  PerformanceAssignment[]
+  createdAt    DateTime                @default(now())
+
+  @@unique([studioId, version])
+}
+
+model DirectorStudioJob {
+  id              String         @id @default(uuid()) @db.Uuid
+  studioId        String         @db.Uuid
+  expectedVersion Int
+  input           Json
+  status          String         @default("QUEUED")
+  error           String?        @db.Text
+  token           String?        @db.Uuid
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  studio          DirectorStudio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }

@@ -1,4 +1,8 @@
 import {
+  lockStudioProject,
+  studioRevisionForAssignment,
+} from "../director-studio/studio-policy.js";
+import {
   BadRequestException,
   ConflictException,
   Inject,
@@ -58,6 +62,7 @@ import {
 const projectInclude = {
   assignment: {
     include: {
+      studioRevision: true,
       actorProfile: {
         include: { accents: true, languages: true, skills: true },
       },
@@ -246,6 +251,12 @@ export class PerformanceProjectsService {
     const suppliedScript = project.script?.trim() || project.briefAttachment?.extractedText?.trim();
     if (!project.title.trim() || !suppliedScript) {
       throw new BadRequestException("A project title and pasted or uploaded script are required.");
+    }
+
+    if (project.assignment?.studioRevisionId) {
+      throw new ConflictException(
+        "The shooting plan is locked after sending a validated 3D preview.",
+      );
     }
 
     if (project.scenes.some((scene) => scene.take)) {
@@ -651,11 +662,14 @@ export class PerformanceProjectsService {
 
     const { assignment, notification } = await this.prisma.client.$transaction(
       async (transaction) => {
+        await lockStudioProject(transaction, id);
+        const studioRevisionId = await studioRevisionForAssignment(transaction, id);
         const assignment = await transaction.performanceAssignment.upsert({
-          create: { actorProfileId, projectId: id, sentAt: new Date() },
+          create: { actorProfileId, projectId: id, sentAt: new Date(), studioRevisionId },
           update: {
             acceptedAt: null,
             actorProfileId,
+            studioRevisionId,
             sentAt: new Date(),
             status: PerformanceAssignmentStatus.Selected,
             submittedAt: null,
@@ -1914,9 +1928,19 @@ export class PerformanceProjectsService {
   >(assignment: T, isUnread = assignment.notifications?.some((item) => !item.readAt) ?? false) {
     const scene = assignment.project.scenes[0] ?? null;
     const take = scene?.take;
+    const studioRevision = assignment.project.assignment?.studioRevision;
     return {
       acceptedAt: assignment.acceptedAt,
       actorGuide: assignment.project.actorGuide,
+      studioRevision: studioRevision
+        ? {
+            id: studioRevision.id,
+            version: studioRevision.version,
+            scene: studioRevision.scene,
+            roleId: studioRevision.roleId,
+            approvedAt: studioRevision.approvedAt,
+          }
+        : null,
       createdAt: assignment.createdAt,
       id: assignment.id,
       isUnread,

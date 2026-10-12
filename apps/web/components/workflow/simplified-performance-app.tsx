@@ -1,5 +1,7 @@
 "use client";
 
+import { DirectorStudioPanel } from "../director-studio/director-studio-panel";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   Check,
@@ -466,6 +468,15 @@ export function SimplifiedPerformanceApp({
             onBriefChange={updateBrief}
             onRegenerate={regeneratePlan}
             onSceneChange={updateScene}
+          />
+        ) : null}
+
+        {project?.brief && activeStep >= 1 ? (
+          <DirectorStudioPanel
+            key={`${project.id}:${activeStep}`}
+            projectId={project.id}
+            briefApproved={Boolean(project.brief.approvedAt)}
+            onPrepare={project.brief.approvedAt ? undefined : savePlan}
           />
         ) : null}
 

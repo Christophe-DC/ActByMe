@@ -1,5 +1,7 @@
 "use client";
 
+import { StudioPlayer } from "../director-studio/studio-player";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, CheckCircle2, Loader2, Upload, Video } from "lucide-react";
@@ -143,6 +145,15 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}{" "}
               Accept request
             </button>
+          </section>
+        ) : null}
+        {request.studioRevision ? (
+          <section className="mt-8 rounded-2xl border border-amber-300/20 bg-[#111214] p-5 sm:p-7">
+            <h2 className="mb-4 text-xl font-semibold">Director Studio 3D · Validated preview</h2>
+            <StudioPlayer
+              scene={request.studioRevision.scene}
+              roleId={request.studioRevision.roleId}
+            />
           </section>
         ) : null}
         <section className="mt-8 rounded-2xl border border-white/10 bg-[#111214] p-5 sm:p-7">

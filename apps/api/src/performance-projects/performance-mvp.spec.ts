@@ -632,7 +632,8 @@ function assignmentHarness(options: { emailFailure?: boolean } = {}) {
         return project.assignment;
       },
     },
-    performanceProject: { update: async () => project },
+    $queryRaw: async () => [],
+    performanceProject: { update: async () => project, findUniqueOrThrow: async () => project },
   };
   const prisma = {
     audit: async () => undefined,

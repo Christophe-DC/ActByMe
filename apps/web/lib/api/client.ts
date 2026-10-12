@@ -554,3 +554,34 @@ export const performanceTakesApi = {
 };
 
 export { APIError };
+
+export const directorStudioApi = {
+  get: (id: string) =>
+    apiFetch<import("@actbyme/shared").StudioState>(`/performance-projects/${id}/director-studio`),
+  activate: (id: string, version: number, enabled: boolean) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/activation`,
+      { method: "POST", body: JSON.stringify({ version, enabled }) },
+    ),
+  generate: (id: string, version: number, instructions: string) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/generate`,
+      { method: "POST", body: JSON.stringify({ version, instructions }) },
+    ),
+  save: (
+    id: string,
+    version: number,
+    scene: import("@actbyme/shared").StudioScene,
+    instructions: string,
+    roleId: string | null,
+  ) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/revision`,
+      { method: "PUT", body: JSON.stringify({ version, scene, instructions, roleId }) },
+    ),
+  approve: (id: string, version: number, roleId: string) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/approve`,
+      { method: "POST", body: JSON.stringify({ version, roleId }) },
+    ),
+};

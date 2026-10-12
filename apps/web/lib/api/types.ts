@@ -492,6 +492,10 @@ export interface ActorRecommendation {
 }
 
 export interface PerformanceRequest {
+  studioRevision: Pick<
+    import("@actbyme/shared").StudioRevision,
+    "id" | "version" | "scene" | "roleId" | "approvedAt"
+  > | null;
   acceptedAt: string | null;
   actorGuide: ActorGuide;
   createdAt: string;

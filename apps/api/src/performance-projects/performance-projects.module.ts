@@ -1,3 +1,5 @@
+import { DirectorStudioService } from "../director-studio/director-studio.service.js";
+import { DirectorStudioController } from "../director-studio/director-studio.controller.js";
 import { Module } from "@nestjs/common";
 import { StorageModule } from "../storage/storage.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
@@ -13,8 +15,13 @@ import { PerformanceRequestsController } from "./performance-requests.controller
 
 @Module({
   imports: [NotificationsModule, StorageModule],
-  controllers: [PerformanceProjectsController, PerformanceRequestsController],
+  controllers: [
+    DirectorStudioController,
+    PerformanceProjectsController,
+    PerformanceRequestsController,
+  ],
   providers: [
+    DirectorStudioService,
     AiDirectorService,
     BriefContentExtractorService,
     GeminiDirectorService,

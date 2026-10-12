@@ -1,19 +1,21 @@
 import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module.js";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useBodyParser("json", { limit: "1mb" });
   const config = app.get(ConfigService);
 
   const allowedOrigins = getAllowedOrigins(config);
 
   app.enableCors({
     credentials: true,
-    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
+    methods: ["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
       if (!origin || isAllowedOrigin(origin, allowedOrigins)) {
         callback(null, true);
