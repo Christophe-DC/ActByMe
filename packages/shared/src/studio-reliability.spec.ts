@@ -7,7 +7,7 @@ import {
   studioSceneSchema,
 } from "./director-studio.js";
 import { studioDemoScene } from "./director-studio-demo.js";
-import { assertStudioDialogueOnly } from "./studio-editing.js";
+import { assertStudioDialogueOnly, applyStudioPatch } from "./studio-editing.js";
 import { studioRecordingPlan } from "./studio-recording.js";
 test("moving people walk even when the starting pose was idle; holds and stopped feet stay still", () => {
   const scene = structuredClone(studioDemoScene);
@@ -71,4 +71,35 @@ test("direct edits can change dialogue only; actors get their role's exact lines
   assert.equal(plan.capturePlan.lighting, "Window light");
   assert.match(plan.capturePlan.camera, /Fixed camera/);
   assert.ok(!plan.actorGuide.dialogue.includes(scene.cues[1]!.dialogue));
+});
+test("duration-only assistant edits retime movements, camera cuts and dialogue together", () => {
+  const scene = structuredClone(studioDemoScene);
+  const longer = applyStudioPatch(
+    scene,
+    {
+      summary: "Slow down the scene",
+      duration: 48,
+      title: null,
+      characters: [],
+      shots: [],
+      props: [],
+      cues: [],
+      removeCharacters: [],
+      removeShots: [],
+      removeProps: [],
+      removeCues: [],
+    },
+    { kind: "scene", id: "scene" },
+  );
+  assert.equal(longer.shots[0]!.end, scene.shots[0]!.end * 2);
+  assert.equal(longer.cues[0]!.start, scene.cues[0]!.start * 2);
+  assert.equal(
+    longer.characters[0]!.keyframes[1]!.time,
+    scene.characters[0]!.keyframes[1]!.time * 2,
+  );
+  assert.deepEqual(
+    longer.characters[0]!.keyframes[1]!.position,
+    scene.characters[0]!.keyframes[1]!.position,
+  );
+  assert.equal(longer.cues[0]!.dialogue, scene.cues[0]!.dialogue);
 });

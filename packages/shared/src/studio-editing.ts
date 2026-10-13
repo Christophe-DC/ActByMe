@@ -149,6 +149,11 @@ export function applyStudioPatch(
       delete shot.lookAtCharacterId;
   }
   if (patch.title !== null) next.title = patch.title;
+  const hasExplicitTiming =
+    patch.characters.some((item) => item.keyframes !== undefined) ||
+    patch.shots.some((item) => item.start !== undefined || item.end !== undefined) ||
+    patch.cues.some((item) => item.cue.start !== undefined || item.cue.end !== undefined);
+  if (patch.duration !== null && !hasExplicitTiming) return retimeStudioScene(next, patch.duration);
   if (patch.duration !== null) next.duration = patch.duration;
   return studioSceneSchema.parse(next);
 }
