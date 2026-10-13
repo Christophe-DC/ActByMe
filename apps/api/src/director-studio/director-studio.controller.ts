@@ -62,6 +62,14 @@ export class DirectorStudioController {
   ) {
     return this.studio.edit(user.id, id, input);
   }
+  @Post("cancel")
+  cancel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.cancel(user.id, id, input);
+  }
   @Patch("draft")
   draft(
     @CurrentUser() user: AuthenticatedUser,
@@ -81,6 +89,19 @@ export class DirectorStudioController {
       id,
       before && /^\d+$/.test(before) ? Number(before) : undefined,
     );
+  }
+  @Get("feedback")
+  feedback(@CurrentUser() user: AuthenticatedUser, @Param("projectId", ParseUUIDPipe) id: string) {
+    return this.studio.feedback(user.id, id);
+  }
+  @Patch("feedback/:commentId")
+  resolveFeedback(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Param("commentId", ParseUUIDPipe) commentId: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.resolveFeedback(user.id, id, commentId, input);
   }
   @Post("restore")
   restore(

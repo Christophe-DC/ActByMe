@@ -2,7 +2,6 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ConflictException, NotFoundException } from "@nestjs/common";
-import { studioDemoScene } from "@actbyme/shared";
 import { PrismaService } from "../database/prisma.service.js";
 import { GeminiDirectorService } from "../performance-projects/gemini-director.service.js";
 import { DirectorStudioService } from "./director-studio.service.js";
@@ -90,13 +89,13 @@ test(
         const writes = await Promise.allSettled([
           studio.save(ownerId, projectId, {
             version: state.version,
-            scene: studioDemoScene,
+            scene: state.revision!.scene,
             instructions: "First edit",
             roleId: "lea",
           }),
           studio.save(ownerId, projectId, {
             version: state.version,
-            scene: studioDemoScene,
+            scene: state.revision!.scene,
             instructions: "Second edit",
             roleId: "lea",
           }),
@@ -126,7 +125,7 @@ test(
           );
           state = await studio.save(ownerId, projectId, {
             version: state.version,
-            scene: studioDemoScene,
+            scene: state.revision!.scene,
             instructions: "Manual revision",
             roleId: "lea",
           });
@@ -197,7 +196,7 @@ test(
           await assert.rejects(
             studio.save(ownerId, projectId, {
               version: state.version,
-              scene: studioDemoScene,
+              scene: state.revision!.scene,
               instructions: "Cannot change",
               roleId: "lea",
             }),
@@ -288,6 +287,193 @@ test(
         data: { expiresAt: new Date(Date.now() - 1000) },
       });
       await assert.rejects(studio.shared(expiring.token), NotFoundException);
+    } finally {
+      await prisma.client.user.deleteMany({
+        where: { id: { in: [fixture.ownerId, fixture.actorUserId, fixture.otherUserId] } },
+      });
+      await prisma.onModuleDestroy();
+    }
+  },
+);
+
+test(
+  "PostgreSQL: assistant-only scene changes, synchronized shooting guide, feedback and cancellation",
+  { skip: !databaseUrl },
+  async () => {
+    process.env.DATABASE_URL = databaseUrl!;
+    const prisma = new PrismaService();
+    const fixture = await createStudioFixture(prisma);
+    const studio = new DirectorStudioService(prisma, fixtureGemini as GeminiDirectorService);
+    try {
+      let state = await studio.create(
+        { id: fixture.ownerId, role: "CLIENT" as never },
+        { title: "A real scene", script: "Alex greets the viewer.", templateId: "introduction" },
+      );
+      const original = structuredClone(state.revision!.scene);
+      const changed = structuredClone(original);
+      changed.characters[0]!.keyframes[0]!.position.x = 2;
+      await assert.rejects(
+        studio.save(fixture.ownerId, state.projectId, {
+          version: state.version,
+          scene: changed,
+          instructions: "Manual geometry",
+          roleId: "presenter",
+        }),
+        /assistant/,
+      );
+      assert.equal((await studio.get(fixture.ownerId, state.projectId)).version, state.version);
+      const spoken = structuredClone(original);
+      spoken.cues[0]!.dialogue = "A new beginning.";
+      state = await studio.save(fixture.ownerId, state.projectId, {
+        version: state.version,
+        scene: spoken,
+        instructions: "Greeting",
+        roleId: "presenter",
+      });
+      state = await studio.approve(fixture.ownerId, state.projectId, {
+        version: state.version,
+        roleId: "presenter",
+      });
+      const project = await prisma.client.performanceProject.findUniqueOrThrow({
+        where: { id: state.projectId },
+        include: { brief: true, scenes: true },
+      });
+      assert.equal(project.scenes[0]!.dialogue, "A new beginning.");
+      assert.equal(
+        (project.actorGuide as { dialogue: string }).dialogue,
+        project.scenes[0]!.dialogue,
+      );
+      assert.equal(project.scenes[0]!.duration, "20 seconds");
+      assert.equal(state.stale, false);
+      assert.ok(project.brief?.approvedAt);
+      assert.equal(
+        await prisma.client.$transaction((tx) => studioRevisionForAssignment(tx, state.projectId)),
+        state.revision!.id,
+      );
+      const shared = await studio.share(fixture.ownerId, state.projectId, {
+        version: state.version,
+        allowComments: true,
+      });
+      const viewer = { id: fixture.otherUserId, role: "CLIENT" as never };
+      const note = await studio.comment(viewer, shared.token, {
+        authorName: "Reviewer",
+        body: "Wait before waving.",
+        time: 4,
+        target: { kind: "character", id: "presenter" },
+      });
+      assert.equal((await studio.shared(shared.token)).comments.length, 1);
+      assert.equal("authorId" in note, false);
+      await assert.rejects(
+        studio.feedback(fixture.otherUserId, state.projectId),
+        NotFoundException,
+      );
+      await studio.resolveFeedback(fixture.ownerId, state.projectId, note.id, { resolved: true });
+      assert.equal((await studio.feedback(fixture.ownerId, state.projectId))[0]!.resolved, true);
+      await studio.revokeShare(fixture.ownerId, state.projectId, shared.id);
+      await assert.rejects(
+        studio.comment(viewer, shared.token, {
+          authorName: "Reviewer",
+          body: "Too late",
+          time: 0,
+          target: { kind: "scene", id: "scene" },
+        }),
+        NotFoundException,
+      );
+      state = await studio.edit(fixture.ownerId, state.projectId, {
+        version: state.version,
+        instructions: "Wave later.",
+        target: { kind: "character", id: "presenter" },
+        at: 4,
+      });
+      state = await studio.cancel(fixture.ownerId, state.projectId, { version: state.version });
+      assert.equal(state.job!.status, "CANCELLED");
+      await studio.tick();
+      assert.deepEqual(state.revision!.scene, spoken);
+      let attempts = 0;
+      const repairing = new DirectorStudioService(prisma, {
+        generate: async (request: Parameters<typeof fixtureGemini.generate>[0]) => {
+          attempts++;
+          return attempts === 1
+            ? { outputText: "{}", model: "invalid", responseId: null }
+            : fixtureGemini.generate({
+                ...request,
+                input: JSON.stringify({
+                  currentScene: spoken,
+                  target: { kind: "character", id: "presenter" },
+                  instructions: "Change color",
+                }),
+              });
+        },
+      } as unknown as GeminiDirectorService);
+      state = await studio.edit(fixture.ownerId, state.projectId, {
+        version: state.version,
+        instructions: "Change color",
+        target: { kind: "character", id: "presenter" },
+      });
+      await repairing.tick();
+      assert.equal(attempts, 2);
+      assert.equal((await studio.get(fixture.ownerId, state.projectId)).job!.status, "COMPLETED");
+    } finally {
+      await prisma.client.user.deleteMany({
+        where: { id: { in: [fixture.ownerId, fixture.actorUserId, fixture.otherUserId] } },
+      });
+      await prisma.onModuleDestroy();
+    }
+  },
+);
+
+test(
+  "PostgreSQL: cancellation aborts the running provider and ignores its late response",
+  { skip: !databaseUrl },
+  async () => {
+    process.env.DATABASE_URL = databaseUrl!;
+    const prisma = new PrismaService();
+    const fixture = await createStudioFixture(prisma);
+    let finish:
+      | ((response: Awaited<ReturnType<typeof fixtureGemini.generate>>) => void)
+      | undefined;
+    let signal: AbortSignal | undefined;
+    let request: Parameters<typeof fixtureGemini.generate>[0] | undefined;
+    const studio = new DirectorStudioService(prisma, {
+      generate: (
+        input: Parameters<typeof fixtureGemini.generate>[0],
+        options: { signal: AbortSignal },
+      ) => {
+        signal = options.signal;
+        request = input;
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+    } as unknown as GeminiDirectorService);
+    try {
+      let state = await studio.create(
+        { id: fixture.ownerId, role: "CLIENT" as never },
+        { title: "Cancelable scene", script: "Alex waves.", templateId: "introduction" },
+      );
+      const original = state.revision!.scene;
+      state = await studio.edit(fixture.ownerId, state.projectId, {
+        version: state.version,
+        instructions: "Change color",
+        target: { kind: "character", id: "presenter" },
+      });
+      const working = studio.tick();
+      for (let attempt = 0; attempt < 100 && !finish; attempt++)
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      assert.ok(finish);
+      assert.equal((await studio.get(fixture.ownerId, state.projectId)).job!.status, "RUNNING");
+      await assert.rejects(
+        studio.cancel(fixture.otherUserId, state.projectId, { version: state.version }),
+        NotFoundException,
+      );
+      state = await studio.cancel(fixture.ownerId, state.projectId, { version: state.version });
+      assert.equal(signal!.aborted, true);
+      finish(await fixtureGemini.generate(request!));
+      await working;
+      const after = await studio.get(fixture.ownerId, state.projectId);
+      assert.equal(after.job!.status, "CANCELLED");
+      assert.deepEqual(after.revision!.scene, original);
+      assert.equal((await studio.history(fixture.ownerId, state.projectId)).revisions.length, 1);
     } finally {
       await prisma.client.user.deleteMany({
         where: { id: { in: [fixture.ownerId, fixture.actorUserId, fixture.otherUserId] } },

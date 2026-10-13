@@ -597,6 +597,16 @@ export type StudioShare = {
   revokedAt: string | null;
   revision: { version: number };
 };
+export type StudioFeedback = {
+  id: string;
+  authorName: string;
+  body: string;
+  time: number;
+  target: import("@actbyme/shared").StudioSelection;
+  resolved: boolean;
+  createdAt: string;
+  revision?: { version: number };
+};
 export const studioWorkspaceApi = {
   create: (input: { title: string; script: string; instructions: string; templateId?: string }) =>
     apiFetch<import("@actbyme/shared").StudioState>("/director-studios", {
@@ -617,11 +627,38 @@ export const studioWorkspaceApi = {
     version: number,
     instructions: string,
     target: import("@actbyme/shared").StudioSelection,
+    at?: number,
+    destination?: import("@actbyme/shared").StudioVector,
   ) =>
     apiFetch<import("@actbyme/shared").StudioState>(
       `/performance-projects/${id}/director-studio/edit`,
-      { method: "POST", body: JSON.stringify({ version, instructions, target }) },
+      { method: "POST", body: JSON.stringify({ version, instructions, target, at, destination }) },
     ),
+  cancel: (id: string, version: number) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/cancel`,
+      { method: "POST", body: JSON.stringify({ version }) },
+    ),
+  feedback: (id: string) =>
+    apiFetch<StudioFeedback[]>(`/performance-projects/${id}/director-studio/feedback`),
+  resolveFeedback: (id: string, commentId: string, resolved: boolean) =>
+    apiFetch(`/performance-projects/${id}/director-studio/feedback/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ resolved }),
+    }),
+  comment: (
+    token: string,
+    input: {
+      authorName: string;
+      body: string;
+      time: number;
+      target: import("@actbyme/shared").StudioSelection;
+    },
+  ) =>
+    apiFetch<StudioFeedback>(`/studio-shares/${encodeURIComponent(token)}/comments`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   history: (id: string, before?: number) =>
     apiFetch<StudioHistory>(
       `/performance-projects/${id}/director-studio/history${before ? `?before=${before}` : ""}`,
@@ -631,10 +668,10 @@ export const studioWorkspaceApi = {
       `/performance-projects/${id}/director-studio/restore`,
       { method: "POST", body: JSON.stringify({ version, revisionId }) },
     ),
-  share: (id: string, version: number) =>
+  share: (id: string, version: number, allowComments = false) =>
     apiFetch<{ id: string; token: string; expiresAt: string }>(
       `/performance-projects/${id}/director-studio/shares`,
-      { method: "POST", body: JSON.stringify({ version }) },
+      { method: "POST", body: JSON.stringify({ version, allowComments }) },
     ),
   shares: (id: string) =>
     apiFetch<StudioShare[]>(`/performance-projects/${id}/director-studio/shares`),
@@ -646,5 +683,7 @@ export const studioWorkspaceApi = {
       scene: import("@actbyme/shared").StudioScene;
       roleId: string | null;
       expiresAt: string;
+      allowComments: boolean;
+      comments: StudioFeedback[];
     }>(`/studio-shares/${encodeURIComponent(token)}`, { cache: "no-store" }),
 };

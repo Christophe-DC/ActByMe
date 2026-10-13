@@ -65,85 +65,39 @@ test("director generates, edits, validates and sends; actor reviews and submits"
   const initial = await (
     await request.get(`${api}/director-studio`, { headers: ownerHeaders })
   ).json();
+  await expect(studio.getByLabel("Character name")).toHaveCount(0);
+  await expect(studio.getByRole("button", { name: /^Resize/ })).toHaveCount(0);
+  await studio
+    .getByRole("region", { name: "Storyboard", exact: true })
+    .getByRole("button", { name: /Léa — reverse shot/ })
+    .click();
+  await expect(studio.getByLabel("Camera view")).toHaveValue("lea-close");
+  await studio.getByLabel("Camera view").selectOption("");
+  await studio.getByRole("button", { name: "Restart", exact: true }).click();
   const canvas = studio.locator("canvas");
   await canvas.scrollIntoViewIfNeeded();
-  const canvasBounds = await canvas.boundingBox();
+  const bounds = await canvas.boundingBox();
   const cameraData = sampleCamera(initial.revision.scene, 0);
-  const camera = new PerspectiveCamera(
-    cameraData.fov,
-    canvasBounds!.width / canvasBounds!.height,
-    0.1,
-    100,
-  );
+  const camera = new PerspectiveCamera(cameraData.fov, bounds!.width / bounds!.height, 0.1, 100);
   camera.position.set(cameraData.position.x, cameraData.position.y, cameraData.position.z);
   camera.lookAt(cameraData.target.x, cameraData.target.y, cameraData.target.z);
   camera.updateMatrixWorld();
   const person = sampleCharacter(initial.revision.scene.characters[0], 0).position;
-  const projected = new Vector3(person.x, person.y + 1.1, person.z).project(camera);
-  const pointerX = canvasBounds!.x + ((projected.x + 1) / 2) * canvasBounds!.width;
-  const pointerY = canvasBounds!.y + ((1 - projected.y) / 2) * canvasBounds!.height;
+  const point = new Vector3(person.x, 1.1, person.z).project(camera);
+  const pointerX = bounds!.x + ((point.x + 1) / 2) * bounds!.width;
+  const pointerY = bounds!.y + ((1 - point.y) / 2) * bounds!.height;
   await page.mouse.move(pointerX, pointerY);
   await page.mouse.down();
-  await page.mouse.move(pointerX + 60, pointerY + 10, { steps: 8 });
+  await page.mouse.move(pointerX + 50, pointerY + 10, { steps: 8 });
   await page.mouse.up();
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`${api}/director-studio`, { headers: ownerHeaders })).json())
-          .revision.scene.characters[0].keyframes[0].position.x,
-    )
-    .not.toBe(person.x);
-  await studio.getByRole("button", { name: "Play", exact: true }).click();
-  await expect(studio.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
-  await studio.getByRole("button", { name: "Pause", exact: true }).click();
-  await studio.getByLabel("Timeline", { exact: true }).fill("10");
-  await expect(studio.getByTestId("studio-time")).toContainText("10.0");
-  await studio.getByRole("button", { name: "Arrange scene", exact: true }).click();
-  const personCircle = studio
-    .getByRole("button", { name: "Move Léa", exact: true })
-    .locator("circle");
-  const bounds = await personCircle.boundingBox();
-  await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(bounds!.x + bounds!.width / 2 + 35, bounds!.y + bounds!.height / 2 + 15, {
-    steps: 8,
-  });
-  await page.mouse.up();
-  const chair = studio.getByRole("button", { name: "Move chair 1", exact: true });
-  await chair.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`${api}/director-studio`, { headers: ownerHeaders })).json())
-          .revision.scene.props[0].position.x,
-    )
-    .toBe(initial.revision.scene.props[0].position.x + 0.2);
-  const cameraEdge = studio.getByRole("button", { name: "Resize Wide shot", exact: true });
-  await cameraEdge.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`${api}/director-studio`, { headers: ownerHeaders })).json())
-          .revision.scene.shots[0].end,
-    )
-    .toBe(initial.revision.scene.shots[0].end + 0.5);
-  const dialogueEdge = studio.getByRole("button", { name: "Resize dialogue 1", exact: true });
-  await dialogueEdge.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`${api}/director-studio`, { headers: ownerHeaders })).json())
-          .revision.scene.cues[0].end,
-    )
-    .toBe(initial.revision.scene.cues[0].end + 0.5);
-  await studio.getByRole("button", { name: "Move Léa", exact: true }).focus();
-  await page.keyboard.press("ArrowRight");
-  await studio.getByRole("button", { name: "Undo", exact: true }).click();
-  await studio.getByRole("button", { name: "Redo", exact: true }).click();
-  await studio.getByLabel("Character name").fill("Lea edited");
+  expect(
+    (await (await request.get(`${api}/director-studio`, { headers: ownerHeaders })).json()).revision
+      .scene.characters,
+  ).toEqual(initial.revision.scene.characters);
+  await page.mouse.click(pointerX, pointerY);
+  await expect(studio.getByRole("complementary").getByText(/Selected:/)).toContainText("Léa");
+  await studio.getByLabel("Describe your change").fill("Rename this person to Lea edited.");
+  await studio.getByRole("button", { name: "Apply change", exact: true }).click();
   await expect
     .poll(
       async () =>
@@ -156,7 +110,6 @@ test("director generates, edits, validates and sends; actor reviews and submits"
     .getByRole("complementary")
     .getByRole("button", { name: "Lea edited", exact: true })
     .click();
-  await expect(studio.getByLabel("Character name")).toHaveValue("Lea edited");
   const beforeEdit = await (
     await request.get(`${api}/director-studio`, { headers: ownerHeaders })
   ).json();
@@ -176,8 +129,22 @@ test("director generates, edits, validates and sends; actor reviews and submits"
   ).json();
   expect(afterEdit.revision.scene.shots).toEqual(beforeEdit.revision.scene.shots);
   expect(afterEdit.revision.scene.characters[1]).toEqual(beforeEdit.revision.scene.characters[1]);
+  await studio.getByRole("button", { name: "Dialogue 1", exact: true }).click();
+  await studio.getByLabel("Dialogue text").fill("Je suis contente que tu sois venu.");
+  await studio.getByRole("button", { name: "Undo dialogue", exact: true }).click();
+  await studio.getByRole("button", { name: "Redo dialogue", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`${api}/director-studio`, { headers: ownerHeaders })).json())
+          .revision.scene.cues[0].dialogue,
+    )
+    .toBe("Je suis contente que tu sois venu.");
   await expect(
-    studio.getByRole("button", { name: "Validate for actor", exact: true }),
+    page
+      .locator("article")
+      .filter({ has: page.getByRole("heading", { name: fixture.actorName, exact: true }) })
+      .getByRole("button", { name: "Select actor", exact: true }),
   ).toBeDisabled();
   const blocked = await request.post(`${api}/assignment`, {
     headers: ownerHeaders,
@@ -185,11 +152,16 @@ test("director generates, edits, validates and sends; actor reviews and submits"
   });
   expect(blocked.status()).toBe(409);
   await studio.getByLabel("Actor’s role").selectOption("lea");
-  await studio.getByRole("button", { name: "Validate for actor" }).click();
-  await expect(studio.getByText("This scene is validated and ready to send.")).toBeVisible();
+  await studio.getByRole("button", { name: "Prepare actor guide", exact: true }).click();
+  await page.getByRole("button", { name: "Validate scene and guide", exact: true }).click();
+  await expect(studio.getByText(/Scene and actor guide are synchronized/)).toBeVisible();
   const validation = await (
     await request.get(`${api}/director-studio`, { headers: ownerHeaders })
   ).json();
+  const synchronized = await (await request.get(api, { headers: ownerHeaders })).json();
+  expect(synchronized.scenes[0].dialogue).toBe("Je suis contente que tu sois venu.");
+  expect(synchronized.actorGuide.dialogue).toBe(synchronized.scenes[0].dialogue);
+  expect(synchronized.scenes[0].duration).toBe("24 seconds");
   const unauthorized = await request.get(`${api}/director-studio`, {
     headers: { "x-user-id": fixture.otherUserId, "x-user-role": "CLIENT" },
   });
@@ -221,6 +193,7 @@ test("director generates, edits, validates and sends; actor reviews and submits"
   expect(actorRequest.studioRevision.instructions).toBeUndefined();
   expect(actorRequest.aiEnginePrompt).toBeUndefined();
   expect(actorRequest.status).toBe("ACCEPTED");
+  expect(actorRequest.actorGuide.dialogue).toBe("Je suis contente que tu sois venu.");
   // Exercise the existing private upload/submit flow with isolated storage and QA providers.
   await actorPage
     .locator('input[type="file"]')
@@ -239,6 +212,9 @@ test("director generates, edits, validates and sends; actor reviews and submits"
         ).status,
     )
     .toBe("QA_PASSED");
+  const qaInput = await (await request.get("http://127.0.0.1:4401/test-qa-input")).json();
+  expect(qaInput.scene.dialogue).toBe(actorRequest.actorGuide.dialogue);
+  expect(qaInput.scene.duration).toBe("24 seconds");
   await actorContext.close();
 });
 
@@ -253,7 +229,7 @@ test("mobile demo and WebGL fallback expose timed directions", async ({ page }) 
   });
   await page.goto("/director-studio/demo");
   await expect(page.getByText(/Demo scene.*fictional characters/)).toBeVisible();
-  await expect(page.getByText(/WebGL 2 is unavailable/)).toBeVisible();
+  await expect(page.getByText(/3D playback is unavailable/)).toBeVisible();
   await expect(page.getByText("Your scene, step by step")).toBeVisible();
   await page.getByRole("button", { name: "Play", exact: true }).focus();
   await page.keyboard.press("Enter");
@@ -274,13 +250,32 @@ test("template scene auto-saves, restores history and shares an immutable revoca
   await page.getByRole("button", { name: /Introduce yourself/ }).click();
   const studio = page.getByTestId("director-studio");
   await expect(studio.getByTestId("studio-player")).toBeVisible();
-  await studio.getByLabel("Scene name", { exact: true }).fill("My first scene");
+  await studio.getByRole("button", { name: "Dialogue 1", exact: true }).click();
+  await studio.getByLabel("Dialogue text").fill("My first dialogue.");
   await expect(studio.getByTestId("studio-save-status")).toHaveText("All changes saved");
   await studio.getByRole("button", { name: "History", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Scene history" })).toBeVisible();
   await page.getByRole("button", { name: "Restore", exact: true }).last().click();
-  await expect(studio.getByLabel("Scene name", { exact: true })).toHaveValue("Introduce yourself");
   await studio.screenshot({ path: "test-results/studio-workspace-desktop.png" });
+  await studio.getByRole("button", { name: "Dialogue 1", exact: true }).click();
+  await studio.getByLabel("Dialogue text").fill("A safe line: <script>alert(1)</script>");
+  await expect(studio.getByTestId("studio-save-status")).toHaveText("All changes saved");
+  await studio.getByRole("button", { name: "Export", exact: true }).click();
+  const fileEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download scene data", exact: true }).click();
+  const file = await fileEvent;
+  expect(file.suggestedFilename()).toBe("actbyme-scene.json");
+  const { readFile } = await import("node:fs/promises");
+  const exported = JSON.parse(await readFile((await file.path())!, "utf8"));
+  expect(exported.scene.characters.length).toBe(1);
+  const boardEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download offline storyboard", exact: true }).click();
+  const board = await boardEvent;
+  const html = await readFile((await board.path())!, "utf8");
+  expect(html).toContain("Print / Save as PDF");
+  expect(html).toContain("Storyboard");
+  expect(html).toContain("&lt;script&gt;");
+  expect(html).not.toContain("<script>alert(1)</script>");
+  await page.getByRole("button", { name: "Close dialog" }).click();
   await studio.getByRole("button", { name: "Share", exact: true }).click();
   await page.getByRole("button", { name: "Create a viewing link", exact: true }).click();
   const url = await page.getByLabel("Viewing link", { exact: true }).inputValue();
@@ -297,9 +292,9 @@ test("template scene auto-saves, restores history and shares an immutable revoca
   await anonymous.close();
   await page.getByRole("button", { name: "Close dialog" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await studio.getByRole("button", { name: "Arrange scene", exact: true }).click();
-  await studio.getByRole("button", { name: "Move Alex", exact: true }).focus();
-  await page.keyboard.press("ArrowRight");
+  await studio.getByRole("button", { name: "Room view", exact: true }).click();
+  await studio.getByRole("button", { name: "Select Alex", exact: true }).focus();
+  await page.keyboard.press("Enter");
   await expect(studio.getByTestId("studio-save-status")).toHaveText("All changes saved");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await studio.screenshot({ path: "test-results/studio-workspace-mobile.png" });
@@ -327,4 +322,128 @@ test("create a scene directly from a script without a recording plan", async ({
   ).json();
   expect(state.needsBrief).toBe(true);
   expect(state.job.status).toBe("COMPLETED");
+});
+
+test("shared feedback stays on its snapshot and can be given to the assistant", async ({
+  page,
+  request,
+  browser,
+}) => {
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  await login(page, fixture.ownerId);
+  await page.goto("/studio");
+  await page.getByRole("button", { name: /Introduce yourself/ }).click();
+  const studio = page.getByTestId("director-studio");
+  await expect(studio.getByTestId("studio-player")).toBeVisible();
+  await studio.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByLabel("Allow signed-in viewers to leave feedback").check();
+  await page.getByRole("button", { name: "Create a viewing link" }).click();
+  const url = await page.getByLabel("Viewing link").inputValue();
+  const context = await browser.newContext();
+  const viewer = await context.newPage();
+  await login(viewer, fixture.otherUserId);
+  await viewer.goto(url);
+  await viewer.getByLabel("Timeline", { exact: true }).fill("4");
+  await viewer.getByLabel("Feedback display name").fill("Reviewer");
+  await viewer.getByLabel("Your feedback").fill("Wait a little before waving.");
+  await viewer.getByRole("button", { name: "Send feedback", exact: true }).click();
+  await expect(viewer.locator("article").getByText("Wait a little before waving.")).toBeVisible();
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  await studio.getByRole("button", { name: "Feedback", exact: true }).click();
+  await expect(page.getByRole("dialog").getByText("Wait a little before waving.")).toBeVisible();
+  await page.getByRole("button", { name: "Mark resolved", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reopen", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Give to assistant", exact: true }).click();
+  await expect(studio.getByLabel("Describe your change")).toHaveValue(
+    "Wait a little before waving.",
+  );
+  await expect(studio.getByTestId("studio-time")).toContainText("4.0");
+  await studio.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("button", { name: "Turn off link", exact: true }).click();
+  await viewer.reload();
+  await expect(viewer.locator("main").getByRole("alert")).toContainText(
+    "expired or was turned off",
+  );
+  await context.close();
+});
+
+test("offline dialogue survives reload; invalid AI and cancellation preserve the scene", async ({
+  page,
+  request,
+}) => {
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  await login(page, fixture.ownerId);
+  await page.goto("/studio");
+  await page.getByRole("button", { name: /Introduce yourself/ }).click();
+  const studio = page.getByTestId("director-studio");
+  await expect(studio.getByTestId("studio-player")).toBeVisible();
+  await studio.getByRole("button", { name: "Dialogue 1", exact: true }).click();
+  await page.route("**/director-studio/revision", (route) => route.abort("internetdisconnected"));
+  await studio.getByLabel("Dialogue text").fill("This text must survive a connection failure.");
+  await expect(studio.getByTestId("studio-save-status")).toContainText("Server save needs retry");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.reload();
+  await studio.getByRole("button", { name: "Dialogue 1", exact: true }).click();
+  await expect(studio.getByLabel("Dialogue text")).toHaveValue(
+    "This text must survive a connection failure.",
+  );
+  await expect(studio.getByTestId("studio-save-status")).toContainText("Server save needs retry");
+  await page.unroute("**/director-studio/revision");
+  await studio.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect(studio.getByTestId("studio-save-status")).toHaveText("All changes saved");
+  const projectId = new URL(page.url()).searchParams.get("project");
+  const api = "http://127.0.0.1:4401/performance-projects/" + projectId + "/director-studio";
+  const headers = { "x-user-id": fixture.ownerId, "x-user-role": "CLIENT" };
+  const before = await (await request.get(api, { headers })).json();
+  await request.post("http://127.0.0.1:4401/test-assistant-mode", { data: { mode: "invalid" } });
+  await studio
+    .getByRole("complementary")
+    .getByRole("button", { name: "Alex", exact: true })
+    .click();
+  await studio.getByLabel("Describe your change").fill("Change this person's color.");
+  await studio.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Retry request", exact: true })).toBeVisible();
+  expect((await (await request.get(api, { headers })).json()).revision.scene).toEqual(
+    before.revision.scene,
+  );
+  await request.post("http://127.0.0.1:4401/test-assistant-mode", { data: { mode: "normal" } });
+  await studio.getByRole("button", { name: "Retry request", exact: true }).click();
+  await expect
+    .poll(async () => (await (await request.get(api, { headers })).json()).job.status)
+    .toBe("COMPLETED");
+  await studio.getByRole("button", { name: "Apply change", exact: true }).click();
+  await studio.getByRole("button", { name: "Cancel request", exact: true }).click();
+  await expect
+    .poll(async () => (await (await request.get(api, { headers })).json()).job.status)
+    .toBe("CANCELLED");
+});
+
+test("paused preview stops drawing and playback remains smooth without editor mutations", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const prototype = WebGL2RenderingContext.prototype;
+    const draw = prototype.drawElements;
+    prototype.drawElements = function (...args) {
+      const stats = window as unknown as { studioDraws?: number };
+      stats.studioDraws = (stats.studioDraws ?? 0) + 1;
+      return Reflect.apply(draw, this, args);
+    };
+  });
+  await page.goto("/director-studio/demo");
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.getByLabel("Timeline", { exact: true }).fill("3");
+  await page.waitForTimeout(1500);
+  const reads = () =>
+    page.evaluate(() => (window as unknown as { studioDraws?: number }).studioDraws ?? 0);
+  const paused = await reads();
+  await page.waitForTimeout(500);
+  expect(await reads()).toBe(paused);
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect.poll(reads).toBeGreaterThan(paused);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.waitForTimeout(300);
+  const stopped = await reads();
+  await page.waitForTimeout(500);
+  expect(await reads()).toBe(stopped);
 });

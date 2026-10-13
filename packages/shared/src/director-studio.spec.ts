@@ -29,7 +29,7 @@ test("poses distinguish walking, waving, pointing and sitting", () => {
   assert.notEqual(samplePose("walk", 1).leftLeg, 0);
   assert.notEqual(samplePose("wave", 1).rightArm, 0);
   assert.equal(samplePose("point", 1).rightArm, -Math.PI / 2);
-  assert.equal(samplePose("sit", 1).height, -0.5);
+  assert.equal(samplePose("sit", 1).height, -0.2);
   assert.equal(samplePose("idle", 1).height, 0);
 });
 test("invalid identifiers, non-finite positions and broken timelines are rejected", () => {
@@ -144,11 +144,11 @@ test("accessible actor directions describe positions and gaze without 3D coordin
     gaze: { x: -5, y: 1.6, z: 2 },
   };
   assert.deepEqual(describeStudioMoment(scene, character.id, 0), {
-    movement: "Start on the left side of the scene",
+    movement: "Move towards the front of the scene",
     gaze: "Look straight ahead",
   });
   assert.deepEqual(describeStudioMoment(scene, character.id, 1), {
-    movement: "Move towards the front of the scene",
+    movement: "Move towards the back of the scene",
     gaze: "Look to your left",
   });
 });

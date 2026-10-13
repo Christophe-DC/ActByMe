@@ -23,7 +23,14 @@ if (!process.env.STUDIO_TEST_DATABASE_URL?.match(/(?:localhost|127\.0\.0\.1).*st
 process.env.DATABASE_URL = process.env.STUDIO_TEST_DATABASE_URL;
 const prisma = new PrismaService();
 const fixture = await createStudioFixture(prisma);
-const studio = new DirectorStudioService(prisma, fixtureGemini);
+let assistantMode = "normal";
+const studio = new DirectorStudioService(prisma, {
+  generate: (request) =>
+    assistantMode === "invalid"
+      ? Promise.resolve({ outputText: "{}", model: "invalid-fixture", responseId: null })
+      : fixtureGemini.generate(request),
+});
+let qaInput = null;
 const storage = {
   createPresignedUpload: async () => ({
     bucket: "actor-private",
@@ -38,19 +45,22 @@ const storage = {
   deleteObject: async () => undefined,
 };
 const qa = {
-  evaluate: async () => ({
-    checks: [
-      {
-        type: "DURATION",
-        result: "PASS",
-        requiredValue: { seconds: 24 },
-        measuredValue: { seconds: 24 },
-        correctionInstruction: null,
-      },
-    ],
-    transcript: "Tu es venu.",
-    transcriptionModel: "fixture",
-  }),
+  evaluate: async (input) => {
+    qaInput = input;
+    return {
+      checks: [
+        {
+          type: "DURATION",
+          result: "PASS",
+          requiredValue: { seconds: 24 },
+          measuredValue: { seconds: 24 },
+          correctionInstruction: null,
+        },
+      ],
+      transcript: "Tu es venu.",
+      transcriptionModel: "fixture",
+    };
+  },
 };
 const projects = new PerformanceProjectsService(prisma, storage, {}, {}, qa, {
   send: async () => ({ sent: false }),
@@ -98,6 +108,11 @@ app.use((request, _response, next) => {
 app.use("/test-upload", express.raw({ type: "*/*" }), (_request, response) =>
   response.status(200).json({ Key: "actor-private/test-take.mp4" }),
 );
+app.use("/test-assistant-mode", (request, response) => {
+  assistantMode = request.body?.mode ?? "normal";
+  response.json({ mode: assistantMode });
+});
+app.use("/test-qa-input", (_request, response) => response.json(qaInput));
 app.use("/test-fixture", (_request, response) => response.json(fixture));
 app.useGlobalPipes(
   new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),

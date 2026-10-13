@@ -1,18 +1,19 @@
 "use client";
-import { useState } from "react";
+import { memo } from "react";
 import { PerspectiveCamera, Vector3 } from "three";
 import {
   sampleCharacter,
-  reorderStudioShots,
+  sampleCamera,
   type StudioScene,
   type StudioSelection,
   type StudioShot,
 } from "@actbyme/shared";
 
-function cameraPreview(scene: StudioScene, shot: StudioShot) {
+export function cameraPreview(scene: StudioScene, shot: StudioShot) {
   const camera = new PerspectiveCamera(shot.fov, 176 / 90, 0.1, 1000);
-  camera.position.set(shot.position.x, shot.position.y, shot.position.z);
-  camera.lookAt(shot.target.x, shot.target.y, shot.target.z);
+  const sampled = sampleCamera(scene, shot.start, shot.id);
+  camera.position.set(sampled.position.x, sampled.position.y, sampled.position.z);
+  camera.lookAt(sampled.target.x, sampled.target.y, sampled.target.z);
   camera.updateMatrixWorld();
   return scene.characters.flatMap((character) => {
     const pose = sampleCharacter(character, shot.start);
@@ -20,7 +21,7 @@ function cameraPreview(scene: StudioScene, shot: StudioShot) {
     const head = new Vector3(pose.position.x, pose.position.y + 1.8, pose.position.z).project(
       camera,
     );
-    if (head.z < -1 || head.z > 1) return [];
+    if (!Number.isFinite(head.x + head.y + head.z + feet.y) || head.z < -1 || head.z > 1) return [];
     const height = Math.max(4, (head.y - feet.y) * 45);
     return [
       {
@@ -33,40 +34,27 @@ function cameraPreview(scene: StudioScene, shot: StudioShot) {
     ];
   });
 }
-export function StudioStoryboard({
+export const StudioStoryboard = memo(function StudioStoryboard({
   scene,
   selected,
   onSelect,
   onTime,
-  onChange,
-  disabled,
 }: {
   scene: StudioScene;
   selected: StudioSelection;
   onSelect: (selection: StudioSelection) => void;
   onTime: (time: number) => void;
-  onChange: (scene: StudioScene) => void;
-  disabled: boolean;
 }) {
-  const [dragged, setDragged] = useState("");
   return (
     <section aria-label="Storyboard">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-medium">Storyboard</h3>
-        <span className="text-xs text-zinc-300">Drag cards to rearrange camera views</span>
+        <span className="text-xs text-zinc-300">Choose a view to change it with the assistant</span>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {scene.shots.map((shot, index) => (
           <article
             key={shot.id}
-            draggable={!disabled}
-            onDragStart={() => setDragged(shot.id)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              if (dragged && !disabled) onChange(reorderStudioShots(scene, dragged, shot.id));
-              setDragged("");
-            }}
             className={`w-44 shrink-0 overflow-hidden rounded-xl border ${selected.kind === "shot" && selected.id === shot.id ? "border-amber-300" : "border-white/10"}`}
           >
             <button
@@ -114,31 +102,9 @@ export function StudioStoryboard({
                 </p>
               </div>
             </button>
-            <div className="flex border-t border-white/10">
-              <button
-                aria-label={`Move view ${index + 1} earlier`}
-                className="flex-1 py-1 text-sm text-zinc-300 disabled:opacity-30"
-                disabled={disabled || index === 0}
-                onClick={() =>
-                  onChange(reorderStudioShots(scene, shot.id, scene.shots[index - 1]!.id))
-                }
-              >
-                ←
-              </button>
-              <button
-                aria-label={`Move view ${index + 1} later`}
-                className="flex-1 py-1 text-sm text-zinc-300 disabled:opacity-30"
-                disabled={disabled || index === scene.shots.length - 1}
-                onClick={() =>
-                  onChange(reorderStudioShots(scene, shot.id, scene.shots[index + 1]!.id))
-                }
-              >
-                →
-              </button>
-            </div>
           </article>
         ))}
       </div>
     </section>
   );
-}
+});

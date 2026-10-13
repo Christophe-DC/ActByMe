@@ -5,3 +5,4 @@ export * from "./director-studio.js";
 export * from "./director-studio-demo.js";
 export * from "./studio-editing.js";
 export * from "./studio-templates.js";
+export * from "./studio-recording.js";

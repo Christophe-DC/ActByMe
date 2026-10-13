@@ -36,7 +36,19 @@ export class GeminiDirectorService {
 
   constructor(private readonly config: ConfigService) {}
 
-  async generate(request: DirectorProviderRequest): Promise<DirectorProviderResponse> {
+  async generate(
+    request: DirectorProviderRequest,
+    options: {
+      signal?: AbortSignal;
+      maxAttempts?: number;
+      timeoutMs?: number;
+      model?: string;
+    } = {},
+  ): Promise<DirectorProviderResponse> {
+    const attempts = Math.min(
+      MAX_GEMINI_ATTEMPTS,
+      Math.max(1, options.maxAttempts ?? MAX_GEMINI_ATTEMPTS),
+    );
     const apiKey = this.config.get<string>("GEMINI_API_KEY")?.trim();
     if (!apiKey) {
       throw new ServiceUnavailableException(
@@ -45,7 +57,9 @@ export class GeminiDirectorService {
     }
 
     const primaryModel =
-      this.config.get<string>("GEMINI_DIRECTOR_MODEL")?.trim() || DEFAULT_GEMINI_DIRECTOR_MODEL;
+      options.model?.trim() ||
+      this.config.get<string>("GEMINI_DIRECTOR_MODEL")?.trim() ||
+      DEFAULT_GEMINI_DIRECTOR_MODEL;
     const configuredFallbacks =
       this.config
         .get<string>("GEMINI_DIRECTOR_FALLBACK_MODELS")
@@ -64,15 +78,27 @@ export class GeminiDirectorService {
         ...DEFAULT_GEMINI_FALLBACK_MODELS,
       ]),
     ];
+    const orderedModels =
+      options.maxAttempts === undefined
+        ? uniqueModels
+        : [
+            ...new Set([
+              primaryModel,
+              "gemini-3.5-flash",
+              "gemini-3.5-flash-lite",
+              ...uniqueModels,
+            ]),
+          ];
     const attemptModels = Array.from(
-      { length: MAX_GEMINI_ATTEMPTS },
-      (_, index) => uniqueModels[index] ?? uniqueModels.at(-1) ?? primaryModel,
+      { length: attempts },
+      (_, index) => orderedModels[index] ?? orderedModels.at(-1) ?? primaryModel,
     );
 
-    for (let attempt = 1; attempt <= MAX_GEMINI_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      options.signal?.throwIfAborted();
       const model = attemptModels[attempt - 1] ?? primaryModel;
       this.logger.log(
-        `AI Director request provider=gemini model=${model} attempt=${attempt}/${MAX_GEMINI_ATTEMPTS}`,
+        `AI Director request provider=gemini model=${model} attempt=${attempt}/${attempts}`,
       );
 
       let response: Response;
@@ -94,15 +120,19 @@ export class GeminiDirectorService {
               schema: request.schema,
             },
           }),
-          signal: AbortSignal.timeout(180_000),
+          signal: AbortSignal.any([
+            AbortSignal.timeout(options.timeoutMs ?? 180_000),
+            ...(options.signal ? [options.signal] : []),
+          ]),
         });
       } catch (error) {
+        options.signal?.throwIfAborted();
         this.logger.error(
           `AI Director transport failure provider=gemini model=${model} attempt=${attempt}`,
           stackFrames(error),
         );
-        if (attempt < MAX_GEMINI_ATTEMPTS) {
-          await wait(retryDelayMilliseconds(attempt));
+        if (attempt < attempts) {
+          await wait(retryDelayMilliseconds(attempt), undefined, { signal: options.signal });
           continue;
         }
         throw new ServiceUnavailableException("The AI Director could not reach Gemini.", {
@@ -116,13 +146,15 @@ export class GeminiDirectorService {
         this.logger.warn(
           `AI Director upstream failure provider=gemini model=${model} attempt=${attempt} httpStatus=${response.status} errorCode=${upstreamError.code ?? "unknown"} retryable=${retryable}`,
         );
-        if (retryable && attempt < MAX_GEMINI_ATTEMPTS) {
-          await wait(retryDelayMilliseconds(attempt, response.headers.get("retry-after")));
+        if (retryable && attempt < attempts) {
+          await wait(
+            retryDelayMilliseconds(attempt, response.headers.get("retry-after")),
+            undefined,
+            { signal: options.signal },
+          );
           continue;
         }
-        throw new ServiceUnavailableException(
-          geminiFailureMessage(response.status, upstreamError),
-        );
+        throw new ServiceUnavailableException(geminiFailureMessage(response.status, upstreamError));
       }
 
       let result: GeminiInteraction;
@@ -189,10 +221,7 @@ function retryDelayMilliseconds(attempt: number, retryAfter?: string | null) {
   return baseDelay + Math.floor(Math.random() * 250);
 }
 
-function geminiFailureMessage(
-  status: number,
-  error: { code?: string; message?: string },
-) {
+function geminiFailureMessage(status: number, error: { code?: string; message?: string }) {
   const code = error.code?.toLowerCase() ?? "";
   const message = error.message ?? "";
 

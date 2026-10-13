@@ -26,7 +26,7 @@ export function RoleGate({ children }: { children: ReactNode }) {
       if (!active) return;
 
       if (!user) {
-        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        router.replace(`/login?next=${encodeURIComponent(pathname + window.location.search)}`);
         return;
       }
 

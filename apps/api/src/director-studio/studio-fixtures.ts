@@ -85,7 +85,9 @@ export const fixtureGemini = {
         input.currentScene.characters.find((item: { id: string }) => item.id === input.target.id) ??
           input.currentScene.characters[0],
       );
-      character.color = "#80c5aa";
+      character.color = character.color === "#80c5aa" ? "#76aee8" : "#80c5aa";
+      const rename = input.instructions.match(/rename.*?to[ "]+([^".]+)\.?/i);
+      if (rename) character.name = rename[1].trim();
       return {
         model: "fixture-studio",
         responseId: "fixture-patch",

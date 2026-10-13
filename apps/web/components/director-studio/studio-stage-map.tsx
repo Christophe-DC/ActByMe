@@ -1,149 +1,126 @@
 "use client";
-import { useRef } from "react";
-import { sampleCharacter, type StudioScene, type StudioVector } from "@actbyme/shared";
+import {
+  sampleCharacter,
+  type StudioScene,
+  type StudioSelection,
+  type StudioVector,
+} from "@actbyme/shared";
 export function StudioStageMap({
   scene,
   time,
-  selectedId,
+  selected,
   onSelect,
-  onMove,
-  disabled,
-  selectedPropId,
-  onSelectProp,
-  onMoveProp,
+  destination,
+  onDestination,
 }: {
   scene: StudioScene;
   time: number;
-  selectedId?: string;
-  onSelect: (id: string) => void;
-  onMove: (id: string, position: StudioVector) => void;
-  disabled: boolean;
-  selectedPropId?: string;
-  onSelectProp?: (id: string) => void;
-  onMoveProp?: (id: string, position: StudioVector) => void;
+  selected: StudioSelection;
+  onSelect: (selection: StudioSelection) => void;
+  destination: StudioVector | null;
+  onDestination: (position: StudioVector) => void;
 }) {
-  const svg = useRef<SVGSVGElement>(null);
-  const dragging = useRef<{ id: string; kind: "character" | "prop" } | null>(null);
-  const move = (clientX: number, clientY: number) => {
-    if (!dragging.current || !svg.current) return;
-    const rect = svg.current.getBoundingClientRect();
-    const callback = dragging.current.kind === "prop" ? onMoveProp : onMove;
-    callback?.(dragging.current.id, {
-      x: (((clientX - rect.left) / rect.width) * 600 - 300) / 30,
-      y: 0,
-      z: (((clientY - rect.top) / rect.height) * 360 - 180) / 30,
-    });
-  };
+  const coordinates = [
+    ...scene.characters.flatMap((item) => item.keyframes.map((frame) => frame.position)),
+    ...scene.props.map((item) => item.position),
+  ];
+  const scale = Math.min(
+    40,
+    250 / Math.max(1, ...coordinates.map((item) => Math.abs(item.x))),
+    130 / Math.max(1, ...coordinates.map((item) => Math.abs(item.z))),
+  );
   return (
-    <div className="rounded-xl border border-white/10 bg-[#15161a] p-3">
-      <p className="mb-3 text-sm text-zinc-300">
-        Drag people or objects to place them. Use the arrow keys for small moves.
+    <div className="rounded-xl border border-white/10 bg-[#15161a] p-4">
+      <p className="mb-3 text-sm leading-6 text-zinc-300">
+        Select a person or object. Tap an empty place to show the assistant a destination. Nothing
+        moves until you ask the assistant.
       </p>
       <svg
-        ref={svg}
         viewBox="0 0 600 360"
-        preserveAspectRatio="none"
-        className="h-[320px] w-full touch-none"
+        className="aspect-[5/3] w-full"
         aria-label="Scene arrangement"
-        onPointerMove={(event) => move(event.clientX, event.clientY)}
-        onPointerUp={() => {
-          dragging.current = null;
-        }}
-        onPointerCancel={() => {
-          dragging.current = null;
+        onClick={(event) => {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          onDestination({
+            x: Math.max(
+              -50,
+              Math.min(50, (((event.clientX - bounds.left) / bounds.width) * 600 - 300) / scale),
+            ),
+            y: 0,
+            z: Math.max(
+              -50,
+              Math.min(50, (((event.clientY - bounds.top) / bounds.height) * 360 - 180) / scale),
+            ),
+          });
         }}
       >
         <defs>
-          <pattern id="studio-grid" width="30" height="30" patternUnits="userSpaceOnUse">
-            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#ffffff" strokeOpacity="0.06" />
+          <pattern id="studio-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" strokeOpacity="0.08" />
           </pattern>
         </defs>
         <rect width="600" height="360" rx="16" fill="url(#studio-grid)" />
-        <text x="300" y="28" textAnchor="middle" fill="#a1a1aa" fontSize="12">
+        <text x="300" y="24" textAnchor="middle" fill="#a1a1aa" fontSize="14">
           BACK OF THE SCENE
         </text>
         {scene.props.map((prop, index) => (
-          <rect
+          <g
             key={prop.id}
             role="button"
-            tabIndex={disabled ? -1 : 0}
-            aria-label={`Move ${prop.kind} ${index + 1}`}
-            stroke={selectedPropId === prop.id ? "#fde68a" : "none"}
-            strokeWidth="3"
-            onPointerDown={(event) => {
-              if (disabled) return;
-              onSelectProp?.(prop.id);
-              dragging.current = { id: prop.id, kind: "prop" };
-              event.currentTarget.setPointerCapture(event.pointerId);
+            tabIndex={0}
+            aria-label={"Select " + prop.kind + " " + (index + 1)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect({ kind: "prop", id: prop.id });
             }}
             onKeyDown={(event) => {
-              if (disabled) return;
-              const offsets: Record<string, [number, number]> = {
-                ArrowLeft: [-0.2, 0],
-                ArrowRight: [0.2, 0],
-                ArrowUp: [0, -0.2],
-                ArrowDown: [0, 0.2],
-              };
-              const offset = offsets[event.key];
-              if (offset) {
+              if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onSelectProp?.(prop.id);
-                onMoveProp?.(prop.id, {
-                  ...prop.position,
-                  x: prop.position.x + offset[0],
-                  z: prop.position.z + offset[1],
-                });
+                onSelect({ kind: "prop", id: prop.id });
               }
             }}
-            x={300 + prop.position.x * 30 - prop.size.x * 15}
-            y={180 + prop.position.z * 30 - prop.size.z * 15}
-            width={prop.size.x * 30}
-            height={prop.size.z * 30}
-            rx="4"
-            fill={prop.color}
-            opacity="0.7"
-            className="cursor-grab outline-none focus:stroke-amber-300 active:cursor-grabbing"
-          />
+            className="cursor-pointer outline-none focus:stroke-amber-300"
+          >
+            <rect
+              x={300 + prop.position.x * scale - (prop.size.x * scale) / 2}
+              y={180 + prop.position.z * scale - (prop.size.z * scale) / 2}
+              width={Math.max(30, prop.size.x * scale)}
+              height={Math.max(30, prop.size.z * scale)}
+              rx="5"
+              fill={prop.color}
+              stroke={selected.kind === "prop" && selected.id === prop.id ? "#fde68a" : "#ffffff40"}
+              strokeWidth="3"
+            />
+          </g>
         ))}
         {scene.characters.map((character) => {
-          const pose = sampleCharacter(character, time);
+          const pose = sampleCharacter(character, time, scene);
+          const active = selected.kind === "character" && selected.id === character.id;
           return (
             <g
               key={character.id}
               role="button"
-              tabIndex={disabled ? -1 : 0}
-              aria-label={`Move ${character.name}`}
-              onPointerDown={(event) => {
-                if (disabled) return;
-                onSelect(character.id);
-                dragging.current = { id: character.id, kind: "character" };
-                event.currentTarget.setPointerCapture(event.pointerId);
+              tabIndex={0}
+              aria-label={"Select " + character.name}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect({ kind: "character", id: character.id });
               }}
               onKeyDown={(event) => {
-                if (disabled) return;
-                const offsets: Record<string, [number, number]> = {
-                  ArrowLeft: [-0.2, 0],
-                  ArrowRight: [0.2, 0],
-                  ArrowUp: [0, -0.2],
-                  ArrowDown: [0, 0.2],
-                };
-                const offset = offsets[event.key];
-                if (offset) {
+                if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  onSelect(character.id);
-                  onMove(character.id, {
-                    ...pose.position,
-                    x: pose.position.x + offset[0],
-                    z: pose.position.z + offset[1],
-                  });
+                  onSelect({ kind: "character", id: character.id });
                 }
               }}
-              className="cursor-grab outline-none focus:stroke-amber-300 active:cursor-grabbing"
+              className="cursor-pointer outline-none focus:stroke-amber-300"
             >
-              {character.id === selectedId ? (
+              {active ? (
                 <polyline
                   points={character.keyframes
-                    .map((frame) => `${300 + frame.position.x * 30},${180 + frame.position.z * 30}`)
+                    .map(
+                      (frame) =>
+                        300 + frame.position.x * scale + "," + (180 + frame.position.z * scale),
+                    )
                     .join(" ")}
                   stroke={character.color}
                   strokeWidth="2"
@@ -152,36 +129,51 @@ export function StudioStageMap({
                 />
               ) : null}
               <circle
-                cx={300 + pose.position.x * 30}
-                cy={180 + pose.position.z * 30}
-                r={character.id === selectedId ? 19 : 16}
+                cx={300 + pose.position.x * scale}
+                cy={180 + pose.position.z * scale}
+                r="24"
                 fill={character.color}
-                stroke={character.id === selectedId ? "#fef3c7" : "#111214"}
+                stroke={active ? "#fef3c7" : "#111214"}
                 strokeWidth="3"
               />
               <text
-                x={300 + pose.position.x * 30}
-                y={184 + pose.position.z * 30}
+                x={300 + pose.position.x * scale}
+                y={185 + pose.position.z * scale}
                 textAnchor="middle"
                 fill="#111214"
-                fontSize="13"
+                fontSize="18"
                 fontWeight="bold"
               >
                 {character.name.slice(0, 1)}
               </text>
               <text
-                x={300 + pose.position.x * 30}
-                y={215 + pose.position.z * 30}
+                x={300 + pose.position.x * scale}
+                y={220 + pose.position.z * scale}
                 textAnchor="middle"
                 fill="#fafafa"
-                fontSize="12"
+                fontSize="15"
               >
                 {character.name}
               </text>
             </g>
           );
         })}
-        <text x="300" y="345" textAnchor="middle" fill="#a1a1aa" fontSize="12">
+        {destination ? (
+          <g
+            aria-label="Selected destination"
+            transform={
+              "translate(" +
+              (300 + destination.x * scale) +
+              " " +
+              (180 + destination.z * scale) +
+              ")"
+            }
+          >
+            <circle r="18" fill="none" stroke="#fde68a" strokeWidth="3" strokeDasharray="4 3" />
+            <path d="M-8 0H8M0-8V8" stroke="#fde68a" strokeWidth="3" />
+          </g>
+        ) : null}
+        <text x="300" y="345" textAnchor="middle" fill="#a1a1aa" fontSize="14">
           FRONT OF THE SCENE
         </text>
       </svg>

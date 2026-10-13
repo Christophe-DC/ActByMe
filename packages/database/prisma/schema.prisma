@@ -143,16 +143,17 @@ enum NotificationType {
 }
 
 model User {
-  id                  String               @id @default(uuid()) @db.Uuid
-  email               String               @unique
+  id                  String                  @id @default(uuid()) @db.Uuid
+  email               String                  @unique
   name                String?
-  role                UserRole             @default(ACTOR)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  role                UserRole                @default(ACTOR)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
   actorProfile        ActorProfile?
   auditLogs           AuditLog[]
   notifications       Notification[]
   performanceProjects PerformanceProject[]
+  studioComments      DirectorStudioComment[]
 
   @@index([role])
   @@index([createdAt])
@@ -579,21 +580,23 @@ model DirectorStudio {
 }
 
 model DirectorStudioRevision {
-  id           String                  @id @default(uuid()) @db.Uuid
-  studioId     String                  @db.Uuid
-  version      Int
-  scene        Json
-  instructions String                  @db.Text
-  label        String                  @default("Edited scene")
-  roleId       String?
-  inputHash    String
-  approvedAt   DateTime?
-  model        String?
-  responseId   String?
-  studio       DirectorStudio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  assignments  PerformanceAssignment[]
-  shares       DirectorStudioShare[]
-  createdAt    DateTime                @default(now())
+  id            String                  @id @default(uuid()) @db.Uuid
+  studioId      String                  @db.Uuid
+  version       Int
+  scene         Json
+  recordingPlan Json?
+  instructions  String                  @db.Text
+  label         String                  @default("Edited scene")
+  roleId        String?
+  inputHash     String
+  approvedAt    DateTime?
+  model         String?
+  responseId    String?
+  studio        DirectorStudio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  assignments   PerformanceAssignment[]
+  shares        DirectorStudioShare[]
+  comments      DirectorStudioComment[]
+  createdAt     DateTime                @default(now())
 
   @@unique([studioId, version])
 }
@@ -615,13 +618,33 @@ model DirectorStudioJob {
 }
 
 model DirectorStudioShare {
+  id            String                  @id @default(uuid()) @db.Uuid
+  tokenHash     String                  @unique
+  revisionId    String                  @db.Uuid
+  revision      DirectorStudioRevision  @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime                @default(now())
+  allowComments Boolean                 @default(false)
+  comments      DirectorStudioComment[]
+
+  @@index([revisionId, createdAt])
+}
+
+model DirectorStudioComment {
   id         String                 @id @default(uuid()) @db.Uuid
-  tokenHash  String                 @unique
   revisionId String                 @db.Uuid
-  revision   DirectorStudioRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  shareId    String                 @db.Uuid
+  authorId   String                 @db.Uuid
+  authorName String
+  body       String                 @db.Text
+  time       Float
+  target     Json
+  resolved   Boolean                @default(false)
   createdAt  DateTime               @default(now())
+  revision   DirectorStudioRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  share      DirectorStudioShare    @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  author     User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([revisionId, createdAt])
 }

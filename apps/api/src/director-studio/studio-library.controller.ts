@@ -27,4 +27,14 @@ export class StudioSharesController {
   get(@Param("token") token: string) {
     return this.studio.shared(token);
   }
+  @Post(":token/comments")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.Actor, UserRole.Client, UserRole.Agency)
+  comment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("token") token: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.comment(user, token, input);
+  }
 }

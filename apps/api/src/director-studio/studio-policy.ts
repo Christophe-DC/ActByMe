@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { ConflictException } from "@nestjs/common";
 import type { Prisma } from "@actbyme/database";
+import type { StudioRecordingPlan } from "@actbyme/shared";
 
 export function studioInputHash(project: {
   script: string | null;
@@ -57,6 +58,7 @@ export async function studioRevisionForAssignment(
     where: { id: projectId },
     include: {
       brief: true,
+      assignment: true,
       briefAttachment: true,
       scenes: { orderBy: { position: "asc" } },
       directorStudio: {
@@ -79,6 +81,23 @@ export async function studioRevisionForAssignment(
   ) {
     throw new ConflictException(
       "Validate the current Director Studio 3D revision before sending this request.",
+    );
+  }
+  if (!revision.recordingPlan) {
+    if (project.assignment?.studioRevisionId === revision.id) return revision.id;
+    throw new ConflictException(
+      "Prepare the actor guide from the current 3D scene before sending this request.",
+    );
+  }
+  const plan = revision.recordingPlan as unknown as StudioRecordingPlan;
+  if (
+    project.scenes.length !== 1 ||
+    project.scenes[0]!.dialogue !== plan.sceneFields.dialogue ||
+    project.scenes[0]!.duration !== plan.sceneFields.duration ||
+    JSON.stringify(project.actorGuide) !== JSON.stringify(plan.actorGuide)
+  ) {
+    throw new ConflictException(
+      "Prepare the actor guide from the current 3D scene before sending this request.",
     );
   }
   return revision.id;

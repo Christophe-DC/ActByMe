@@ -107,6 +107,7 @@ export function SimplifiedPerformanceApp({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [recommendations, setRecommendations] = useState<ActorRecommendation[]>([]);
   const [showActorPicker, setShowActorPicker] = useState(false);
+  const [studioCanSend, setStudioCanSend] = useState(true);
 
   const syncProject = useCallback((next: PerformanceProjectResponse) => {
     setProject(next);
@@ -484,6 +485,13 @@ export function SimplifiedPerformanceApp({
             projectId={project.id}
             briefApproved={Boolean(project.brief.approvedAt)}
             onPrepare={project.brief.approvedAt ? undefined : savePlan}
+            onPrepared={() => {
+              void performanceProjectsApi
+                .get(project.id)
+                .then(syncProject)
+                .catch((error) => setError(errorMessage(error)));
+            }}
+            onReadinessChange={setStudioCanSend}
           />
         ) : null}
 
@@ -514,6 +522,12 @@ export function SimplifiedPerformanceApp({
               <p className="mt-2 text-sm text-zinc-400">
                 Only approved, real ActByMe profiles are considered.
               </p>
+              {!studioCanSend ? (
+                <p className="mt-3 text-sm text-amber-200">
+                  Prepare and validate the actor guide in Director Studio before sending this
+                  version.
+                </p>
+              ) : null}
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {recommendations.map((item) => (
                   <article
@@ -543,7 +557,7 @@ export function SimplifiedPerformanceApp({
                     </div>
                     <button
                       className="mt-4 w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
-                      disabled={Boolean(busy)}
+                      disabled={Boolean(busy) || !studioCanSend}
                       onClick={() => void assignActor(item.actorId)}
                     >
                       {busy === item.actorId ? "Assigning…" : "Select actor"}

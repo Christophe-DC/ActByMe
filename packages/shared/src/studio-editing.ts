@@ -15,14 +15,16 @@ export const studioSelectionSchema = z.object({
 export type StudioSelection = z.infer<typeof studioSelectionSchema>;
 export const studioPatchSchema = z.object({
   summary: z.string().min(1).max(160),
-  characters: z.array(baseSceneSchema.shape.characters.element).max(6),
-  shots: z.array(baseSceneSchema.shape.shots.element).max(24),
-  props: z.array(baseSceneSchema.shape.props.element).max(20),
+  characters: z
+    .array(baseSceneSchema.shape.characters.element.partial().required({ id: true }))
+    .max(6),
+  shots: z.array(baseSceneSchema.shape.shots.element.partial().required({ id: true })).max(24),
+  props: z.array(baseSceneSchema.shape.props.element.partial().required({ id: true })).max(20),
   cues: z
     .array(
       z.object({
         index: z.number().int().min(0).max(119),
-        cue: baseSceneSchema.shape.cues.element,
+        cue: baseSceneSchema.shape.cues.element.partial(),
       }),
     )
     .max(120),
@@ -69,7 +71,10 @@ export function applyStudioPatch(
       patch.props.some((item) => !allowed("prop", item.id)) ||
       patch.cues.some(
         (item) =>
-          !cueAllowed(item.index, item.cue.characterId) ||
+          !cueAllowed(
+            item.index,
+            item.cue.characterId ?? original.cues[item.index]?.characterId ?? "",
+          ) ||
           (original.cues[item.index] &&
             !cueAllowed(item.index, original.cues[item.index]!.characterId)),
       ) ||
@@ -85,7 +90,11 @@ export function applyStudioPatch(
       );
   }
   const next = structuredClone(original);
-  const merge = <Item extends { id: string }>(items: Item[], edits: Item[], removed: string[]) => {
+  const merge = <Item extends { id: string }>(
+    items: Item[],
+    edits: Array<Partial<Item> & { id: string }>,
+    removed: string[],
+  ) => {
     if (new Set(edits.map((item) => item.id)).size !== edits.length)
       throw new Error("Duplicate edits.");
     for (const id of removed)
@@ -93,10 +102,10 @@ export function applyStudioPatch(
     return [
       ...items
         .filter((item) => !removed.includes(item.id))
-        .map((item) => edits.find((edit) => edit.id === item.id) ?? item),
-      ...edits.filter(
+        .map((item) => ({ ...item, ...edits.find((edit) => edit.id === item.id) })),
+      ...(edits.filter(
         (item) => !items.some((original) => original.id === item.id) && !removed.includes(item.id),
-      ),
+      ) as Item[]),
     ];
   };
   next.characters = merge(next.characters, patch.characters, patch.removeCharacters);
@@ -120,12 +129,25 @@ export function applyStudioPatch(
     throw new Error("Duplicate cue edits.");
   for (const edit of patch.cues) {
     if (edit.index > next.cues.length) throw new Error("Unknown cue.");
-    next.cues[edit.index] = edit.cue;
+    next.cues[edit.index] = {
+      ...next.cues[edit.index],
+      ...edit.cue,
+    } as StudioScene["cues"][number];
   }
   next.cues = next.cues.filter(
     (cue, index) =>
       !patch.removeCues.includes(index) && !patch.removeCharacters.includes(cue.characterId),
   );
+  for (const character of next.characters)
+    for (const frame of character.keyframes)
+      if (frame.gazeCharacterId && patch.removeCharacters.includes(frame.gazeCharacterId))
+        delete frame.gazeCharacterId;
+  for (const shot of next.shots) {
+    if (shot.followCharacterId && patch.removeCharacters.includes(shot.followCharacterId))
+      delete shot.followCharacterId;
+    if (shot.lookAtCharacterId && patch.removeCharacters.includes(shot.lookAtCharacterId))
+      delete shot.lookAtCharacterId;
+  }
   if (patch.title !== null) next.title = patch.title;
   if (patch.duration !== null) next.duration = patch.duration;
   return studioSceneSchema.parse(next);
@@ -142,17 +164,12 @@ export const studioActionLabels = {
 export function describeStudioMoment(scene: StudioScene, characterId: string, index: number) {
   const character = scene.characters.find((item) => item.id === characterId)!;
   const frame = character.keyframes[index]!;
-  const previous = character.keyframes[index - 1];
-  const position =
-    frame.position.x < -0.5
-      ? "the left side"
-      : frame.position.x > 0.5
-        ? "the right side"
-        : "the center";
-  let movement = `Start ${position === "the center" ? "in" : "on"} ${position} of the scene`;
-  if (previous) {
-    const deltaX = frame.position.x - previous.position.x;
-    const deltaZ = frame.position.z - previous.position.z;
+  const following = character.keyframes[index + 1];
+  const sampled = sampleCharacter(character, frame.time, scene);
+  let movement = "Stay in the same place";
+  if (following && frame.easing !== "hold") {
+    const deltaX = following.position.x - frame.position.x;
+    const deltaZ = following.position.z - frame.position.z;
     movement =
       Math.hypot(deltaX, deltaZ) < 0.1
         ? "Stay in the same place"
@@ -164,11 +181,15 @@ export function describeStudioMoment(scene: StudioScene, characterId: string, in
     .filter((other) => other.id !== character.id)
     .find((other) => {
       const position = sampleCharacter(other, frame.time).position;
-      return Math.hypot(position.x - frame.gaze.x, position.z - frame.gaze.z) < 1;
+      return (
+        other.id === frame.gazeCharacterId ||
+        Math.hypot(position.x - sampled.gaze.x, position.z - sampled.gaze.z) < 0.4
+      );
     });
   const gazeAngle =
-    (Math.atan2(frame.gaze.x - frame.position.x, frame.gaze.z - frame.position.z) * 180) / Math.PI;
-  const relativeAngle = ((gazeAngle - frame.rotation + 540) % 360) - 180;
+    (Math.atan2(sampled.gaze.x - sampled.position.x, sampled.gaze.z - sampled.position.z) * 180) /
+    Math.PI;
+  const relativeAngle = ((gazeAngle - sampled.rotation + 540) % 360) - 180;
   const gaze = lookingAt
     ? `Look towards ${lookingAt.name}`
     : Math.abs(relativeAngle) < 30
@@ -178,6 +199,14 @@ export function describeStudioMoment(scene: StudioScene, characterId: string, in
         : `Look to your ${relativeAngle > 0 ? "right" : "left"}`;
   return { movement, gaze };
 }
+export function assertStudioDialogueOnly(original: StudioScene, edited: StudioScene) {
+  const withoutText = (scene: StudioScene) => ({
+    ...scene,
+    cues: scene.cues.map((cue) => ({ ...cue, dialogue: "" })),
+  });
+  if (JSON.stringify(withoutText(original)) !== JSON.stringify(withoutText(edited)))
+    throw new Error("Use the assistant to change the scene. Only dialogue can be edited directly.");
+}
 export function characterMoment(scene: StudioScene, id: string, seconds: number) {
   const character = scene.characters.find((item) => item.id === id);
   if (!character) throw new Error("Choose a character first.");
@@ -186,7 +215,14 @@ export function characterMoment(scene: StudioScene, id: string, seconds: number)
   const time = Math.max(0, Math.min(scene.duration, Math.round(seconds * 10) / 10));
   let frame = selected.keyframes.find((item) => item.time === time);
   if (!frame) {
-    frame = { ...sampleCharacter(character, time), time };
+    const sampled = sampleCharacter(character, time, scene);
+    frame = {
+      time,
+      position: sampled.position,
+      rotation: sampled.rotation,
+      gaze: sampled.gaze,
+      action: sampled.action,
+    };
     selected.keyframes.push(frame);
     selected.keyframes.sort((first, second) => first.time - second.time);
   }
@@ -267,6 +303,11 @@ export function setStudioCameraPreset(
   shot.endTarget = { ...shot.target };
   shot.position = { x: position.x, y: preset === "wide" ? 3 : 1.7, z: position.z + distance };
   shot.endPosition = { ...shot.position, x: shot.position.x + (preset === "tracking" ? 3 : 0) };
+  if (preset === "tracking") {
+    shot.followCharacterId = character.id;
+    shot.endPosition = { ...shot.position };
+  } else delete shot.followCharacterId;
+  shot.lookAtCharacterId = character.id;
   shot.fov = preset === "close" ? 35 : 50;
   shot.name = {
     wide: "Wide view",

@@ -167,7 +167,9 @@ export function PerformanceRequestDetail({ id }: { id: string }) {
                 </span>
                 <div>
                   <h3 className="font-semibold">{step.title}</h3>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{step.instruction}</p>
+                  <p className="mt-1 whitespace-pre-line text-sm leading-6 text-zinc-400">
+                    {step.instruction}
+                  </p>
                 </div>
               </li>
             ))}

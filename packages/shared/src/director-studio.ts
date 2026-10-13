@@ -12,6 +12,9 @@ const keyframe = z.object({
   rotation: z.number().finite().min(-360).max(360),
   gaze: studioVectorSchema,
   action: z.enum(studioActions),
+  easing: z.enum(["linear", "smooth", "hold"]).optional(),
+  gazeCharacterId: identifier.optional(),
+  facing: z.enum(["fixed", "travel", "gaze"]).optional(),
 });
 export const baseSceneSchema = z.object({
   title: label,
@@ -32,6 +35,7 @@ export const baseSceneSchema = z.object({
       z.object({
         id: identifier,
         kind: z.enum(["box", "table", "chair"]),
+        rotation: z.number().finite().min(-360).max(360).optional(),
         position: studioVectorSchema,
         size: z.object({
           x: z.number().min(0.1).max(20),
@@ -54,6 +58,10 @@ export const baseSceneSchema = z.object({
         target: studioVectorSchema,
         endTarget: studioVectorSchema,
         fov: z.number().finite().min(15).max(100),
+        endFov: z.number().finite().min(15).max(100).optional(),
+        easing: z.enum(["linear", "smooth"]).optional(),
+        followCharacterId: identifier.optional(),
+        lookAtCharacterId: identifier.optional(),
       }),
     )
     .min(1)
@@ -111,6 +119,11 @@ export const studioSceneSchema = baseSceneSchema.superRefine((scene, context) =>
       fail("Every character needs an initial keyframe at zero.");
     character.keyframes.forEach((frame, index) => {
       if (
+        frame.gazeCharacterId &&
+        (!ids.includes(frame.gazeCharacterId) || frame.gazeCharacterId === character.id)
+      )
+        fail("Gaze must reference another character.");
+      if (
         frame.time > scene.duration ||
         (index > 0 && frame.time <= character.keyframes[index - 1]!.time)
       )
@@ -119,6 +132,8 @@ export const studioSceneSchema = baseSceneSchema.superRefine((scene, context) =>
   }
   let end = 0;
   for (const shot of scene.shots) {
+    if ([shot.followCharacterId, shot.lookAtCharacterId].some((id) => id && !ids.includes(id)))
+      fail("Camera tracking must reference an existing character.");
     if (Math.abs(shot.start - end) > 0.001 || shot.end <= shot.start || shot.end > scene.duration)
       fail("Camera shots must cover the timeline without gaps or overlaps.");
     if (
@@ -152,17 +167,27 @@ export type StudioRevision = {
   model: string | null;
 };
 export type StudioState = {
+  ownerId: string;
   projectId: string;
   title: string;
   instructions: string;
   needsBrief: boolean;
   briefApproved: boolean;
+  guideSynchronized: boolean;
+  capturePlan?: Record<string, unknown>;
   enabled: boolean;
   version: number;
   locked: boolean;
   stale: boolean;
   revision: StudioRevision | null;
-  job: { id: string; status: string; error: string | null; instructions: string } | null;
+  job: {
+    id: string;
+    status: string;
+    error: string | null;
+    instructions: string;
+    target?: { kind: "scene" | "character" | "shot" | "prop" | "cue"; id: string };
+    at?: number;
+  } | null;
 };
 
 function distance(first: StudioVector, second: StudioVector) {
@@ -179,7 +204,18 @@ export function interpolateVector(
     z: first.z + (second.z - first.z) * fraction,
   };
 }
-export function sampleCharacter(character: StudioCharacter, seconds: number) {
+export function easingFraction(fraction: number, easing?: string) {
+  return easing === "hold"
+    ? 0
+    : easing === "smooth"
+      ? fraction * fraction * (3 - 2 * fraction)
+      : fraction;
+}
+export function sampleCharacter(
+  character: StudioCharacter,
+  seconds: number,
+  scene?: StudioScene,
+): StudioCharacter["keyframes"][number] & { speed: number; travelled: number } {
   const frames = character.keyframes;
   const currentTime = Math.max(0, seconds);
   let index = 0;
@@ -190,12 +226,55 @@ export function sampleCharacter(character: StudioCharacter, seconds: number) {
     second.time === first.time
       ? 0
       : Math.min(1, (currentTime - first.time) / (second.time - first.time));
-  const rotationDelta = ((second.rotation - first.rotation + 540) % 360) - 180;
+  const eased = easingFraction(fraction, first.easing);
+  const rotationDelta = ((((second.rotation - first.rotation) % 360) + 540) % 360) - 180;
+  const position = interpolateVector(first.position, second.position, eased);
+  const gazeCharacter = scene?.characters.find((item) => item.id === first.gazeCharacterId);
+  const gazeState = gazeCharacter ? sampleCharacter(gazeCharacter, seconds) : null;
+  const gaze = gazeState
+    ? {
+        ...gazeState.position,
+        y: gazeState.position.y + 1.65 + (gazeState.action === "sit" ? -0.2 : 0),
+      }
+    : interpolateVector(first.gaze, second.gaze, eased);
+  const moving =
+    first.easing !== "hold" && first !== second && distance(first.position, second.position) > 0.05;
+  const travelled =
+    frames
+      .slice(0, index)
+      .reduce(
+        (total, frame, frameIndex) =>
+          total +
+          (frame.easing === "hold"
+            ? 0
+            : distance(frame.position, frames[frameIndex + 1]!.position)),
+        0,
+      ) + distance(first.position, position);
+  const speed = moving
+    ? (distance(first.position, second.position) / (second.time - first.time)) *
+      (first.easing === "smooth" ? 6 * fraction * (1 - fraction) : 1)
+    : 0;
   return {
     ...first,
-    position: interpolateVector(first.position, second.position, fraction),
-    gaze: interpolateVector(first.gaze, second.gaze, fraction),
-    rotation: first.rotation + rotationDelta * fraction,
+    position,
+    gaze,
+    speed,
+    travelled,
+    action:
+      moving && (first.action === "idle" || first.action === "turn")
+        ? ("walk" as const)
+        : first.action,
+    rotation:
+      first.facing === "gaze"
+        ? (Math.atan2(gaze.x - position.x, gaze.z - position.z) * 180) / Math.PI
+        : moving && first.facing === "travel"
+          ? (Math.atan2(
+              second.position.x - first.position.x,
+              second.position.z - first.position.z,
+            ) *
+              180) /
+            Math.PI
+          : first.rotation + rotationDelta * eased,
   };
 }
 export function sampleCamera(scene: StudioScene, seconds: number, selectedId?: string) {
@@ -203,11 +282,33 @@ export function sampleCamera(scene: StudioScene, seconds: number, selectedId?: s
     scene.shots.find((item) => item.id === selectedId) ??
     scene.shots.find((item) => seconds >= item.start && seconds < item.end) ??
     scene.shots.at(-1)!;
-  const fraction = Math.max(0, Math.min(1, (seconds - shot.start) / (shot.end - shot.start)));
+  const fraction = easingFraction(
+    Math.max(0, Math.min(1, (seconds - shot.start) / (shot.end - shot.start))),
+    shot.easing,
+  );
+  let position = interpolateVector(shot.position, shot.endPosition, fraction);
+  let target = interpolateVector(shot.target, shot.endTarget, fraction);
+  const focused = scene.characters.find(
+    (item) => item.id === (shot.followCharacterId || shot.lookAtCharacterId),
+  );
+  if (focused) {
+    const start = sampleCharacter(focused, shot.start).position;
+    const live = sampleCharacter(focused, seconds).position;
+    const delta = { x: live.x - start.x, y: live.y - start.y, z: live.z - start.z };
+    target = {
+      x: live.x,
+      y: live.y + Math.max(0.5, Math.min(1.65, shot.target.y - start.y)),
+      z: live.z,
+    };
+    if (shot.followCharacterId)
+      position = { x: position.x + delta.x, y: position.y + delta.y, z: position.z + delta.z };
+  }
+  if (distance(position, target) < 0.1) position = { ...position, z: position.z + 0.2 };
   return {
     ...shot,
-    position: interpolateVector(shot.position, shot.endPosition, fraction),
-    target: interpolateVector(shot.target, shot.endTarget, fraction),
+    position,
+    target,
+    fov: shot.fov + ((shot.endFov ?? shot.fov) - shot.fov) * fraction,
   };
 }
 export function samplePose(action: (typeof studioActions)[number], seconds: number) {
@@ -222,6 +323,52 @@ export function samplePose(action: (typeof studioActions)[number], seconds: numb
         : action === "point"
           ? -Math.PI / 2
           : stride * 0.6,
-    height: action === "sit" ? -0.5 : 0,
+    height: action === "sit" ? -0.2 : 0,
+  };
+}
+
+export function sampleCharacterPose(
+  character: StudioCharacter,
+  seconds: number,
+  scene: StudioScene,
+) {
+  const state = sampleCharacter(character, seconds, scene);
+  const frames = character.keyframes;
+  const index = Math.max(
+    0,
+    frames.findIndex((frame) => frame.time === state.time),
+  );
+  const phase = [...character.id].reduce((total, letter) => total + letter.charCodeAt(0), 0) % 7;
+  const pose = samplePose(state.action, seconds - state.time + phase);
+  const previous = samplePose(frames[index - 1]?.action ?? "idle", seconds - state.time + phase);
+  const blend = easingFraction(Math.min(1, Math.max(0, (seconds - state.time) / 0.3)), "smooth");
+  const stride =
+    state.speed > 0.02
+      ? Math.sin(state.travelled * 10 + phase) *
+        Math.min(0.55, state.speed * 0.5) *
+        Math.min(
+          1,
+          Math.max(0, (seconds - state.time) / 0.15),
+          Math.max(0, ((frames[index + 1]?.time ?? seconds) - seconds) / 0.15),
+        )
+      : 0;
+  return {
+    ...state,
+    pose: {
+      leftLeg:
+        state.action === "sit"
+          ? previous.leftLeg + (pose.leftLeg - previous.leftLeg) * blend
+          : stride,
+      rightLeg:
+        state.action === "sit"
+          ? previous.rightLeg + (pose.rightLeg - previous.rightLeg) * blend
+          : -stride,
+      leftArm: -stride * 0.6,
+      rightArm:
+        state.action === "wave" || state.action === "point"
+          ? previous.rightArm + (pose.rightArm - previous.rightArm) * blend
+          : stride * 0.6,
+      height: previous.height + (pose.height - previous.height) * blend,
+    },
   };
 }

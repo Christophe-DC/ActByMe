@@ -54,10 +54,14 @@ try {
   state = await studio.get(fixture.ownerId, fixture.projectId);
   if (state.job?.status !== "COMPLETED") throw new Error(state.job?.error ?? "Generation failed");
   const originalScene = state.revision.scene;
+  const targetColor =
+    originalScene.characters[0].color.toLowerCase() === "#80c5aa" ? "#76aee8" : "#80c5aa";
   await studio.edit(fixture.ownerId, fixture.projectId, {
     version: state.version,
     instructions:
-      "Change only this character's outfit color to mint green. Keep their name, dialogue, movements and all camera views unchanged.",
+      "Change only this character's outfit color to " +
+      targetColor +
+      ". Keep their name, dialogue, movements and all camera views unchanged. Return only id and color, no keyframes.",
     target: { kind: "character", id: originalScene.characters[0].id },
   });
   await studio.tick();
@@ -70,10 +74,31 @@ try {
       JSON.stringify(originalScene.characters.slice(1))
   )
     throw new Error("A targeted edit changed unrelated scene elements.");
+  if (
+    state.revision.scene.characters[0].color.toLowerCase() !== targetColor ||
+    JSON.stringify(state.revision.scene.characters[0].keyframes) !==
+      JSON.stringify(originalScene.characters[0].keyframes)
+  )
+    throw new Error("The colour edit was not exact or changed the animation.");
+  state = await studio.approve(fixture.ownerId, fixture.projectId, {
+    version: state.version,
+    roleId: originalScene.characters[0].id,
+  });
+  const project = await prisma.client.performanceProject.findUniqueOrThrow({
+    where: { id: fixture.projectId },
+    include: { scenes: true },
+  });
+  if (
+    project.scenes[0].dialogue !== project.actorGuide.dialogue ||
+    project.scenes[0].duration !== project.actorGuide.duration ||
+    state.stale
+  )
+    throw new Error("The actor plan and preview are not synchronized.");
   console.log(
     JSON.stringify({
       realGemini: "passed",
       targetedEdit: "passed",
+      synchronizedActorPlan: "passed",
       characters: state.revision.scene.characters.length,
       shots: state.revision.scene.shots.length,
       duration: state.revision.scene.duration,

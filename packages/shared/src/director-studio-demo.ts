@@ -29,6 +29,8 @@ export const studioDemoScene: StudioScene = studioSceneSchema.parse({
           rotation: 90,
           gaze: { x: 1, y: 1.6, z: 0 },
           action: "point",
+          gazeCharacterId: "sam",
+          facing: "gaze",
         },
         {
           time: 18,
@@ -53,10 +55,18 @@ export const studioDemoScene: StudioScene = studioSceneSchema.parse({
         },
         {
           time: 6,
-          position: { x: 1, y: 0, z: 0 },
+          position: { x: 0.6, y: 0, z: 0 },
           rotation: -90,
           gaze: { x: -0.8, y: 1.6, z: 0 },
           action: "idle",
+        },
+        {
+          time: 17,
+          position: { x: 0.6, y: 0, z: 0 },
+          rotation: -90,
+          gaze: { x: -0.8, y: 1.6, z: 0 },
+          gazeCharacterId: "lea",
+          action: "walk",
         },
         {
           time: 18,
@@ -100,6 +110,7 @@ export const studioDemoScene: StudioScene = studioSceneSchema.parse({
     {
       id: "seat",
       kind: "chair",
+      rotation: -90,
       position: { x: 1, y: 0.45, z: 0 },
       size: { x: 0.6, y: 0.8, z: 0.6 },
       color: "#55545b",

@@ -1,6 +1,7 @@
 import {
   lockStudioProject,
   studioRevisionForAssignment,
+  studioInputHash,
 } from "../director-studio/studio-policy.js";
 import {
   BadRequestException,
@@ -23,6 +24,7 @@ import {
   PerformanceTakeStatus,
   PerformanceTakeUploadStatus,
   PerformanceWorkflowStatus,
+  type StudioRecordingPlan,
 } from "@actbyme/shared";
 import type { AuthenticatedUser } from "../auth/auth.types.js";
 import { PrismaService } from "../database/prisma.service.js";
@@ -60,6 +62,7 @@ import {
 } from "./actor-matching.js";
 
 const projectInclude = {
+  directorStudio: { include: { revisions: { orderBy: { version: "desc" as const }, take: 1 } } },
   assignment: {
     include: {
       studioRevision: true,
@@ -170,6 +173,10 @@ export class PerformanceProjectsService {
     dto: SavePerformanceProjectDto,
   ): Promise<unknown> {
     const ownedProject = await this.requireOwnedProject(user, id);
+    if (ownedProject.assignment?.studioRevisionId)
+      throw new ConflictException(
+        "This scene and recording guide are locked after sending them to an actor.",
+      );
     const ownedSceneIds = new Set(ownedProject.scenes.map((scene) => scene.id));
 
     if (dto.scenes.some((scene) => scene.id && !ownedSceneIds.has(scene.id))) {
@@ -469,6 +476,20 @@ export class PerformanceProjectsService {
 
   async generateOutputs(user: AuthenticatedUser, id: string, force = false): Promise<unknown> {
     const project = await this.requireOwnedProject(user, id);
+    if (project.directorStudio?.enabled && project.directorStudio.revisions[0]) {
+      const revision = project.directorStudio.revisions[0];
+      if (
+        !revision.approvedAt ||
+        !revision.roleId ||
+        revision.inputHash !== studioInputHash(project)
+      )
+        throw new ConflictException("Prepare the actor guide from your current 3D scene first.");
+      if (project.assignment && force)
+        throw new ConflictException("The actor guide is locked after sending it.");
+      if (!revision.recordingPlan)
+        throw new ConflictException("Prepare the actor guide from your 3D scene first.");
+      return this.projectResponse(project);
+    }
     if (
       !project.brief?.approvedAt ||
       !project.brief.approvedVersion ||
@@ -1679,8 +1700,10 @@ export class PerformanceProjectsService {
 
     try {
       const signedUrl = await this.storage.createSignedReadUrl(storageKey, 1800);
+      const pinned = project.assignment?.studioRevision;
+      const recordingPlan = pinned?.recordingPlan as unknown as StudioRecordingPlan | null;
       const evaluated = await this.technicalQa.evaluate({
-        capturePlan: project.brief.capturePlan,
+        capturePlan: recordingPlan?.capturePlan ?? project.brief.capturePlan,
         file: {
           contentType: objectInfo.contentType,
           originalFileName: take.originalFileName,
@@ -1689,14 +1712,15 @@ export class PerformanceProjectsService {
         },
         language: project.language,
         scene: {
-          captureRequirements: scene.captureRequirements,
-          dialogue: scene.dialogue,
-          duration: scene.duration,
-          framing: scene.framing,
-          startingPosition: scene.startingPosition,
-          bodyPosition: scene.bodyPosition,
-          eyeline: scene.eyeline,
-          gestures: scene.gestures,
+          captureRequirements:
+            recordingPlan?.sceneFields.captureRequirements ?? scene.captureRequirements,
+          dialogue: recordingPlan?.sceneFields.dialogue ?? scene.dialogue,
+          duration: recordingPlan?.sceneFields.duration ?? scene.duration,
+          framing: recordingPlan?.sceneFields.framing ?? scene.framing,
+          startingPosition: recordingPlan?.sceneFields.startingPosition ?? scene.startingPosition,
+          bodyPosition: recordingPlan?.sceneFields.bodyPosition ?? scene.bodyPosition,
+          eyeline: recordingPlan?.sceneFields.eyeline ?? scene.eyeline,
+          gestures: recordingPlan?.sceneFields.gestures ?? scene.gestures,
         },
       });
       const result = evaluated.checks.some(
@@ -1931,7 +1955,9 @@ export class PerformanceProjectsService {
     const studioRevision = assignment.project.assignment?.studioRevision;
     return {
       acceptedAt: assignment.acceptedAt,
-      actorGuide: assignment.project.actorGuide,
+      actorGuide: studioRevision?.recordingPlan
+        ? (studioRevision.recordingPlan as unknown as StudioRecordingPlan).actorGuide
+        : assignment.project.actorGuide,
       studioRevision: studioRevision
         ? {
             id: studioRevision.id,
@@ -2325,7 +2351,11 @@ export class PerformanceProjectsService {
       consents: unknown[];
     },
   >(project: T) {
-    const { consents, ...projectFields } = project;
+    const {
+      consents,
+      directorStudio: _directorStudio,
+      ...projectFields
+    } = project as T & { directorStudio?: unknown };
     return {
       ...projectFields,
       briefAttachment: project.briefAttachment
