@@ -3,3 +3,5 @@ export * from "./enums.js";
 export * from "./schemas.js";
 export * from "./director-studio.js";
 export * from "./director-studio-demo.js";
+export * from "./studio-editing.js";
+export * from "./studio-templates.js";

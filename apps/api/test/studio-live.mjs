@@ -53,9 +53,27 @@ try {
   await studio.tick();
   state = await studio.get(fixture.ownerId, fixture.projectId);
   if (state.job?.status !== "COMPLETED") throw new Error(state.job?.error ?? "Generation failed");
+  const originalScene = state.revision.scene;
+  await studio.edit(fixture.ownerId, fixture.projectId, {
+    version: state.version,
+    instructions:
+      "Change only this character's outfit color to mint green. Keep their name, dialogue, movements and all camera views unchanged.",
+    target: { kind: "character", id: originalScene.characters[0].id },
+  });
+  await studio.tick();
+  state = await studio.get(fixture.ownerId, fixture.projectId);
+  if (state.job?.status !== "COMPLETED")
+    throw new Error(state.job?.error ?? "Targeted edit failed");
+  if (
+    JSON.stringify(state.revision.scene.shots) !== JSON.stringify(originalScene.shots) ||
+    JSON.stringify(state.revision.scene.characters.slice(1)) !==
+      JSON.stringify(originalScene.characters.slice(1))
+  )
+    throw new Error("A targeted edit changed unrelated scene elements.");
   console.log(
     JSON.stringify({
       realGemini: "passed",
+      targetedEdit: "passed",
       characters: state.revision.scene.characters.length,
       shots: state.revision.scene.shots.length,
       duration: state.revision.scene.duration,

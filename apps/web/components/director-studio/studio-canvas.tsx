@@ -3,7 +3,7 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useEffect, useMemo, useRef } from "react";
-import { CanvasTexture, Group, PerspectiveCamera, Vector3 } from "three";
+import { CanvasTexture, Group, PerspectiveCamera, Vector3, Plane } from "three";
 import {
   sampleCamera,
   sampleCharacter,
@@ -101,13 +101,16 @@ function Character({
   selected,
   highlighted,
   onSelect,
+  onMove,
 }: {
   character: StudioCharacter;
   time: number;
   selected: boolean;
   highlighted: boolean;
   onSelect?: (id: string) => void;
+  onMove?: (position: StudioVector) => void;
 }) {
+  const dragging = useRef(false);
   const state = sampleCharacter(character, time);
   const pose = samplePose(state.action, time);
   const head = useRef<Group>(null);
@@ -121,6 +124,29 @@ function Character({
       onClick={(event) => {
         event.stopPropagation();
         onSelect?.(character.id);
+      }}
+      onPointerDown={(event) => {
+        if (!onMove) return;
+        event.stopPropagation();
+        onSelect?.(character.id);
+        dragging.current = true;
+        (event.target as Element).setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!dragging.current || !onMove) return;
+        event.stopPropagation();
+        const point = event.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), new Vector3());
+        if (point) onMove({ x: point.x, y: 0, z: point.z });
+      }}
+      onPointerUp={(event) => {
+        dragging.current = false;
+        if (onMove) {
+          event.stopPropagation();
+          (event.target as Element).releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={() => {
+        dragging.current = false;
       }}
     >
       <CharacterLabel
@@ -244,6 +270,7 @@ export default function StudioCanvas({
           selected={character.id === selectedId}
           highlighted={character.id === roleId}
           onSelect={onSelect}
+          onMove={onMove}
         />
       ))}
       <Camera scene={scene} time={time} shot={shot} />

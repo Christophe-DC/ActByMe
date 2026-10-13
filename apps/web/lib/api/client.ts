@@ -585,3 +585,66 @@ export const directorStudioApi = {
       { method: "POST", body: JSON.stringify({ version, roleId }) },
     ),
 };
+
+export type StudioHistory = {
+  version: number;
+  revisions: { id: string; version: number; label: string; createdAt: string; approved: boolean }[];
+  next: number | null;
+};
+export type StudioShare = {
+  id: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  revision: { version: number };
+};
+export const studioWorkspaceApi = {
+  create: (input: { title: string; script: string; instructions: string; templateId?: string }) =>
+    apiFetch<import("@actbyme/shared").StudioState>("/director-studios", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  list: () =>
+    apiFetch<{ id: string; title: string; updatedAt: string; duration: number | null }[]>(
+      "/director-studios",
+    ),
+  draft: (id: string, version: number, instructions: string) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/draft`,
+      { method: "PATCH", body: JSON.stringify({ version, instructions }) },
+    ),
+  edit: (
+    id: string,
+    version: number,
+    instructions: string,
+    target: import("@actbyme/shared").StudioSelection,
+  ) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/edit`,
+      { method: "POST", body: JSON.stringify({ version, instructions, target }) },
+    ),
+  history: (id: string, before?: number) =>
+    apiFetch<StudioHistory>(
+      `/performance-projects/${id}/director-studio/history${before ? `?before=${before}` : ""}`,
+    ),
+  restore: (id: string, version: number, revisionId: string) =>
+    apiFetch<import("@actbyme/shared").StudioState>(
+      `/performance-projects/${id}/director-studio/restore`,
+      { method: "POST", body: JSON.stringify({ version, revisionId }) },
+    ),
+  share: (id: string, version: number) =>
+    apiFetch<{ id: string; token: string; expiresAt: string }>(
+      `/performance-projects/${id}/director-studio/shares`,
+      { method: "POST", body: JSON.stringify({ version }) },
+    ),
+  shares: (id: string) =>
+    apiFetch<StudioShare[]>(`/performance-projects/${id}/director-studio/shares`),
+  revoke: (id: string, shareId: string) =>
+    apiFetch(`/performance-projects/${id}/director-studio/shares/${shareId}`, { method: "DELETE" }),
+  shared: (token: string) =>
+    apiFetch<{
+      title: string;
+      scene: import("@actbyme/shared").StudioScene;
+      roleId: string | null;
+      expiresAt: string;
+    }>(`/studio-shares/${encodeURIComponent(token)}`, { cache: "no-store" }),
+};

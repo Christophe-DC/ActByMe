@@ -108,3 +108,32 @@ latest task status for polling. Revision validation is server-side, including on
 - Optional real-provider check: with the same isolated database and built API, run
   `node apps/api/test/studio-live.mjs`. It reads the existing local Gemini configuration without
   logging credentials, generates a real scene and removes its test project afterwards.
+
+### Visual workspace
+
+Open `/studio` to create a scene directly from a script or start from one of three labelled
+fictional templates. A recording plan is only needed when continuing into the existing actor
+request workflow. Existing performance projects use the same visual editor.
+
+Arrange people by dragging them in the 3D view or overhead room view; keyboard arrows provide
+an accessible alternative. Add people, objects, camera views and dialogue, choose actions and
+camera presets, drag moments or shot edges on the timeline, and reorder storyboard cards.
+Scene edits save automatically after a short pause. Saves are serialized and version-checked;
+conflicting edits remain visible until the owner reloads, and network errors offer a retry.
+Undo/redo handles recent edits; persisted history can restore an older version as a new draft.
+
+AI revisions produce patches for the selected person, camera, object, dialogue or whole scene.
+The server rejects changes outside the selection and validates the merged scene. Unchanged
+items are preserved; the previous usable scene remains available during processing or failure.
+Changing a selected camera's timing adjusts only its adjoining cut boundaries to keep continuous
+coverage; deleting it extends the neighbouring camera view.
+
+Sharing is explicit: an owner creates a read-only viewing link for an immutable saved version.
+Links expire after 30 days and can be revoked. Only a SHA-256 hash of the random access token
+is stored. The public viewer returns scene data and role only, never the source script, private
+instructions or project ownership details, and uses no-store/noindex headers. Editing and
+history remain authenticated. The actor viewer focuses on their role with plain-language steps.
+
+The migration `20261013120000_studio_visual_editor` adds draft directions, revision labels and
+revocable share records; it preserves existing saved directions. Render's existing build command
+applies migrations before starting the updated API. Release the frontend after the API is live.

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { DirectorStudioPanel } from "../director-studio/director-studio-panel";
 
 import { useCallback, useEffect, useState } from "react";
@@ -361,6 +362,12 @@ export function SimplifiedPerformanceApp({
           </p>
         </header>
 
+        <Link
+          href="/studio"
+          className="mb-6 inline-block rounded-xl border border-amber-300/25 bg-amber-300/5 px-4 py-3 text-sm text-amber-200"
+        >
+          Create and share a scene in Director Studio →
+        </Link>
         <ol className="mb-8 grid grid-cols-4 gap-2" aria-label="Performance progress">
           {steps.map((step, index) => (
             <li

@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Query,
+  Patch,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@actbyme/shared";
 import { CurrentUser } from "../auth/current-user.decorator.js";
@@ -41,6 +53,62 @@ export class DirectorStudioController {
     @Body() input: Record<string, unknown>,
   ) {
     return this.studio.save(user.id, id, input);
+  }
+  @Post("edit")
+  edit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.edit(user.id, id, input);
+  }
+  @Patch("draft")
+  draft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.draft(user.id, id, input);
+  }
+  @Get("history")
+  history(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Query("before") before?: string,
+  ) {
+    return this.studio.history(
+      user.id,
+      id,
+      before && /^\d+$/.test(before) ? Number(before) : undefined,
+    );
+  }
+  @Post("restore")
+  restore(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.restore(user.id, id, input);
+  }
+  @Get("shares")
+  shares(@CurrentUser() user: AuthenticatedUser, @Param("projectId", ParseUUIDPipe) id: string) {
+    return this.studio.shares(user.id, id);
+  }
+  @Post("shares")
+  share(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.studio.share(user.id, id, input);
+  }
+  @Delete("shares/:shareId")
+  revoke(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Param("shareId", ParseUUIDPipe) shareId: string,
+  ) {
+    return this.studio.revokeShare(user.id, id, shareId);
   }
   @Post("approve")
   approve(

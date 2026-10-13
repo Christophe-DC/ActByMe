@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Component, useEffect, useState, type ReactNode } from "react";
+import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  studioActionLabels,
+  describeStudioMoment,
   sampleCamera,
-  sampleCharacter,
   type StudioScene,
   type StudioVector,
 } from "@actbyme/shared";
@@ -37,14 +38,26 @@ export function StudioPlayer({
   selectedId,
   onSelect,
   onMove,
+  timelineTime,
+  onTimelineTimeChange,
 }: {
   scene: StudioScene;
   roleId?: string | null;
   selectedId?: string;
   onSelect?: (id: string) => void;
   onMove?: (position: StudioVector, time: number) => void;
+  timelineTime?: number;
+  onTimelineTimeChange?: (time: number) => void;
 }) {
   const [time, setTime] = useState(0);
+  const currentTime = timelineTime ?? time;
+  const timeRef = useRef(currentTime);
+  timeRef.current = currentTime;
+  const updateTime = (next: number) => {
+    timeRef.current = next;
+    setTime(next);
+    onTimelineTimeChange?.(next);
+  };
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [loop, setLoop] = useState(false);
@@ -63,17 +76,18 @@ export function StudioPlayer({
       const now = performance.now();
       const elapsed = ((now - previous) / 1000) * speed;
       previous = now;
-      setTime((current) => {
-        const next = current + elapsed;
-        return next >= scene.duration ? (loop ? next % scene.duration : scene.duration) : next;
-      });
+      const next = timeRef.current + elapsed;
+      const value = next >= scene.duration ? (loop ? next % scene.duration : scene.duration) : next;
+      timeRef.current = value;
+      setTime(value);
+      onTimelineTimeChange?.(value);
     }, 1000 / 30);
     return () => window.clearInterval(timer);
-  }, [playing, speed, loop, scene.duration]);
+  }, [playing, speed, loop, scene.duration, onTimelineTimeChange]);
   useEffect(() => {
-    if (time >= scene.duration && !loop) setPlaying(false);
-  }, [time, scene.duration, loop]);
-  const safeTime = Math.min(time, scene.duration);
+    if (currentTime >= scene.duration && !loop) setPlaying(false);
+  }, [currentTime, scene.duration, loop]);
+  const safeTime = Math.min(currentTime, scene.duration);
   const activeCamera = sampleCamera(scene, safeTime, shot || undefined);
   const cues = scene.cues.filter((cue) => safeTime >= cue.start && safeTime < cue.end);
   return (
@@ -121,7 +135,7 @@ export function StudioPlayer({
         <button
           className={control}
           onClick={() => {
-            if (safeTime >= scene.duration) setTime(0);
+            if (safeTime >= scene.duration) updateTime(0);
             setPlaying(!playing);
           }}
         >
@@ -131,7 +145,7 @@ export function StudioPlayer({
           className={control}
           onClick={() => {
             setPlaying(false);
-            setTime(0);
+            updateTime(0);
           }}
         >
           Restart
@@ -140,6 +154,7 @@ export function StudioPlayer({
           Speed{" "}
           <select
             className={control}
+            aria-label="Playback speed"
             value={speed}
             onChange={(event) => setSpeed(Number(event.target.value))}
           >
@@ -162,6 +177,7 @@ export function StudioPlayer({
           Camera{" "}
           <select
             className={control}
+            aria-label="Camera view"
             value={shot}
             onChange={(event) => setShot(event.target.value)}
           >
@@ -190,7 +206,7 @@ export function StudioPlayer({
           value={safeTime}
           onChange={(event) => {
             setPlaying(false);
-            setTime(Number(event.target.value));
+            updateTime(Number(event.target.value));
           }}
         />
       </label>
@@ -206,42 +222,42 @@ export function StudioPlayer({
         </p>
       ))}
       <details className="rounded-xl border border-white/10 p-4" open={!available || undefined}>
-        <summary className="cursor-pointer font-medium">Timed directions and positions</summary>
-        {scene.characters.map((character) => {
-          const state = sampleCharacter(character, safeTime);
-          return (
-            <div
-              key={character.id}
-              className={`mt-4 text-sm ${character.id === roleId ? "text-amber-200" : "text-zinc-300"}`}
-            >
-              <strong>
+        <summary className="cursor-pointer font-medium">Your scene, step by step</summary>
+        {scene.characters
+          .filter((character) => !roleId || character.id === roleId)
+          .map((character) => (
+            <div key={character.id} className="mt-4 text-sm text-zinc-200">
+              <strong className={character.id === roleId ? "text-amber-200" : ""}>
                 {character.name}
-                {character.id === roleId ? " — Your role" : ""}
+                {character.id === roleId ? " · Your role" : ""}
               </strong>
-              <p>
-                At {safeTime.toFixed(1)}s: {state.action} · position ({state.position.x.toFixed(1)},{" "}
-                {state.position.y.toFixed(1)}, {state.position.z.toFixed(1)}) m · orientation{" "}
-                {state.rotation.toFixed(0)}° · gaze ({state.gaze.x.toFixed(1)},{" "}
-                {state.gaze.y.toFixed(1)}, {state.gaze.z.toFixed(1)})
-              </p>
-              <ul className="mt-2 space-y-1">
-                {character.keyframes.map((frame) => (
-                  <li key={frame.time}>
-                    {frame.time}s — {frame.action}, position ({frame.position.x}, {frame.position.y}
-                    , {frame.position.z}), gaze ({frame.gaze.x}, {frame.gaze.y}, {frame.gaze.z})
-                  </li>
-                ))}
-              </ul>
+              <ol className="mt-3 space-y-2">
+                {character.keyframes.map((frame, index) => {
+                  const direction = describeStudioMoment(scene, character.id, index);
+                  return (
+                    <li key={frame.time} className="rounded-lg bg-white/5 p-3">
+                      <span className="font-medium text-amber-200">
+                        {frame.time === 0 ? "At the start" : `${frame.time.toFixed(1)}s`}
+                      </span>{" "}
+                      · {studioActionLabels[frame.action]}
+                      {` · ${direction.movement} · ${direction.gaze}`}
+                    </li>
+                  );
+                })}
+              </ol>
               {scene.cues
                 .filter((cue) => cue.characterId === character.id)
                 .map((cue, index) => (
-                  <p className="mt-2" key={index}>
-                    {cue.start}–{cue.end}s: {cue.dialogue} · {cue.direction}
-                  </p>
+                  <div key={index} className="mt-3 rounded-lg bg-amber-300/5 p-3">
+                    <p className="text-xs text-amber-200">
+                      {cue.start.toFixed(1)}–{cue.end.toFixed(1)}s
+                    </p>
+                    <p className="mt-1">{cue.dialogue}</p>
+                    <p className="mt-1 text-zinc-300">{cue.direction}</p>
+                  </div>
                 ))}
             </div>
-          );
-        })}
+          ))}
       </details>
       <p className="text-xs leading-5 text-zinc-400">
         Camera cuts illustrate the director’s intention. Follow the recording guide for your

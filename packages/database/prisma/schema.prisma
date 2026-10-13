@@ -566,15 +566,16 @@ model AuditLog {
 }
 
 model DirectorStudio {
-  id        String                   @id @default(uuid()) @db.Uuid
-  projectId String                   @unique @db.Uuid
-  enabled   Boolean                  @default(true)
-  version   Int                      @default(0)
-  project   PerformanceProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  revisions DirectorStudioRevision[]
-  jobs      DirectorStudioJob[]
-  createdAt DateTime                 @default(now())
-  updatedAt DateTime                 @updatedAt
+  id                String                   @id @default(uuid()) @db.Uuid
+  projectId         String                   @unique @db.Uuid
+  enabled           Boolean                  @default(true)
+  version           Int                      @default(0)
+  draftInstructions String                   @default("") @db.Text
+  project           PerformanceProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions         DirectorStudioRevision[]
+  jobs              DirectorStudioJob[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 }
 
 model DirectorStudioRevision {
@@ -583,6 +584,7 @@ model DirectorStudioRevision {
   version      Int
   scene        Json
   instructions String                  @db.Text
+  label        String                  @default("Edited scene")
   roleId       String?
   inputHash    String
   approvedAt   DateTime?
@@ -590,6 +592,7 @@ model DirectorStudioRevision {
   responseId   String?
   studio       DirectorStudio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
   assignments  PerformanceAssignment[]
+  shares       DirectorStudioShare[]
   createdAt    DateTime                @default(now())
 
   @@unique([studioId, version])
@@ -609,4 +612,16 @@ model DirectorStudioJob {
   studio          DirectorStudio @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
+}
+
+model DirectorStudioShare {
+  id         String                 @id @default(uuid()) @db.Uuid
+  tokenHash  String                 @unique
+  revisionId String                 @db.Uuid
+  revision   DirectorStudioRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime               @default(now())
+
+  @@index([revisionId, createdAt])
 }

@@ -1,3 +1,7 @@
+import {
+  StudioLibraryController,
+  StudioSharesController,
+} from "../director-studio/studio-library.controller.js";
 import { DirectorStudioService } from "../director-studio/director-studio.service.js";
 import { DirectorStudioController } from "../director-studio/director-studio.controller.js";
 import { Module } from "@nestjs/common";
@@ -17,6 +21,8 @@ import { PerformanceRequestsController } from "./performance-requests.controller
   imports: [NotificationsModule, StorageModule],
   controllers: [
     DirectorStudioController,
+    StudioLibraryController,
+    StudioSharesController,
     PerformanceProjectsController,
     PerformanceRequestsController,
   ],

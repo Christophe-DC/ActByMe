@@ -100,6 +100,12 @@ export function SiteHeader() {
 
           <nav className="hidden items-center gap-1 lg:flex">
             <Link
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-amber-200 transition hover:bg-white/5"
+              href="/studio"
+            >
+              Director Studio
+            </Link>
+            <Link
               className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#a3a3b8] transition hover:bg-white/[0.04] hover:text-white"
               href="/actors"
             >
@@ -126,6 +132,16 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {!isWorkflow ? (
+              <Link
+                href="/studio"
+                aria-label="Director Studio"
+                title="Director Studio"
+                className="inline-flex size-10 items-center justify-center rounded-lg border border-amber-300/20 text-amber-200 lg:hidden"
+              >
+                <Clapperboard className="size-5" />
+              </Link>
+            ) : null}
             {!isWorkflow ? (
               <Link
                 className="hidden items-center gap-1.5 rounded-lg bg-[#6C4DFF] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#6C4DFF]/25 transition hover:bg-[#7a5eff] md:flex"

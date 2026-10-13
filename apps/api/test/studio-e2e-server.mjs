@@ -6,6 +6,10 @@ import { NestFactory } from "@nestjs/core";
 import express from "express";
 import { PrismaService } from "../dist/database/prisma.service.js";
 import { DirectorStudioService } from "../dist/director-studio/director-studio.service.js";
+import {
+  StudioLibraryController,
+  StudioSharesController,
+} from "../dist/director-studio/studio-library.controller.js";
 import { DirectorStudioController } from "../dist/director-studio/director-studio.controller.js";
 import { createStudioFixture, fixtureGemini } from "../dist/director-studio/studio-fixtures.js";
 import { PerformanceProjectsService } from "../dist/performance-projects/performance-projects.service.js";
@@ -55,6 +59,8 @@ class TestModule {}
 Module({
   controllers: [
     DirectorStudioController,
+    StudioLibraryController,
+    StudioSharesController,
     PerformanceProjectsController,
     PerformanceRequestsController,
   ],

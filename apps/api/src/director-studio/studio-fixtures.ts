@@ -78,7 +78,32 @@ export async function createStudioFixture(prisma: PrismaService) {
   };
 }
 export const fixtureGemini = {
-  async generate(_request: DirectorProviderRequest) {
+  async generate(request: DirectorProviderRequest) {
+    if (request.schemaName === "actbyme_studio_patch") {
+      const input = JSON.parse(request.input);
+      const character = structuredClone(
+        input.currentScene.characters.find((item: { id: string }) => item.id === input.target.id) ??
+          input.currentScene.characters[0],
+      );
+      character.color = "#80c5aa";
+      return {
+        model: "fixture-studio",
+        responseId: "fixture-patch",
+        outputText: JSON.stringify({
+          summary: "Updated character",
+          characters: [character],
+          shots: [],
+          props: [],
+          cues: [],
+          removeCharacters: [],
+          removeShots: [],
+          removeProps: [],
+          removeCues: [],
+          title: null,
+          duration: null,
+        }),
+      };
+    }
     return {
       outputText: JSON.stringify(studioDemoScene),
       model: "fixture-studio",

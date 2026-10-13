@@ -13,7 +13,7 @@ const keyframe = z.object({
   gaze: studioVectorSchema,
   action: z.enum(studioActions),
 });
-const baseSceneSchema = z.object({
+export const baseSceneSchema = z.object({
   title: label,
   duration: z.number().finite().min(1).max(120),
   characters: z
@@ -73,7 +73,7 @@ const baseSceneSchema = z.object({
 
 // Keep the provider grammar compact; all bounds and cross-references are enforced
 // by studioSceneSchema on the server, including after manual edits.
-function providerSchema(value: unknown): unknown {
+export function providerSchema(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(providerSchema);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
@@ -142,6 +142,8 @@ export type StudioShot = StudioScene["shots"][number];
 export type StudioRevision = {
   id: string;
   version: number;
+  label?: string;
+  createdAt?: string;
   scene: StudioScene;
   instructions: string;
   roleId: string | null;
@@ -150,6 +152,11 @@ export type StudioRevision = {
   model: string | null;
 };
 export type StudioState = {
+  projectId: string;
+  title: string;
+  instructions: string;
+  needsBrief: boolean;
+  briefApproved: boolean;
   enabled: boolean;
   version: number;
   locked: boolean;

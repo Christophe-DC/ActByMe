@@ -220,3 +220,79 @@ test(
     }
   },
 );
+
+test(
+  "PostgreSQL: standalone templates, history, scoped edits and private revocable sharing",
+  { skip: !databaseUrl },
+  async () => {
+    process.env.DATABASE_URL = databaseUrl!;
+    const prisma = new PrismaService();
+    const fixture = await createStudioFixture(prisma);
+    const studio = new DirectorStudioService(prisma, fixtureGemini as GeminiDirectorService);
+    try {
+      let state = await studio.create(
+        { id: fixture.ownerId, role: "CLIENT" as never },
+        {
+          title: "My accessible scene",
+          script: "Alex smiles and waves.",
+          templateId: "introduction",
+          instructions: "A friendly greeting.",
+        },
+      );
+      assert.equal(state.needsBrief, true);
+      assert.ok(state.revision);
+      const first = state.revision!;
+      const shared = await studio.share(fixture.ownerId, state.projectId, {
+        version: state.version,
+      });
+      const preview = await studio.shared(shared.token);
+      assert.equal(preview.scene.title, "My accessible scene");
+      assert.equal("instructions" in preview, false);
+      await assert.rejects(
+        studio.share(fixture.otherUserId, state.projectId, { version: state.version }),
+        NotFoundException,
+      );
+      await assert.rejects(
+        studio.restore(fixture.otherUserId, state.projectId, {
+          version: state.version,
+          revisionId: first.id,
+        }),
+        NotFoundException,
+      );
+      state = await studio.edit(fixture.ownerId, state.projectId, {
+        version: state.version,
+        instructions: "Change this person's color",
+        target: { kind: "character", id: "presenter" },
+      });
+      await studio.tick();
+      state = await studio.get(fixture.ownerId, state.projectId);
+      assert.equal(state.job?.status, "COMPLETED");
+      assert.deepEqual(state.revision!.scene.shots, first.scene.shots);
+      assert.equal(state.revision!.scene.characters[0]!.color, "#80c5aa");
+      assert.deepEqual((await studio.shared(shared.token)).scene, first.scene);
+      const history = await studio.history(fixture.ownerId, state.projectId);
+      assert.equal(history.revisions.length, 2);
+      state = await studio.restore(fixture.ownerId, state.projectId, {
+        version: state.version,
+        revisionId: first.id,
+      });
+      assert.equal(state.revision!.scene.characters[0]!.color, first.scene.characters[0]!.color);
+      assert.equal(state.revision!.approvedAt, null);
+      await studio.revokeShare(fixture.ownerId, state.projectId, shared.id);
+      await assert.rejects(studio.shared(shared.token), NotFoundException);
+      const expiring = await studio.share(fixture.ownerId, state.projectId, {
+        version: state.version,
+      });
+      await prisma.client.directorStudioShare.update({
+        where: { id: expiring.id },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+      await assert.rejects(studio.shared(expiring.token), NotFoundException);
+    } finally {
+      await prisma.client.user.deleteMany({
+        where: { id: { in: [fixture.ownerId, fixture.actorUserId, fixture.otherUserId] } },
+      });
+      await prisma.onModuleDestroy();
+    }
+  },
+);
