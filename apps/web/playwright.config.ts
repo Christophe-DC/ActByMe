@@ -15,6 +15,7 @@ export default defineConfig({
   webServer: [
     {
       command: "node ../api/test/studio-e2e-server.mjs",
+      gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },
       url: "http://127.0.0.1:4401/test-fixture",
       timeout: 30000,
       reuseExistingServer: false,

@@ -687,3 +687,111 @@ export const studioWorkspaceApi = {
       comments: StudioFeedback[];
     }>(`/studio-shares/${encodeURIComponent(token)}`, { cache: "no-store" }),
 };
+
+export const virtualDirectorApi = {
+  get: (id: string) =>
+    apiFetch<import("@actbyme/shared").VirtualDirectorState>(
+      `/performance-projects/${id}/virtual-director`,
+    ),
+  mutate: (id: string, path: string, input?: unknown, method = "POST") =>
+    apiFetch<import("@actbyme/shared").VirtualDirectorState>(
+      `/performance-projects/${id}/virtual-director/${path}`,
+      { method, ...(input !== undefined ? { body: JSON.stringify(input) } : {}) },
+    ),
+  reserve: (id: string, input: unknown) =>
+    apiFetch<{
+      referenceId: string;
+      upload: { uploadUrl: string; method: string; token?: string };
+    }>(`/performance-projects/${id}/virtual-director/references`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  upload: uploadToSignedUrl,
+  media: (id: string, kind: "jobs" | "references", assetId: string, download = false) =>
+    apiFetch<{ url: string; expiresInSeconds: number }>(
+      `/performance-projects/${id}/virtual-director/${kind}/${assetId}/media${download ? "?download=1" : ""}`,
+    ),
+};
+
+export type DirectorCasting = {
+  actors: { id: string; stageName: string; slug: string; city: string | null }[];
+  performances: {
+    id: string;
+    title: string;
+    assignment: { actorProfileId: string; status: string } | null;
+    takes: { id: string; originalFileName: string }[];
+  }[];
+};
+export type DirectorGrant = {
+  id: string;
+  actorProfileId: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  terms: string;
+};
+export type DirectorActorRequest = {
+  id: string;
+  title: string;
+  terms: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  current: boolean;
+  plan: ReturnType<typeof import("@actbyme/shared").directorProductionPlan>;
+};
+export const directorApi = {
+  list: () =>
+    apiFetch<{ id: string; title: string; version: number; updatedAt: string }[]>(
+      "/director-projects",
+      { cache: "no-store" },
+    ),
+  create: (title: string, demo: boolean) =>
+    apiFetch<import("@actbyme/shared").DirectorState>("/director-projects", {
+      method: "POST",
+      body: JSON.stringify({ title, demo }),
+    }),
+  get: (id: string) =>
+    apiFetch<import("@actbyme/shared").DirectorState>(`/director-projects/${id}`, {
+      cache: "no-store",
+    }),
+  save: (id: string, version: number, document: import("@actbyme/shared").DirectorDocument) =>
+    apiFetch<import("@actbyme/shared").DirectorState>(`/director-projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ version, document }),
+    }),
+  mutate: <T = import("@actbyme/shared").DirectorState>(
+    id: string,
+    path: string,
+    input?: unknown,
+    method = "POST",
+  ) =>
+    apiFetch<T>(`/director-projects/${id}/${path}`, {
+      method,
+      ...(input !== undefined ? { body: JSON.stringify(input) } : {}),
+    }),
+  read: <T>(id: string, path: string) =>
+    apiFetch<T>(`/director-projects/${id}/${path}`, { cache: "no-store" }),
+  media: (id: string, assetId: string, download = false) =>
+    apiFetch<{ url: string; expiresInSeconds: number }>(
+      `/director-projects/${id}/assets/${assetId}/media${download ? "?download=1" : ""}`,
+      { cache: "no-store" },
+    ),
+  reserve: (id: string, input: unknown) =>
+    apiFetch<{
+      assetId: string;
+      upload: { uploadUrl: string; method: "PUT" | "POST"; token?: string };
+    }>(`/director-projects/${id}/assets`, { method: "POST", body: JSON.stringify(input) }),
+  casting: () => apiFetch<DirectorCasting>("/director-projects/casting", { cache: "no-store" }),
+  actorRequests: () =>
+    apiFetch<DirectorActorRequest[]>("/director-projects/actor-requests", { cache: "no-store" }),
+  acceptGrant: (id: string, accept: boolean) =>
+    apiFetch<DirectorActorRequest[]>(`/director-projects/actor-requests/${id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        accept,
+        commercialUse: true,
+        aiTransformation: true,
+        providerTransfer: true,
+      }),
+    }),
+  upload: uploadToSignedUrl,
+};

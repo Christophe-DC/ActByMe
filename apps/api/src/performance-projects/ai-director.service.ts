@@ -139,7 +139,6 @@ export class AiDirectorService {
       responseId: generated.responseId,
     };
   }
-
 }
 
 function stackFrames(error: unknown) {

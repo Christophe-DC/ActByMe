@@ -183,3 +183,31 @@ Migration `20261013140000_studio_feedback` adds immutable recording-plan snapsho
 feedback. Apply it before the updated API, then release the frontend. No production fixtures or
 fake actor accounts are created. Browser tests use simulated AI/auth/storage/QA; the optional
 real-Gemini smoke test reports its own outcome separately.
+
+## AI Virtual Director
+
+Open **Projects → AI Virtual Director** to prepare camera angles from a private performance.
+The feature reuses Director Studio's 3D scene and animation sampler, adds a dedicated Blender /
+FFmpeg worker, and integrates Seedance reference-to-video through a replaceable provider adapter.
+Each shot has persisted status, cancellation, review, approval and private download. Rights,
+provider cost configuration and a live worker are required before generation is enabled.
+
+See [setup, architecture and limitations](docs/virtual-director/README.md) and
+[verification results](docs/virtual-director/verification.md). Production configuration and
+migrations remain external deployment actions; no paid video request is simulated as success.
+
+## ACTBYME Director — advertising editor
+
+Open **ACTBYME Director** from the main navigation (`/director`). The new advertising editor provides
+Plan / Direct / Perform / Generate, thirteen cinematic templates, editable 3D camera paths,
+six timeline tracks, private media imports, actor consent, automatic versioned saves,
+production JSON and real FFmpeg MP4 assembly. `/director/demo` opens The Coastal House without
+requiring a paid generation. Existing actor-facing Director Studio and AI Virtual Director remain available.
+
+The standalone `pnpm --filter @actbyme/api worker:director` process handles inspection, provider
+polling and exports. Optional documented Veo and Higgsfield connectors stay disabled until credentials,
+verified prices and a compatible worker are configured. No paid call is sent during editing or preview.
+
+See [Director setup, architecture, permissions and limitations](docs/director/README.md) and
+[verification](docs/director/verification.md). Production migrations, private storage configuration,
+worker hosting and validation of paid provider access are separate release steps.

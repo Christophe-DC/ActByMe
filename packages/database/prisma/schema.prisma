@@ -154,6 +154,7 @@ model User {
   notifications       Notification[]
   performanceProjects PerformanceProject[]
   studioComments      DirectorStudioComment[]
+  directorProjects    DirectorProject[]
 
   @@index([role])
   @@index([createdAt])
@@ -183,6 +184,7 @@ model ActorProfile {
   demoProfile            DemoProfile?
   auditLogs              AuditLog[]
   performanceAssignments PerformanceAssignment[]
+  directorGrants         DirectorActorGrant[]
 
   @@index([slug])
   @@index([status])
@@ -334,6 +336,9 @@ model PerformanceProject {
   consents            PerformanceConsent[]
   assignment          PerformanceAssignment?
   directorStudio      DirectorStudio?
+  virtualDirector     VirtualDirector?
+  virtualReferences   VirtualDirectorReference[]
+  virtualJobs         VirtualDirectorJob[]
 
   @@index([ownerId, updatedAt])
   @@index([workflowStatus])
@@ -647,4 +652,178 @@ model DirectorStudioComment {
   author     User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([revisionId, createdAt])
+}
+
+// Private server-only production assets. Never exposed through Supabase Data API.
+model VirtualDirector {
+  projectId String             @id @db.Uuid
+  version   Int                @default(0)
+  scene     Json
+  project   PerformanceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  updatedAt DateTime           @updatedAt
+}
+
+model VirtualDirectorReference {
+  id              String               @id @default(uuid()) @db.Uuid
+  projectId       String               @db.Uuid
+  name            String
+  storageKey      String               @db.Text
+  sizeBytes       Int
+  status          String               @default("UPLOADING")
+  duration        Float?
+  width           Int?
+  height          Int?
+  hasAudio        Boolean?
+  rights          Json
+  sourceTakeId    String?              @db.Uuid
+  sourceAttemptId String?              @db.Uuid
+  error           String?              @db.Text
+  createdAt       DateTime             @default(dbgenerated("timezone('UTC', now())"))
+  project         PerformanceProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobs            VirtualDirectorJob[]
+
+  @@index([projectId, createdAt])
+}
+
+model VirtualDirectorJob {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  projectId          String                    @db.Uuid
+  referenceId        String?                   @db.Uuid
+  requestKey         String                    @db.Uuid
+  kind               String
+  shotId             String?
+  status             String                    @default("QUEUED")
+  stage              String                    @default("QUEUED")
+  input              Json
+  estimatedCostCents Int                       @default(0)
+  cleanedAt          DateTime?
+  providerRequest    Json?
+  outputKey          String?                   @db.Text
+  error              String?                   @db.Text
+  token              String?                   @db.Uuid
+  leaseUntil         DateTime?
+  nextRunAt          DateTime                  @default(dbgenerated("timezone('UTC', now())"))
+  deadlineAt         DateTime
+  failures           Int                       @default(0)
+  approvedAt         DateTime?
+  createdAt          DateTime                  @default(dbgenerated("timezone('UTC', now())"))
+  completedAt        DateTime?
+  project            PerformanceProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reference          VirtualDirectorReference? @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, requestKey])
+  @@index([status, nextRunAt])
+  @@index([projectId, createdAt])
+}
+
+model VirtualDirectorWorker {
+  id      String   @id
+  seenAt  DateTime @default(dbgenerated("timezone('UTC', now())"))
+  blender Boolean  @default(false)
+}
+
+// Advertising editor. Independent from actor-facing shooting instructions.
+model DirectorProject {
+  id        String             @id @default(uuid()) @db.Uuid
+  ownerId   String             @db.Uuid
+  title     String
+  version   Int                @default(1)
+  document  Json
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  owner     User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  revisions DirectorRevision[]
+  assets    DirectorAsset[]
+  jobs      DirectorJob[]
+  grants    DirectorActorGrant[]
+
+  @@index([ownerId, updatedAt])
+}
+
+model DirectorRevision {
+  id        String          @id @default(uuid()) @db.Uuid
+  projectId String          @db.Uuid
+  version   Int
+  document  Json
+  createdAt DateTime        @default(now())
+  project   DirectorProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, version])
+}
+
+model DirectorAsset {
+  id                String          @id @default(uuid()) @db.Uuid
+  projectId         String          @db.Uuid
+  name              String
+  kind              String
+  contentType       String
+  sizeBytes         Int
+  storageKey        String          @db.Text
+  status            String          @default("UPLOADING")
+  duration          Float?
+  width             Int?
+  height            Int?
+  hasAudio          Boolean?
+  rights            Json
+  aiTransferAllowed Boolean         @default(false)
+  error             String?         @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  project           DirectorProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model DirectorJob {
+  id                 String          @id @default(uuid()) @db.Uuid
+  projectId          String          @db.Uuid
+  ownerId            String          @db.Uuid
+  requestKey         String          @db.Uuid
+  requestHash        String
+  version            Int
+  kind               String
+  shotId             String?
+  provider           String?
+  status             String          @default("QUEUED")
+  stage              String          @default("En attente du worker")
+  progress           Int             @default(0)
+  input              Json
+  providerRequest    Json?
+  resultAssetId      String?         @db.Uuid
+  estimatedCostCents Int             @default(0)
+  error              String?         @db.Text
+  attempts           Int             @default(0)
+  claimToken         String?         @db.Uuid
+  leaseUntil         DateTime?
+  nextRunAt          DateTime        @default(now())
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  project            DirectorProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, requestKey])
+  @@index([status, nextRunAt, leaseUntil])
+  @@index([projectId, createdAt])
+  @@index([ownerId, createdAt])
+}
+
+model DirectorWorker {
+  id        String   @id
+  seenAt    DateTime @default(now())
+  providers Json
+}
+
+model DirectorActorGrant {
+  id             String          @id @default(uuid()) @db.Uuid
+  projectId      String          @db.Uuid
+  actorProfileId String          @db.Uuid
+  scopeHash      String
+  terms          String          @db.Text
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  project        DirectorProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorProfile   ActorProfile    @relation(fields: [actorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, actorProfileId, scopeHash])
+  @@index([actorProfileId, createdAt])
 }

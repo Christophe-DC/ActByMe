@@ -70,6 +70,16 @@ export function ProjectsList() {
           </Link>
         </div>
 
+        <Link
+          href="/director"
+          className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-amber-200/20 bg-amber-200/5 px-5 py-4 text-sm text-amber-100"
+        >
+          <span>
+            <strong>ACTBYME Director</strong> · Prepare and preview your advertising projects in 3D.
+          </span>
+          <span>Open Director →</span>
+        </Link>
+
         {loading ? (
           <div className="mt-10 flex items-center gap-2 text-sm text-zinc-400">
             <Loader2 className="size-4 animate-spin" />
@@ -100,9 +110,7 @@ export function ProjectsList() {
           </div>
         ) : null}
 
-        {inProgress.length ? (
-          <ProjectSection title="In progress" projects={inProgress} />
-        ) : null}
+        {inProgress.length ? <ProjectSection title="In progress" projects={inProgress} /> : null}
 
         {completed.length ? (
           <ProjectSection title="Previous projects" projects={completed} />
@@ -124,25 +132,33 @@ function ProjectSection({
       <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-500">{title}</h2>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projects.map((project) => (
-          <Link
-            className="group rounded-2xl border border-white/10 bg-[#111214] p-5 transition hover:border-amber-300/35 hover:bg-[#151619]"
-            href={`/create-performance?project=${project.id}`}
-            key={project.id}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="font-semibold text-white group-hover:text-amber-100">
-                  {project.title || "Untitled performance"}
-                </h3>
-                <p className="mt-2 text-sm text-zinc-400">{statusLabel(project)}</p>
+          <article key={project.id} className="rounded-2xl border border-white/10 bg-[#111214]">
+            <Link
+              className="group block rounded-2xl border border-white/10 bg-[#111214] p-5 transition hover:border-amber-300/35 hover:bg-[#151619]"
+              href={`/create-performance?project=${project.id}`}
+              key={project.id}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-white group-hover:text-amber-100">
+                    {project.title || "Untitled performance"}
+                  </h3>
+                  <p className="mt-2 text-sm text-zinc-400">{statusLabel(project)}</p>
+                </div>
+                <FolderOpen className="size-5 shrink-0 text-zinc-600 group-hover:text-amber-300" />
               </div>
-              <FolderOpen className="size-5 shrink-0 text-zinc-600 group-hover:text-amber-300" />
-            </div>
-            <div className="mt-6 flex items-center gap-2 text-xs text-zinc-500">
-              <Clock3 className="size-3.5" />
-              Updated {updatedLabel(project.updatedAt)}
-            </div>
-          </Link>
+              <div className="mt-6 flex items-center gap-2 text-xs text-zinc-500">
+                <Clock3 className="size-3.5" />
+                Updated {updatedLabel(project.updatedAt)}
+              </div>
+            </Link>
+            <Link
+              className="mx-5 mb-5 inline-flex text-sm text-amber-200 hover:underline"
+              href={`/virtual-director/${project.id}`}
+            >
+              AI Virtual Director →
+            </Link>
+          </article>
         ))}
       </div>
     </section>

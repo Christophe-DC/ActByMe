@@ -31,7 +31,11 @@ export class SupabaseService implements StorageClient {
   async createPresignedUpload(request: PresignedUploadRequest): Promise<PresignedUpload> {
     const bucket = resolveBucket(request.namespace);
 
-    if (["performance-brief", "performance-take"].includes(request.namespace)) {
+    if (
+      ["performance-brief", "performance-take", "virtual-director", "director"].includes(
+        request.namespace,
+      )
+    ) {
       const { data: bucketDetails, error: bucketError } =
         await this.admin.storage.getBucket(bucket);
 
@@ -84,6 +88,23 @@ export class SupabaseService implements StorageClient {
     }
 
     return data.signedUrl;
+  }
+
+  async uploadObject(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+    const { bucket, path } = splitStorageKey(key);
+    if (
+      bucket !== "actor-private" ||
+      !(path.startsWith("virtual-director/") || path.startsWith("director/"))
+    ) {
+      throw new Error("Worker uploads must use the private virtual-director namespace.");
+    }
+    const { data: details, error: bucketError } = await this.admin.storage.getBucket(bucket);
+    if (bucketError || details?.public)
+      throw new Error("Virtual Director requires a private bucket.");
+    const { error } = await this.admin.storage
+      .from(bucket)
+      .upload(path, bytes, { contentType, upsert: true });
+    if (error) throw error;
   }
 
   async deleteObject(key: string): Promise<void> {

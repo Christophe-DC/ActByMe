@@ -82,7 +82,8 @@ export function SiteHeader() {
     };
   }, []);
 
-  if (pathname === "/") return null;
+  if (pathname === "/" || pathname === "/director" || pathname.startsWith("/director/"))
+    return null;
 
   return (
     <>
@@ -99,6 +100,12 @@ export function SiteHeader() {
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">
+            <Link
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-amber-200 transition hover:bg-white/5"
+              href="/director"
+            >
+              ACTBYME Director
+            </Link>
             <Link
               className="rounded-lg px-3.5 py-2 text-sm font-medium text-amber-200 transition hover:bg-white/5"
               href="/studio"

@@ -142,8 +142,6 @@ test("Gemini Director reports quota exhaustion instead of generic unavailability
   }
 });
 
-
-
 test("Gemini transcription uses the dedicated Transcribe model and v1beta audio input", async () => {
   const originalFetch = globalThis.fetch;
   let requestBody: Record<string, unknown> | undefined;
@@ -187,10 +185,7 @@ test("Gemini transcription uses the dedicated Transcribe model and v1beta audio 
       transcription_config?: { language_codes?: string[]; mode?: string };
     };
 
-    assert.equal(
-      requestedUrl,
-      "https://generativelanguage.googleapis.com/v1beta/interactions",
-    );
+    assert.equal(requestedUrl, "https://generativelanguage.googleapis.com/v1beta/interactions");
     assert.equal(requestBody?.model, "gemini-3.5-transcribe");
     assert.equal(input[0]?.type, "audio");
     assert.equal(input[0]?.mime_type, "audio/mp3");

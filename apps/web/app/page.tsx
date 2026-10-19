@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { ArrowRight, Mail, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@actbyme/ui";
 import { earlyAccessApi } from "../lib/api/client";
@@ -70,6 +71,13 @@ export default function HomePage() {
             Join today to get early access when ActByMe opens for actors, creators, studios, and
             agencies.
           </p>
+
+          <Link
+            href="/director"
+            className="mt-5 inline-flex items-center gap-2 rounded-lg border border-amber-200/25 bg-amber-200/5 px-4 py-2.5 text-sm text-amber-100 transition hover:bg-amber-200/10"
+          >
+            ACTBYME Director · Edit the video before producing it <ArrowRight className="size-4" />
+          </Link>
 
           <form className="mt-8 max-w-xl" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-2 backdrop-blur sm:flex-row">

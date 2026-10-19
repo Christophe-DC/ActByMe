@@ -17,6 +17,9 @@ import { SupabaseModule } from "./supabase/supabase.module.js";
 import { UsersModule } from "./users/users.module.js";
 import { VideosModule } from "./videos/videos.module.js";
 
+import { VirtualDirectorModule } from "./virtual-director/virtual-director.module.js";
+import { DirectorModule } from "./director/director.module.js";
+
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 @Module({
@@ -37,6 +40,8 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../.
     NotificationsModule,
     PerformanceProjectsModule,
     AdminModule,
+    VirtualDirectorModule,
+    DirectorModule,
     StorageModule,
   ],
 })

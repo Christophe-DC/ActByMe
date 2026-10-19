@@ -10,10 +10,7 @@ export default async function CreatePerformancePage({
 
   return (
     <RoleGate>
-      <SimplifiedPerformanceApp
-        initialProjectId={params.project}
-        startNew={params.new === "1"}
-      />
+      <SimplifiedPerformanceApp initialProjectId={params.project} startNew={params.new === "1"} />
     </RoleGate>
   );
 }

@@ -1,0 +1,23 @@
+# Add this worker to the same repository deployment. It opens no HTTP port.
+services:
+  - type: worker
+    name: actbyme-video-worker
+    runtime: docker
+    plan: standard
+    region: frankfurt
+    dockerfilePath: ./apps/api/workers/Dockerfile
+    dockerContext: .
+    maxShutdownDelaySeconds: 300
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: FAL_KEY
+        sync: false
+      - key: VIRTUAL_DIRECTOR_CENTS_PER_SECOND
+        sync: false

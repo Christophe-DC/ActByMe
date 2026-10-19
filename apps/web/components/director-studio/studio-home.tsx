@@ -51,6 +51,12 @@ export function StudioHome({ projectId }: { projectId?: string }) {
             <Link href="/studio" className="text-sm text-amber-200">
               ← Your scenes
             </Link>
+            <Link
+              href={`/virtual-director/${projectId}`}
+              className="inline-flex rounded-lg border border-amber-300/30 px-4 py-2 text-sm text-amber-200"
+            >
+              AI Virtual Director · Generate camera angles →
+            </Link>
             <DirectorStudioPanel key={projectId} projectId={projectId} briefApproved={false} />
           </>
         ) : (

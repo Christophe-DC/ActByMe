@@ -51,6 +51,8 @@ export function StudioPlayer({
   onSelect,
   timelineTime,
   onTimelineTimeChange,
+  productionPreview = false,
+  onCameraChange,
 }: {
   scene: StudioScene;
   roleId?: string | null;
@@ -58,6 +60,8 @@ export function StudioPlayer({
   onSelect?: (selection: StudioSelection) => void;
   timelineTime?: number;
   onTimelineTimeChange?: (time: number) => void;
+  productionPreview?: boolean;
+  onCameraChange?: (id: string) => void;
 }) {
   const [time, setTime] = useState(timelineTime ?? 0);
   const clock = useRef(timelineTime ?? 0);
@@ -247,7 +251,10 @@ export function StudioPlayer({
             aria-label="Camera view"
             className={control}
             value={shot}
-            onChange={(event) => setShot(event.target.value)}
+            onChange={(event) => {
+              setShot(event.target.value);
+              onCameraChange?.(event.target.value);
+            }}
           >
             <option value="">Automatic cuts</option>
             {scene.shots.map((item) => (
@@ -327,8 +334,9 @@ export function StudioPlayer({
         ))}
       </details>
       <p className="text-xs leading-5 text-zinc-300">
-        Preview camera cuts describe the intended film. Record your role in one uninterrupted take
-        with a fixed camera.
+        {productionPreview
+          ? "Choose a camera card to edit its framing. These staged paths guide the requested shot; the video provider interprets them approximately."
+          : "Preview camera cuts describe the intended film. Record your role in one uninterrupted take with a fixed camera."}
       </p>
     </div>
   );

@@ -8,9 +8,11 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
-    "test": "tsx --test src/director-studio/*.spec.ts src/auth/*.spec.ts src/notifications/*.spec.ts src/performance-projects/*.spec.ts",
+    "test": "node --import tsx --test src/director-studio/*.spec.ts src/auth/*.spec.ts src/notifications/*.spec.ts src/performance-projects/*.spec.ts src/virtual-director/*.spec.ts src/director/*.spec.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "worker:video": "node dist/virtual-director/worker-main.js",
+    "worker:director": "node dist/director/worker-main.js"
   },
   "dependencies": {
     "@actbyme/database": "workspace:*",

@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+.pnpm-store
+.env*
+**/.env*
+**/test-results
+**/playwright-report
+**/__pycache__
+**/.DS_Store
+**/*.log
+**/src/generated

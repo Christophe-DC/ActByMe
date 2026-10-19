@@ -1,0 +1,34 @@
+# Example only. Review the paid compute plan before adding this worker to Render.
+# Uses the existing database and private Supabase storage; provisions neither.
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  - type: worker
+    name: actbyme-director-worker
+    runtime: docker
+    plan: 1c-2g
+    region: frankfurt
+    dockerfilePath: ./apps/api/workers/director.Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: DIRECTOR_VEO_API_KEY
+        sync: false
+      - key: DIRECTOR_HIGGSFIELD_API_KEY
+        sync: false
+      - key: DIRECTOR_VEO_CENTS_PER_SECOND
+        value: "0"
+      - key: DIRECTOR_HIGGSFIELD_CENTS_PER_SECOND
+        value: "0"
+      - key: DIRECTOR_MONTHLY_BUDGET_CENTS
+        value: "2500"
+      - key: DIRECTOR_HIGGSFIELD_MEDIA_HOSTS
+        value: cdn.higgsfield.ai,storage.googleapis.com
