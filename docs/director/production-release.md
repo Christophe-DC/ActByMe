@@ -1,45 +1,36 @@
 # ACTBYME Director — publication en production
 
-Vérification du 19 octobre 2026. Publication demandée par le propriétaire sur la production existante, sans environnement de staging.
+Vérification du 19 octobre 2026. Publication demandée par le propriétaire sur la production existante, sans staging ni nouveau service payant.
 
-## Version publiée
+## Version sans worker supplémentaire
 
-- Commit applicatif : `81d9f24e54ce699b6657427c02d0a4ade7d3127b`, poussé sur `main` de `Christophe-DC/ActByMe`.
-- Frontend Vercel `actbyme-web` : déploiement `dpl_8iJ1eYsEfn9ZPQ5zjyWVmQrJjuWt`, état `READY`, cible `production`.
-- Accueil Director : <https://www.actbyme.com/director>.
-- Démo : <https://www.actbyme.com/director/demo>.
-- API : <https://api.actbyme.com>. Son schéma public contient les seize chemins Director et les douze chemins Virtual Director attendus.
+- Commit applicatif : `66bad13bf7d8f237686a9328f02d9bd597b03df7`, poussé sur `main` de `Christophe-DC/ActByMe`.
+- Frontend Vercel `actbyme-web` : `dpl_9C9fNrndeTwNBXw7bAjFhURz79Yy`, état `READY`, cible `production`. Publication terminée le 19 octobre à 18:55:26 UTC ; statut GitHub Vercel réussi.
+- Accueil : <https://www.actbyme.com/director>. Démo : <https://www.actbyme.com/director/demo>.
+- API : <https://api.actbyme.com>. Le schéma public expose désormais dix-sept chemins Director, dont `POST /director-projects/{id}/jobs/{jobId}/browser-result`, ce qui confirme la publication du nouveau contrôleur.
+- Moteur WebAssembly accessible sur le domaine de production, HTTP 200 et MIME `application/wasm`.
 
-Le pipeline existant a appliqué les migrations additives `20261017120000_virtual_director`, `20261017130000_virtual_director_utc` et `20261019160000_director`. La dernière est enregistrée comme terminée à `2026-10-19T18:13:55.442621Z` dans `_prisma_migrations`. Les six tables Director sont présentes dans la base réellement utilisée par ACTBYME. Aucune réinitialisation ni suppression de données existantes n’a été exécutée.
+Les imports sont vérifiés par MediaInfo.js dans l’API existante. L’assemblage MP4 s’effectue avec FFmpeg.wasm dans un Web Worker du navigateur. **Aucun service Render supplémentaire n’est requis ou créé.** Les anciens fichiers de worker natif sont conservés comme option ; leur création et leur coût ne font plus partie de l’activation de Director.
 
-## Contrôles effectués sur les services réels
+La génération IA payante reste verrouillée par défaut (`DIRECTOR_ENABLE_PAID_GENERATION` absent ou `false`), même avec une clé et un prix renseignés. Aucun appel fournisseur payant n’a été effectué. Les services existants conservent leurs quotas de stockage, transfert et calcul.
 
-- Réponses HTTP 200 sur Director, le catalogue d’acteurs et le Studio existant après les redirections vers le domaine canonique.
-- Démo ouverte dans Chromium sur le domaine de production : rendu WebGL, modification de hauteur caméra, annulation et lecture de la timeline validés. Aucune requête de génération payante.
-- Lecture du schéma API déployé et des migrations de production, sans modification des données applicatives.
-- Accès aux routes Director sans authentification : HTTP 401.
-- Bucket Supabase `actor-private` accessible par le serveur et toujours privé (`public: false`). Aucune politique de publication ajoutée. Ses limites locales de taille et MIME sont actuellement héritées des paramètres globaux du projet ; les limites applicatives ne remplacent pas celles de l’hébergeur.
+## Vérifications de cette publication
 
-Le connecteur Supabase disponible dans cette session expose un autre projet. Les contrôles ACTBYME ont utilisé uniquement les identifiants serveur déjà présents dans la configuration locale, après correspondance avec le projet Supabase référencé par le frontend public. Les secrets ne sont ni inscrits dans ce compte rendu ni ajoutés au dépôt.
+- 26 tests partagés, 84 tests backend et 12 tests Chromium réussis, sans test ignoré ; format, lint, TypeScript et build complet réussis.
+- Parcours local complet : création, caméra, imports privés inspectés, audio, persistance, dossier JSON, annulation d’export, véritable assemblage WebAssembly, sauvegarde et décodage du MP4, puis remplacement d’un seul plan sans perdre les autres. Aucun heartbeat Director n’est présent pour le parcours gratuit.
+- Démo ouverte dans Chromium sur le domaine public : scène WebGL chargée, puis moteur de production chargé depuis le même domaine. Encodage et lecture d’un MP4 synthétique de **1 seconde, 1280×720, 14 585 octets** dans la mémoire du navigateur. Ce contrôle n’a créé ni compte, ni projet, ni upload en production et n’a appelé aucune IA.
+- Schéma public de l’API : nouvelle route de finalisation présente après déploiement. Les contrôles d’accès et de stockage sont couverts par la recette locale ; ils ne sont pas présentés comme intégralement recettés avec un compte de production.
 
-## État historique avant l’adaptation gratuite
+Détails des tests, de l’architecture et des limites : [verification.md](verification.md) et [guide d’exploitation](README.md).
 
-Le 19 octobre, aucun heartbeat n’était présent dans `DirectorWorker`. Les imports inspectés, les générations et les exports MP4 nécessitent ce worker ; ils ne sont donc pas déclarés opérationnels sur cette production. La préparation, la prévisualisation locale et les routes de sauvegarde/export JSON sont publiées ; leur parcours authentifié réel reste à recetter.
+## Base et stockage
 
-Le worker dédié est fourni et validé localement dans `apps/api/workers/director.Dockerfile`. Le fichier `render-worker.yaml` décrit un service sans disque persistant, une instance `1c-2g` et des générateurs désactivés par défaut. Le tarif de calcul public vérifié est de **25 USD/mois** pour 1 CPU et 2 Go, en supplément des services existants, hors éventuel trafic ou dépassement de quotas. [Tarification Render](https://render.com/pricing).
+Cette adaptation n’ajoute aucune migration. Le pipeline de la livraison initiale avait appliqué `20261017120000_virtual_director`, `20261017130000_virtual_director_utc` et `20261019160000_director`. La dernière est enregistrée comme terminée à `2026-10-19T18:13:55.442621Z` dans `_prisma_migrations`. Les six tables Director sont présentes dans la base ACTBYME. Aucune réinitialisation ni suppression de données existantes n’a été exécutée.
 
-Avant sa création, il reste à obtenir la confirmation de l’espace Render « My Workspace » et l’accord sur cette nouvelle dépense. Le CLI Render temporaire a été préparé ; sa session n’est pas authentifiée. Le connecteur Render est accessible mais ne possède pas encore d’espace sélectionné. Aucun nouveau service payant n’a été créé, et aucune synchronisation de Blueprint n’a été lancée.
-
-Après activation, vérifier un heartbeat récent et réaliser un import suivi d’un assemblage MP4 avec des médias de recette licenciés. Réutiliser la base et le bucket privés existants ; configurer uniquement côté serveur `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` et `STORAGE_PROVIDER=supabase`. Conserver les clés Director vides et les tarifs à zéro pour la recette manuelle.
+Le contrôle initial du bucket Supabase `actor-private` confirmait `public: false`. Aucune politique publique n’a été ajoutée ou modifiée. Ses limites locales de fichier et MIME héritent des réglages globaux Supabase ; l’application borne désormais les imports et résultats à 50 MiB, les images à 15 MiB. La préparation peut atteindre dix minutes ; l’export navigateur est borné à 120 secondes, trente plans, 128 MiB de clips/sons utilisés et une sortie 720p de 50 MiB maximum. Garder l’onglet ouvert pendant le rendu.
 
 ## Limite de recette authentifiée
 
-La vérification automatique d’approbation a refusé la création puis la suppression d’un compte client et d’un projet temporaires en production : elle exige une autorisation explicite distincte du déploiement. La commande n’a pas été exécutée et aucun compte de recette n’a été créé. L’accord demandé couvre uniquement des données temporaires clairement identifiées, sans profil d’acteur public, email automatique ni appel IA payant.
+La création puis la suppression d’un compte et d’un projet temporaires en production avaient été refusées par la vérification automatique d’approbation, qui exigeait une autorisation distincte du déploiement. Cette opération n’a pas été réessayée ; aucun compte ou projet de recette n’a été créé en production. La reconnexion et l’import dans le bucket réel restent à recetter sur un compte autorisé. Les sessions et le transport du stockage sont contrôlés par des fixtures dans les tests locaux, avec une véritable base PostgreSQL et les véritables moteurs de traitement.
 
-Les 25 tests partagés, 82 tests backend, 12 tests navigateur et 13 tests Director dans l’image Docker restent les preuves automatisées locales décrites dans [verification.md](verification.md). Ils ne constituent pas une recette complète de l’authentification, du stockage et du worker de cette production. Ne pas présenter l’import ou le MP4 comme validés en production avant la fin des étapes ci-dessus.
-
-## Adaptation sans nouveau service payant
-
-Le propriétaire a demandé de remplacer la dépendance au worker supplémentaire et de pousser le code. La nouvelle architecture inspecte les imports dans l’API existante et assemble le MP4 dans le navigateur. Aucun service Render n’a été créé et aucune modification d’espace Render n’est requise. Les instructions de création du worker ci-dessus décrivent l’ancienne architecture et sont remplacées par le [guide courant](README.md#activation-et-mise-en-production).
-
-Les générateurs payants sont verrouillés par défaut via `DIRECTOR_ENABLE_PAID_GENERATION=false`. L’édition, la prévisualisation, les imports, le JSON et le MP4 à partir de clips importés utilisent les services existants. Les limites du rendu navigateur et les quotas de stockage/transfer existants restent applicables. Aucune nouvelle migration n’est nécessaire. Les tests de l’architecture gratuite sont détaillés dans [verification.md](verification.md). La validation authentifiée de production n’est pas déclarée réalisée ; aucun compte ni projet de recette n’a été créé en production.
+Aucune nouvelle variable ni clé n’est nécessaire au parcours gratuit si le stockage Supabase privé existant est déjà configuré. Le [guide courant](README.md#activation-et-mise-en-production) documente le build, la vérification du bucket et les éventuelles activations futures, qui restent séparées du mode gratuit.
