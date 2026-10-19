@@ -4,7 +4,13 @@ import tseslint from "typescript-eslint";
 
 export default [
   {
-    ignores: ["**/.next/**", "**/dist/**", "**/generated/**", "**/node_modules/**"],
+    ignores: [
+      "**/public/director-media/v1/**",
+      "**/.next/**",
+      "**/dist/**",
+      "**/generated/**",
+      "**/node_modules/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

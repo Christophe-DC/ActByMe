@@ -5,15 +5,18 @@
   "type": "module",
   "scripts": {
     "test:e2e": "playwright test",
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "pnpm media:prepare && next dev",
+    "build": "pnpm media:prepare && next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "media:prepare": "node scripts/prepare-director-media.mjs"
   },
   "dependencies": {
     "@actbyme/shared": "workspace:*",
     "@actbyme/ui": "workspace:*",
+    "@ffmpeg/core": "0.12.10",
+    "@ffmpeg/ffmpeg": "0.12.15",
     "@next/env": "^16.2.6",
     "@react-three/fiber": "^9.8.1",
     "@supabase/supabase-js": "^2.106.1",

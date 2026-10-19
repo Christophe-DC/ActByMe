@@ -116,6 +116,7 @@ async function uploadToSignedUrl(
   file: File,
   contentType: string,
   onProgress: (progress: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const {
     data: { session },
@@ -125,8 +126,18 @@ async function uploadToSignedUrl(
       ? file
       : new File([file], file.name, { lastModified: file.lastModified, type: contentType });
 
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
+    const stop = () => request.abort();
+    signal?.addEventListener("abort", stop, { once: true });
+    request.addEventListener("loadend", () => signal?.removeEventListener("abort", stop), {
+      once: true,
+    });
+    request.timeout = 120000;
+    request.addEventListener("timeout", () =>
+      reject(new Error("Le transfert a dépassé deux minutes. Réessayez.")),
+    );
     const formData = new FormData();
     formData.append("cacheControl", "3600");
     formData.append("", uploadFile);

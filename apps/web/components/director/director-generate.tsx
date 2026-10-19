@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   directorActiveStatuses,
+  directorBrowserExportError,
   directorPrompt,
   directorProductionPlan,
   directorProviderErrors,
@@ -23,6 +24,7 @@ import {
   type DirectorProviderId,
 } from "@actbyme/shared";
 import { directorApi } from "@/lib/api/client";
+import type { useDirectorBrowserExport } from "./use-director-browser-export";
 import { useDirectorDialog } from "./use-director-dialog";
 export function downloadDirectorJson(value: unknown, name: string) {
   const url = URL.createObjectURL(
@@ -43,7 +45,9 @@ export function DirectorGenerate({
   onSave,
   onRefresh,
   onUseClip,
+  browserExport,
 }: {
+  browserExport: ReturnType<typeof useDirectorBrowserExport>;
   id?: string;
   state: DirectorState | null;
   document: DirectorDocument;
@@ -70,6 +74,7 @@ export function DirectorGenerate({
   const errors = directorProviderErrors(document, shot, providerId, assets);
   const estimate = provider ? Math.ceil(shot.duration * provider.centsPerSecond) : 0;
   const missing = document.shots.filter((shot) => !shot.clipAssetId);
+  const exportError = directorBrowserExportError(document, assets);
   const enqueue = async (kind: "GENERATE" | "EXPORT") => {
     if (!id) return;
     setBusy(true);
@@ -249,13 +254,51 @@ export function DirectorGenerate({
         </p>
         <button
           disabled={
-            !id || missing.length > 0 || busy || !state?.capabilities.workerReady || !rights
+            !id ||
+            missing.length > 0 ||
+            busy ||
+            Boolean(browserExport.status) ||
+            !state?.capabilities.browserExportReady ||
+            !rights ||
+            Boolean(exportError)
           }
-          onClick={() => void enqueue("EXPORT")}
+          onClick={() => void browserExport.start()}
         >
           <Film size={14} />
           Assembler le MP4
         </button>
+        <p className="director-hint">
+          Export local gratuit · MP4 720p · 2 minutes / 30 plans · clips et sons cumulés ≤ 128 MiB.
+          Gardez cet onglet ouvert pendant l’assemblage. Le premier export télécharge le moteur
+          vidéo (~31 Mo).
+        </p>
+        <a
+          href="/director-media/NOTICES.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="director-hint"
+        >
+          Logiciels libres et licences
+        </a>
+        {exportError ? <p className="director-error-text">{exportError}</p> : null}
+        {browserExport.status ? (
+          <div role="status" aria-live="polite">
+            <p>{browserExport.status.stage}</p>
+            <progress
+              aria-label="Avancement de l’export navigateur"
+              max="100"
+              value={browserExport.status.progress}
+            />
+            <button onClick={browserExport.cancel}>
+              <X size={12} /> Annuler l’export navigateur
+            </button>
+          </div>
+        ) : null}
+        {browserExport.localFile ? (
+          <a href={browserExport.localFile.url} download={browserExport.localFile.name}>
+            Télécharger le MP4 de cet onglet
+          </a>
+        ) : null}
         <label className="director-checkbox">
           <input
             type="checkbox"
@@ -303,6 +346,7 @@ export function DirectorGenerate({
                 {directorActiveStatuses.includes(job.status) ? (
                   <button
                     onClick={() => {
+                      if (browserExport.status && job.kind === "EXPORT") browserExport.cancel();
                       if (id)
                         void directorApi
                           .mutate(id, `jobs/${job.id}/cancel`)

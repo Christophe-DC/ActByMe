@@ -18,7 +18,7 @@ Le frontend conserve Next.js, React, Three.js et React Three Fiber déjà prése
 
 Les six nouvelles tables Prisma sont ajoutées par `20261019160000_director`. Les projets de publicité sont indépendants des prestations d’acteurs ; une prestation existante et ses prises validées peuvent être liées sans créer un second système de commande ou de paiement. Les autres modules Studio et AI Virtual Director sont conservés et inclus dans les tests de régression.
 
-Les inspections, générations et exports sont confiés à un processus dédié. PostgreSQL fournit la file et les verrous `SKIP LOCKED`, ce qui évite une dépendance Redis et des rendus longs dans l’API ou une fonction serverless. Les tâches contiennent un snapshot ; changer le montage ne modifie pas une production déjà soumise. La prévisualisation 3D et l’export JSON n’appellent aucun fournisseur et fonctionnent sans ce worker.
+Depuis l’adaptation sans hébergement supplémentaire, les inspections sont confiées à MediaInfo.js dans l’API existante et les MP4 à FFmpeg.wasm dans le navigateur. Le processus natif est conservé uniquement comme option. PostgreSQL fournit la file et les verrous `SKIP LOCKED`, ce qui évite une dépendance Redis et des rendus longs dans l’API ou une fonction serverless. Les tâches contiennent un snapshot ; changer le montage ne modifie pas une production déjà soumise. La prévisualisation 3D, les imports vérifiés, l’export JSON et l’assemblage navigateur ne nécessitent aucun worker Director dédié ni fournisseur IA.
 
 ## Résultats automatisés
 
@@ -26,8 +26,8 @@ Les inspections, générations et exports sont confiés à un processus dédié.
 | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `pnpm db:generate`                           | Réussi                                                                                     |
 | Migrations sur PostgreSQL isolé              | 22 migrations appliquées, dont Director ; PostgreSQL 18 local et PostgreSQL 16 dans Docker |
-| `pnpm --filter @actbyme/shared test`         | 25 tests réussis, aucun ignoré                                                             |
-| `pnpm --filter @actbyme/api test`            | 82 tests réussis, aucun ignoré, avec la base de test locale                                |
+| `pnpm --filter @actbyme/shared test`         | 26 tests réussis, aucun ignoré                                                             |
+| `pnpm --filter @actbyme/api test`            | 84 tests réussis, aucun ignoré, avec la base de test locale                                |
 | `pnpm --filter @actbyme/web test:e2e`        | 12 tests Chromium réussis : 3 Director et 9 parcours existants                             |
 | `pnpm format:check`                          | Réussi                                                                                     |
 | `pnpm lint`                                  | Réussi                                                                                     |
@@ -42,17 +42,23 @@ Les tests partagés couvrent les treize modèles, les arrivées exactes et inter
 
 Les tests backend utilisent réellement PostgreSQL, FFprobe et FFmpeg : propriété des projets, écritures concurrentes, révisions, droits des acteurs, révocation, inspection des fichiers, confirmation des coûts, budget concurrent, déduplication, snapshots, reprise après interruption, annulation, extraits de performance, assemblage, ordre des images, fondus, mixage audio et export vertical. Les données et les fichiers sont créés dans des environnements de test isolés.
 
-Le Dockerfile final a été construit depuis le dépôt avec son installation verrouillée, sa génération Prisma et sa compilation NestJS. Les migrations et les treize tests Director ont ensuite été exécutés dans cette image sur une nouvelle base éphémère. Le worker compilé a démarré avec FFmpeg, publié son heartbeat puis quitté proprement sur SIGTERM. Les conteneurs de recette ont été supprimés. Le premier téléchargement Docker Hub avait expiré ; la nouvelle tentative a abouti. L’architecture testée est ARM64 ; la construction native de l’hébergeur cible reste une étape de release.
+Lors de la livraison initiale (avant l’adaptation navigateur), le Dockerfile final avait été construit depuis le dépôt avec son installation verrouillée, sa génération Prisma et sa compilation NestJS. Les migrations et les treize tests Director ont ensuite été exécutés dans cette image sur une nouvelle base éphémère. Le worker compilé a démarré avec FFmpeg, publié son heartbeat puis quitté proprement sur SIGTERM. Les conteneurs de recette ont été supprimés. Le premier téléchargement Docker Hub avait expiré ; la nouvelle tentative a abouti. L’architecture testée est ARM64 ; la construction native de l’hébergeur cible reste une étape de release.
 
 Les tests navigateur traversent l’interface, les routes NestJS et la base. Ils vérifient la création, la caméra, le déplacement d’un waypoint, la lecture d’un véritable fichier audio, l’import de références et clips, la persistance après rechargement, le téléchargement JSON et MP4, le remplacement d’un seul plan, l’isolation entre propriétaires, les conflits de sauvegarde, l’acceptation explicite du coût, le mode mobile et le repli sans WebGL. Une vérification des pixels WebGL confirme que le décor 3D est réellement dessiné avant la capture. Les tests existants continuent de couvrir les prestations d’acteurs et leurs soumissions.
 
 La démo a également été ouverte depuis le build optimisé avec `next start`, puis son rendu 3D vérifié dans Chromium et capturé après présentation des frames. La lecture audio prépare les métadonnées des pistes et précharge les médias avant leur arrivée sur la timeline ; les annulations volontaires de lecture ne produisent pas de fausses alertes.
 
+## Recette spécifique sans worker supplémentaire
+
+Le parcours Chromium de Director démarre avec zéro heartbeat Director récent et aucun processus de génération/rendu Director actif. L’API inspecte les vrais PNG, MP4 et WAV dans son service d’inspection. Le navigateur charge le vrai core WebAssembly depuis le serveur Next local, assemble deux plans avec musique, sauvegarde le résultat, puis décode le MP4 produit pour vérifier 1280×720 et sa durée. L’audio est confirmé par l’inspection serveur. Le test annule également un premier export et en relance un ; aucune tâche annulée ne publie de résultat. Le worker simulant un fournisseur est activé seulement pour le test distinct de confirmation payante, jamais pour le parcours gratuit.
+
+Les nouveaux tests backend vérifient les neuf formats acceptés, les faux MIME, les octets malformés, les limites de taille et l’annulation du parsing. Un test PostgreSQL sans heartbeat couvre les imports vérifiés, l’export à coût zéro, les doubles soumissions, l’isolation des propriétaires, le refus d’un résultat incompatible, la publication idempotente et la conservation de la version d’origine pendant une modification concurrente. Le verrou payant reste fermé même avec une clé et un tarif configurés. Les tests backend utilisant une file partagée de fixtures s’exécutent en série pour éviter qu’un adaptateur de test ne revendique les tâches d’un autre test.
+
 ## Ce que les tests ne prouvent pas
 
 L’authentification Supabase, le transport des objets et les réponses des fournisseurs sont contrôlés par les fixtures de test. Les tests de contrats HTTP vérifient les endpoints, en-têtes, payloads et réponses documentés, mais n’attestent ni un accès payant, ni les droits régionaux, ni la qualité d’une génération réelle. Aucun substitut de test n’est utilisé dans le module de production.
 
-L’intégration au bucket Supabase réel, la reconnexion avec un compte réel et le parcours d’acteur doivent être recettés en staging après configuration. La persistance et les contrôles d’accès ont été exercés sur des bases PostgreSQL réelles, avec des sessions d’authentification de test. La couverture navigateur utilise Chromium ; les contrôles de responsive et le repli WebGL ne remplacent pas une recette Safari/Firefox sur appareils réels.
+L’intégration au bucket Supabase réel, la reconnexion avec un compte réel et le parcours d’acteur restent à recetter sur un compte autorisé de la production existante ; aucun staging n’est configuré. La persistance et les contrôles d’accès ont été exercés sur des bases PostgreSQL réelles, avec des sessions d’authentification de test. La couverture navigateur utilise Chromium ; les contrôles de responsive et le repli WebGL ne remplacent pas une recette Safari/Firefox sur appareils réels.
 
 ## Reproduire la recette locale
 
@@ -77,7 +83,7 @@ Le harness navigateur lance des serveurs de test sur `127.0.0.1:4401` et `127.0.
 
 ## Ouverture en production
 
-Suivre les dix étapes du [guide d’activation](README.md#activation-et-mise-en-production) : migration additive, vérification du bucket privé, déploiement API puis frontend, démarrage du worker FFmpeg, recette des imports/exports et des autorisations. Les variables serveur et le Blueprint Render d’exemple sont documentés dans le même guide.
+Suivre les étapes du [guide d’activation](README.md#activation-et-mise-en-production) : migration additive, vérification du bucket privé, déploiement API puis frontend avec moteur navigateur préparé, recette des imports/exports et des autorisations. Les variables serveur et le Blueprint Render d’exemple sont documentés dans le même guide.
 
 L’activation des générateurs est séparée : clés serveur et tarifs conservateurs vérifiés, limites de dépense sur les comptes concernés, puis une génération réelle à petit plafond explicitement approuvée. Sans cette activation, préparation, prévisualisation, dossier JSON et production à partir de clips importés restent utilisables.
 

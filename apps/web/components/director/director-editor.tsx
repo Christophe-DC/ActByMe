@@ -35,6 +35,7 @@ import {
   type DirectorTimelineItem,
 } from "@actbyme/shared";
 import { directorApi } from "@/lib/api/client";
+import { useDirectorBrowserExport } from "./use-director-browser-export";
 import { useDirectorProject } from "./use-director-project";
 import { useDirectorDialog } from "./use-director-dialog";
 import { DirectorPreview } from "./director-preview";
@@ -56,6 +57,7 @@ export function DirectorEditor({ id }: { id?: string }) {
   const project = useDirectorProject(id),
     router = useRouter();
   const { document, state, edit, setError } = project;
+  const browserExport = useDirectorBrowserExport(id, project.save, project.refresh, setError);
   const [step, setStep] = useState<(typeof steps)[number]["id"]>("direct"),
     [library, setLibrary] = useState("templates"),
     [selection, setSelection] = useState<DirectorSelection>({ kind: "shot", id: "shot_arrival" }),
@@ -431,6 +433,12 @@ export function DirectorEditor({ id }: { id?: string }) {
           ))}
         </nav>
         <div className="director-top-actions">
+          {browserExport.status && step !== "generate" ? (
+            <button onClick={() => setStep("generate")} title={browserExport.status.stage}>
+              <Loader2 size={13} className="animate-spin" />
+              Export {Math.round(browserExport.status.progress)}%
+            </button>
+          ) : null}
           <button
             title="Annuler (⌘Z)"
             aria-label="Annuler la modification"
@@ -649,9 +657,7 @@ export function DirectorEditor({ id }: { id?: string }) {
                 <AssetLibrary
                   id={id}
                   assets={assets}
-                  storageReady={Boolean(
-                    state?.capabilities.storageReady && state.capabilities.workerReady,
-                  )}
+                  storageReady={Boolean(state?.capabilities.storageReady)}
                   onChanged={project.refresh}
                   onError={setError}
                   onAttach={attach}
@@ -713,6 +719,7 @@ export function DirectorEditor({ id }: { id?: string }) {
         </section>
         {step === "generate" ? (
           <DirectorGenerate
+            browserExport={browserExport}
             id={id}
             state={state}
             document={document}

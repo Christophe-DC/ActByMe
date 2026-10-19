@@ -138,6 +138,14 @@ export class DirectorController {
   ) {
     return this.director.enqueue(user.id, id, input);
   }
+  @Post(":id/jobs/:jobId/browser-result") completeBrowserExport(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("jobId", ParseUUIDPipe) jobId: string,
+    @Body() input: Record<string, unknown>,
+  ) {
+    return this.director.completeBrowserExport(user.id, id, jobId, input);
+  }
   @Post(":id/jobs/:jobId/cancel") cancel(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id", ParseUUIDPipe) id: string,

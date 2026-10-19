@@ -3,3 +3,5 @@ node_modules
 dist
 generated
 pnpm-lock.yaml
+
+apps/web/public/director-media/v1/

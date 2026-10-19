@@ -21,7 +21,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "pnpm exec next dev --hostname 127.0.0.1 --port 3401",
+      command: "pnpm media:prepare && pnpm exec next dev --hostname 127.0.0.1 --port 3401",
       url: "http://127.0.0.1:3401",
       timeout: 90000,
       reuseExistingServer: false,

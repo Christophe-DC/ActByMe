@@ -8,6 +8,7 @@ import { AppModule } from "./app.module.js";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
   app.useBodyParser("json", { limit: "1mb" });
   const config = app.get(ConfigService);
 

@@ -12,6 +12,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 const emptyCapabilities: DirectorState["capabilities"] = {
   storageReady: false,
   workerReady: false,
+  browserExportReady: false,
   providers: [],
   budgetCents: 0,
   reservedCents: 0,

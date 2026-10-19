@@ -43,15 +43,19 @@ export class DirectorWorker {
     private readonly service: DirectorService,
   ) {}
   async heartbeat() {
+    const enabledProviders =
+      this.config.get("DIRECTOR_ENABLE_PAID_GENERATION") === "true"
+        ? (["veo", "higgsfield"] as const).filter((id) => this.providers.configured(id))
+        : [];
     await this.prisma.client.directorWorker.upsert({
       where: { id: this.workerId },
       create: {
         id: this.workerId,
-        providers: (["veo", "higgsfield"] as const).filter((id) => this.providers.configured(id)),
+        providers: enabledProviders,
       },
       update: {
         seenAt: new Date(),
-        providers: (["veo", "higgsfield"] as const).filter((id) => this.providers.configured(id)),
+        providers: enabledProviders,
       },
     });
     if (Date.now() - this.lastCleanup > 60000) {
@@ -101,7 +105,7 @@ export class DirectorWorker {
     return this.prisma.client.$transaction(async (transaction) => {
       const rows = await transaction.$queryRaw<
         { id: string }[]
-      >`SELECT id FROM "DirectorJob" WHERE status IN ('QUEUED', 'PROCESSING', 'SUBMITTING', 'WAITING_PROVIDER') AND "nextRunAt" <= (now() AT TIME ZONE 'UTC') AND ("leaseUntil" IS NULL OR "leaseUntil" < (now() AT TIME ZONE 'UTC')) ORDER BY "createdAt" LIMIT 1 FOR UPDATE SKIP LOCKED`;
+      >`SELECT id FROM "DirectorJob" WHERE COALESCE(input->>'execution', 'server') <> 'browser' AND status IN ('QUEUED', 'PROCESSING', 'SUBMITTING', 'WAITING_PROVIDER') AND "nextRunAt" <= (now() AT TIME ZONE 'UTC') AND ("leaseUntil" IS NULL OR "leaseUntil" < (now() AT TIME ZONE 'UTC')) ORDER BY "createdAt" LIMIT 1 FOR UPDATE SKIP LOCKED`;
       if (!rows[0]) return null;
       return transaction.directorJob.update({
         where: { id: rows[0].id },
@@ -344,6 +348,8 @@ export class DirectorWorker {
     );
   }
   private async generate(job: DirectorJob, directory: string, signal: AbortSignal) {
+    if (this.config.get("DIRECTOR_ENABLE_PAID_GENERATION") !== "true")
+      throw new Error("Génération payante désactivée sur ce processus.");
     const { document } = snapshotSchema.parse(job.input);
     const shot = document.shots.find((candidate) => candidate.id === job.shotId);
     const provider = z.enum(["veo", "higgsfield"]).parse(job.provider);

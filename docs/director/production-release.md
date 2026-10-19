@@ -22,7 +22,7 @@ Le pipeline existant a appliqué les migrations additives `20261017120000_virtua
 
 Le connecteur Supabase disponible dans cette session expose un autre projet. Les contrôles ACTBYME ont utilisé uniquement les identifiants serveur déjà présents dans la configuration locale, après correspondance avec le projet Supabase référencé par le frontend public. Les secrets ne sont ni inscrits dans ce compte rendu ni ajoutés au dépôt.
 
-## Activation restant à terminer
+## État historique avant l’adaptation gratuite
 
 Le 19 octobre, aucun heartbeat n’était présent dans `DirectorWorker`. Les imports inspectés, les générations et les exports MP4 nécessitent ce worker ; ils ne sont donc pas déclarés opérationnels sur cette production. La préparation, la prévisualisation locale et les routes de sauvegarde/export JSON sont publiées ; leur parcours authentifié réel reste à recetter.
 
@@ -32,8 +32,14 @@ Avant sa création, il reste à obtenir la confirmation de l’espace Render « 
 
 Après activation, vérifier un heartbeat récent et réaliser un import suivi d’un assemblage MP4 avec des médias de recette licenciés. Réutiliser la base et le bucket privés existants ; configurer uniquement côté serveur `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` et `STORAGE_PROVIDER=supabase`. Conserver les clés Director vides et les tarifs à zéro pour la recette manuelle.
 
-## Recette authentifiée en attente d’accord
+## Limite de recette authentifiée
 
 La vérification automatique d’approbation a refusé la création puis la suppression d’un compte client et d’un projet temporaires en production : elle exige une autorisation explicite distincte du déploiement. La commande n’a pas été exécutée et aucun compte de recette n’a été créé. L’accord demandé couvre uniquement des données temporaires clairement identifiées, sans profil d’acteur public, email automatique ni appel IA payant.
 
 Les 25 tests partagés, 82 tests backend, 12 tests navigateur et 13 tests Director dans l’image Docker restent les preuves automatisées locales décrites dans [verification.md](verification.md). Ils ne constituent pas une recette complète de l’authentification, du stockage et du worker de cette production. Ne pas présenter l’import ou le MP4 comme validés en production avant la fin des étapes ci-dessus.
+
+## Adaptation sans nouveau service payant
+
+Le propriétaire a demandé de remplacer la dépendance au worker supplémentaire et de pousser le code. La nouvelle architecture inspecte les imports dans l’API existante et assemble le MP4 dans le navigateur. Aucun service Render n’a été créé et aucune modification d’espace Render n’est requise. Les instructions de création du worker ci-dessus décrivent l’ancienne architecture et sont remplacées par le [guide courant](README.md#activation-et-mise-en-production).
+
+Les générateurs payants sont verrouillés par défaut via `DIRECTOR_ENABLE_PAID_GENERATION=false`. L’édition, la prévisualisation, les imports, le JSON et le MP4 à partir de clips importés utilisent les services existants. Les limites du rendu navigateur et les quotas de stockage/transfer existants restent applicables. Aucune nouvelle migration n’est nécessaire. Les tests de l’architecture gratuite sont détaillés dans [verification.md](verification.md). La validation authentifiée de production n’est pas déclarée réalisée ; aucun compte ni projet de recette n’a été créé en production.

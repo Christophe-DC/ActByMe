@@ -16,6 +16,7 @@ import {
   directorDocumentSchema,
   directorUploadSchema,
   directorDuration,
+  directorBrowserExportError,
   directorProductionPlan,
   directorProviderErrors,
   directorShotReferenceIds,
@@ -129,19 +130,23 @@ export class DirectorService {
     return {
       workerReady: runtime.length > 0,
       storageReady,
+      browserExportReady: storageReady,
       budgetCents: Number.isFinite(budget) && budget > 0 ? Math.floor(budget) : 2500,
       reservedCents: usage._sum.estimatedCostCents ?? 0,
       providers: (["veo", "higgsfield"] as const).map((id) => {
         const centsPerSecond = configuredDirectorPrice(this.config, id);
-        const reason = !storageReady
-          ? "Configurer le stockage privé Supabase."
-          : !this.providers.configured(id)
-            ? "Identifiants fournisseur absents."
-            : !centsPerSecond
-              ? "Tarif vérifié à configurer côté serveur."
-              : !runtime.some((worker) => (worker.providers as string[]).includes(id))
-                ? "Worker compatible hors ligne."
-                : null;
+        const reason =
+          this.config.get("DIRECTOR_ENABLE_PAID_GENERATION") !== "true"
+            ? "Génération payante désactivée : utilisez vos clips importés."
+            : !storageReady
+              ? "Configurer le stockage privé Supabase."
+              : !this.providers.configured(id)
+                ? "Identifiants fournisseur absents."
+                : !centsPerSecond
+                  ? "Tarif vérifié à configurer côté serveur."
+                  : !runtime.some((worker) => (worker.providers as string[]).includes(id))
+                    ? "Worker compatible hors ligne."
+                    : null;
         return {
           id,
           name: id === "veo" ? "Google Veo 3.1" : "Seedance 2.0 · Higgsfield",
@@ -356,9 +361,15 @@ export class DirectorService {
       );
     return capabilities;
   }
+  private requireStorage() {
+    if (this.config.get("STORAGE_PROVIDER") !== "supabase")
+      throw new ServiceUnavailableException(
+        "Configurez le stockage privé Supabase pour importer des ressources.",
+      );
+  }
   async reserve(ownerId: string, id: string, input: unknown) {
     await this.owned(ownerId, id);
-    await this.requireWorker(ownerId);
+    this.requireStorage();
     const data = parseDirector(directorUploadSchema, input);
     return this.prisma.client.$transaction(async (transaction) => {
       await this.lock(transaction, id);
@@ -401,7 +412,7 @@ export class DirectorService {
   }
   async completeUpload(ownerId: string, id: string, assetId: string) {
     const project = await this.owned(ownerId, id);
-    await this.requireWorker(ownerId);
+    this.requireStorage();
     await this.prisma.client.$transaction(async (transaction) => {
       await this.lock(transaction, id);
       const asset = await transaction.directorAsset.findFirst({
@@ -514,7 +525,7 @@ export class DirectorService {
   }
   async importTake(ownerId: string, id: string, input: unknown) {
     await this.owned(ownerId, id);
-    await this.requireWorker(ownerId);
+    this.requireStorage();
     const data = parseDirector(
       z
         .object({
@@ -687,6 +698,7 @@ export class DirectorService {
           version: versionSchema,
           requestKey: z.uuid(),
           kind: z.enum(["GENERATE", "EXPORT"]),
+          execution: z.enum(["server", "browser"]).default("server"),
           shotId: z.string().max(80).optional(),
           provider: z.enum(["veo", "higgsfield"]).optional(),
           maxCostCents: z.number().int().min(0).max(100000),
@@ -705,7 +717,13 @@ export class DirectorService {
         throw new ConflictException("Clé de demande déjà utilisée pour une autre opération.");
       return this.get(ownerId, id);
     }
-    const capabilities = await this.requireWorker(ownerId);
+    if (data.execution === "browser" && data.kind !== "EXPORT")
+      throw new BadRequestException("Seul l’export MP4 peut s’exécuter dans le navigateur.");
+    this.requireStorage();
+    const capabilities =
+      data.execution === "browser"
+        ? await this.capabilities(ownerId)
+        : await this.requireWorker(ownerId);
     await this.prisma.client.$transaction(
       async (transaction) => {
         await transaction.$queryRaw`SELECT id FROM "User" WHERE id = ${ownerId}::uuid FOR UPDATE`;
@@ -779,6 +797,9 @@ export class DirectorService {
               "Le budget mensuel est atteint. Les tentatives échouées restent réservées par prudence.",
             );
         } else {
+          const exportError =
+            data.execution === "browser" ? directorBrowserExportError(document, assets) : null;
+          if (exportError) throw new BadRequestException(exportError);
           if (document.shots.some((shot) => !shot.clipAssetId))
             throw new BadRequestException(
               "Associez un clip vérifié à chaque plan avant l’export MP4.",
@@ -803,6 +824,12 @@ export class DirectorService {
             requestHash,
             version: project.version,
             kind: data.kind,
+            ...(data.execution === "browser"
+              ? {
+                  status: "PROCESSING",
+                  stage: "Assemblage dans le navigateur · gardez cet onglet ouvert",
+                }
+              : {}),
             shotId: data.shotId,
             provider: data.provider,
             estimatedCostCents: cost,
@@ -810,12 +837,63 @@ export class DirectorService {
               document,
               assetIds: usedAssetIds,
               duration: directorDuration(document),
+              ...(data.execution === "browser" ? { execution: "browser" } : {}),
             }),
           },
         });
       },
       { timeout: 15000 },
     );
+    return this.get(ownerId, id);
+  }
+  async completeBrowserExport(ownerId: string, id: string, jobId: string, input: unknown) {
+    await this.owned(ownerId, id);
+    const { assetId } = parseDirector(z.object({ assetId: z.uuid() }).strict(), input);
+    await this.prisma.client.$transaction(async (transaction) => {
+      await this.lock(transaction, id);
+      const job = await transaction.directorJob.findFirst({
+        where: { id: jobId, projectId: id, ownerId, kind: "EXPORT" },
+      });
+      if (!job || (job.input as { execution?: string }).execution !== "browser")
+        throw new NotFoundException("Export navigateur introuvable.");
+      if (job.status === "SUCCEEDED" && job.resultAssetId === assetId) return;
+      if (job.status !== "PROCESSING")
+        throw new ConflictException("Cet export est terminé ou annulé.");
+      const asset = await transaction.directorAsset.findFirst({
+        where: {
+          id: assetId,
+          projectId: id,
+          kind: "clip",
+          contentType: "video/mp4",
+          status: "READY",
+        },
+      });
+      const snapshot = job.input as { duration: number; document: DirectorDocument };
+      const width = snapshot.document.aspectRatio === "16:9" ? 1280 : 720;
+      const height = snapshot.document.aspectRatio === "9:16" ? 1280 : 720;
+      if (
+        !asset ||
+        asset.createdAt < job.createdAt ||
+        !asset.duration ||
+        Math.abs(asset.duration - snapshot.duration) > 0.2 ||
+        asset.width !== width ||
+        asset.height !== height ||
+        !asset.hasAudio
+      )
+        throw new BadRequestException(
+          "Le MP4 doit être vérifié et correspondre à la durée et au format de cet export.",
+        );
+      const published = await transaction.directorJob.updateMany({
+        where: { id: job.id, status: "PROCESSING" },
+        data: {
+          resultAssetId: assetId,
+          status: "SUCCEEDED",
+          progress: 100,
+          stage: "Publicité MP4 disponible",
+        },
+      });
+      if (!published.count) throw new ConflictException("Cet export a été annulé ou a expiré.");
+    });
     return this.get(ownerId, id);
   }
   async cancel(ownerId: string, id: string, jobId: string) {
@@ -830,7 +908,10 @@ export class DirectorService {
         status: "CANCELLED",
         claimToken: null,
         leaseUntil: null,
-        stage: "Annulation locale ; le fournisseur peut encore facturer.",
+        stage:
+          job.kind === "GENERATE"
+            ? "Annulation locale ; le fournisseur peut encore facturer."
+            : "Traitement annulé",
       },
     });
     if (changed.count && job.providerRequest && job.provider)

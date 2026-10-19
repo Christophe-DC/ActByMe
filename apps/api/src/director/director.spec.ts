@@ -96,6 +96,7 @@ test(
     };
     const config = new ConfigService({
       STORAGE_PROVIDER: "supabase",
+      DIRECTOR_ENABLE_PAID_GENERATION: "true",
       DIRECTOR_VEO_API_KEY: "test-only",
       DIRECTOR_VEO_CENTS_PER_SECOND: "10",
       DIRECTOR_MONTHLY_BUDGET_CENTS: "1000",

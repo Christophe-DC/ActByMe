@@ -186,7 +186,7 @@ export const directorUploadSchema = z
       .number()
       .int()
       .min(1)
-      .max(200 * 1024 * 1024),
+      .max(50 * 1024 * 1024, "Fichier limité à 50 MiB pour le mode sans worker."),
     rightsBasis: z.string().trim().min(10).max(2000),
     rightsConfirmed: z.literal(true),
     aiTransferAllowed: z.boolean(),
@@ -234,6 +234,7 @@ export type DirectorProviderId = "veo" | "higgsfield";
 export type DirectorCapabilities = {
   workerReady: boolean;
   storageReady: boolean;
+  browserExportReady: boolean;
   providers: {
     id: DirectorProviderId;
     name: string;

@@ -33,6 +33,7 @@ import { DirectorController } from "../dist/director/director.controller.js";
 import { DirectorService } from "../dist/director/director.service.js";
 import { DirectorProviders } from "../dist/director/director-providers.js";
 import { DirectorWorker } from "../dist/director/director.worker.js";
+import { DirectorInspectionService } from "../dist/director/director-inspection.service.js";
 import { RolesGuard } from "../dist/auth/roles.guard.js";
 import { SupabaseService } from "../dist/supabase/supabase.service.js";
 
@@ -303,6 +304,7 @@ const directorSource = await readFile(directorSourcePath),
   directorImage = await readFile(directorImagePath);
 const directorConfig = new ConfigService({
   STORAGE_PROVIDER: "supabase",
+  DIRECTOR_ENABLE_PAID_GENERATION: "true",
   DIRECTOR_VEO_API_KEY: "browser-test-only",
   DIRECTOR_VEO_CENTS_PER_SECOND: "10",
   DIRECTOR_MONTHLY_BUDGET_CENTS: "1000",
@@ -327,11 +329,12 @@ const directorProviders = new TestDirectorProviders(directorConfig),
     directorProviders,
     director,
   );
-await directorWorker.verifyRuntime();
+const directorInspection = new DirectorInspectionService(prisma, directorStorage, directorConfig);
+let nativeDirectorEnabled = false;
 let directorTickBusy = false,
   directorTask = Promise.resolve();
 const directorTimer = setInterval(() => {
-  if (directorTickBusy) return;
+  if (!nativeDirectorEnabled || directorTickBusy) return;
   directorTickBusy = true;
   directorTask = directorWorker
     .heartbeat()
@@ -357,6 +360,7 @@ Module({
     { provide: DirectorStudioService, useValue: studio },
     { provide: VirtualDirectorService, useValue: virtualDirector },
     { provide: DirectorService, useValue: director },
+    { provide: DirectorInspectionService, useValue: directorInspection },
     { provide: PerformanceProjectsService, useValue: projects },
     {
       provide: SupabaseService,
@@ -408,6 +412,11 @@ app.use("/test-director-media", (request, response) => {
   const object = directorObjects.get(request.query.key);
   if (!object) return response.status(404).end();
   response.type(object.contentType).send(object.bytes);
+});
+app.use("/test-director-worker", async (request, response) => {
+  nativeDirectorEnabled = request.body?.enabled === true;
+  if (nativeDirectorEnabled) await directorWorker.verifyRuntime();
+  response.json({ enabled: nativeDirectorEnabled });
 });
 app.use("/test-director-source", (request, response) => {
   const kind = request.query.kind;

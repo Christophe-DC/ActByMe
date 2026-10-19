@@ -65,7 +65,7 @@ test("Director: create, direct, import, synchronize, persist, replace a shot and
   page,
   request,
 }) => {
-  test.setTimeout(180000);
+  test.setTimeout(240000);
   const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
   await login(page, fixture.ownerId);
   await page.setViewportSize({ width: 1440, height: 1050 });
@@ -76,6 +76,9 @@ test("Director: create, direct, import, synchronize, persist, replace a shot and
   const id = page.url().split("/").at(-1)!,
     headers = { "x-user-id": fixture.ownerId, "x-user-role": "CLIENT" },
     api = `http://127.0.0.1:4401/director-projects/${id}`;
+  const capabilities = (await (await request.get(api, { headers })).json()).capabilities;
+  expect(capabilities.workerReady).toBe(false);
+  expect(capabilities.browserExportReady).toBe(true);
   await expect(page.locator("canvas")).toBeVisible();
   await expectRenderedScene(page);
   await page.getByLabel("Hauteur caméra").fill("2.4");
@@ -174,11 +177,26 @@ test("Director: create, direct, import, synchronize, persist, replace a shot and
   expect((await planDownload).suggestedFilename()).toContain("production.json");
   await page.getByLabel("Confirmer les droits pour l’export").check();
   await page.getByRole("button", { name: "Assembler le MP4", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Annuler l’export navigateur", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Annuler l’export navigateur", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(api, { headers })).json()).jobs.filter(
+          (job: { kind: string; status: string }) =>
+            job.kind === "EXPORT" && job.status === "CANCELLED",
+        ).length,
+    )
+    .toBe(1);
+  await expect(page.getByRole("button", { name: "Assembler le MP4", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Assembler le MP4", exact: true }).click();
   await expect(page.getByText("Publicité MP4 disponible", { exact: true })).toBeVisible({
-    timeout: 40000,
+    timeout: 120000,
   });
   const result = (await (await request.get(api, { headers })).json()).jobs.find(
-    (job: { kind: string }) => job.kind === "EXPORT",
+    (job: { kind: string; status: string }) => job.kind === "EXPORT" && job.status === "SUCCEEDED",
   );
   const media = await (
     await request.get(`${api}/assets/${result.resultAssetId}/media?download=1`, { headers })
@@ -186,6 +204,40 @@ test("Director: create, direct, import, synchronize, persist, replace a shot and
   const mp4 = await request.get(media.url);
   expect(mp4.headers()["content-type"]).toContain("video/mp4");
   expect((await mp4.body()).length).toBeGreaterThan(1000);
+  // Decode the actual browser-generated file in Chromium, beyond checking its MIME/size.
+  const decoded = await page.evaluate(async (url) => {
+    const video = window.document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.src = url;
+    await new Promise<void>((resolve, reject) => {
+      video.onloadeddata = () => resolve();
+      video.onerror = () => reject(new Error("Browser MP4 is not decodable"));
+    });
+    const metadata = {
+      width: video.videoWidth,
+      height: video.videoHeight,
+      duration: video.duration,
+    };
+    video.removeAttribute("src");
+    video.load();
+    return metadata;
+  }, media.url);
+  expect(decoded.width).toBe(1280);
+  expect(decoded.height).toBe(720);
+  const mounted = await (await request.get(api, { headers })).json();
+  expect(
+    Math.abs(
+      decoded.duration -
+        mounted.document.shots.reduce(
+          (sum: number, shot: { duration: number }) => sum + shot.duration,
+          0,
+        ),
+    ),
+  ).toBeLessThan(0.2);
+  expect(
+    mounted.assets.find((asset: { id: string }) => asset.id === result.resultAssetId).hasAudio,
+  ).toBe(true);
+  expect(mounted.capabilities.workerReady).toBe(false);
   const before = await (await request.get(api, { headers })).json();
   await page.getByRole("button", { name: "Direct", exact: true }).click();
   await upload("video", "test-replacement.mp4", "video/mp4", "clip");
@@ -284,6 +336,7 @@ test("Director requires billing confirmation and preserves a conflicting draft a
   page,
   request,
 }) => {
+  await request.post("http://127.0.0.1:4401/test-director-worker", { data: { enabled: true } });
   const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json(),
     headers = { "x-user-id": fixture.ownerId, "x-user-role": "CLIENT" };
   const created = await (

@@ -8,3 +8,4 @@ export * from "./studio-templates.js";
 export * from "./studio-recording.js";
 export * from "./virtual-director.js";
 export * from "./director.js";
+export * from "./director-render-plan.js";

@@ -204,10 +204,17 @@ six timeline tracks, private media imports, actor consent, automatic versioned s
 production JSON and real FFmpeg MP4 assembly. `/director/demo` opens The Coastal House without
 requiring a paid generation. Existing actor-facing Director Studio and AI Virtual Director remain available.
 
-The standalone `pnpm --filter @actbyme/api worker:director` process handles inspection, provider
-polling and exports. Optional documented Veo and Higgsfield connectors stay disabled until credentials,
-verified prices and a compatible worker are configured. No paid call is sent during editing or preview.
+Director now verifies private imports with MediaInfo.js in the **existing API** and assembles MP4s
+with FFmpeg.wasm in the **browser**, without an additional Render service or paid media API.
+The browser export supports 720p, up to 120 seconds / 30 shots and 128 MiB of used inputs;
+individual uploads and final results are limited to 50 MiB (images: 15 MiB). Keep the tab open.
+Results are verified by the API and saved privately with the project version. Editing and JSON export
+remain available for larger projects.
+
+Veo / Higgsfield adapters and the optional native worker are retained for future use, but paid
+submission is locked unless `DIRECTOR_ENABLE_PAID_GENERATION=true` is explicitly set in both API
+and worker, alongside credentials and verified prices. No new service or purchase is needed for
+manual clips, preview, JSON or browser MP4 export. Existing hosting, storage and transfer quotas still apply.
 
 See [Director setup, architecture, permissions and limitations](docs/director/README.md) and
-[verification](docs/director/verification.md). Production migrations, private storage configuration,
-worker hosting and validation of paid provider access are separate release steps.
+[verification](docs/director/verification.md).

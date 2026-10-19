@@ -1,3 +1,4 @@
+# OPTIONAL LEGACY SERVER EXPORT / PAID PROVIDERS ONLY. Free Director needs no service here.
 # Example only. Review the paid compute plan before adding this worker to Render.
 # Uses the existing database and private Supabase storage; provisions neither.
 # yaml-language-server: $schema=https://render.com/schema/render.yaml.json
@@ -12,6 +13,8 @@ services:
     autoDeployTrigger: off
     maxShutdownDelaySeconds: 60
     envVars:
+      - key: DIRECTOR_ENABLE_PAID_GENERATION
+        value: "false"
       - key: DATABASE_URL
         sync: false
       - key: SUPABASE_URL

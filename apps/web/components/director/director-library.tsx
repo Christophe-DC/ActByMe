@@ -225,7 +225,10 @@ export function AssetLibrary({
         <strong>Ressources privées</strong>
         <span className="director-badge">{assets.length}/200</span>
       </div>
-      <p className="director-hint">Photos, clips et sons restent liés à ce projet.</p>
+      <p className="director-hint">
+        Photos, clips et sons restent liés à ce projet. 50 MiB maximum par fichier (15 MiB par
+        image).
+      </p>
       <input
         ref={fileInput}
         type="file"
@@ -265,7 +268,7 @@ export function AssetLibrary({
         <p className="director-hint">Créez un projet enregistré pour importer vos fichiers.</p>
       ) : !storageReady ? (
         <p className="director-hint">
-          Stockage ou worker non configuré. Consultez le guide d’activation.
+          Stockage privé non configuré. Consultez le guide d’activation.
         </p>
       ) : null}
       {file ? (
