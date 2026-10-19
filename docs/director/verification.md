@@ -1,6 +1,6 @@
 # ACTBYME Director — compte rendu de vérification
 
-Date : 19 octobre 2026. Vérification du code local ; aucun déploiement, aucune migration de production et aucune génération vidéo facturable n’ont été effectués.
+Date : 19 octobre 2026. Ce compte rendu décrit la validation locale précédant la publication. Le déploiement de production intervenu ensuite est suivi dans [production-release.md](production-release.md). Aucune génération vidéo facturable n’a été effectuée.
 
 ## Intégration livrée
 

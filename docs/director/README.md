@@ -62,7 +62,7 @@ Le worker persiste `SUBMITTING` **avant** l’appel payant. Un accusé de récep
 
 ## Activation et mise en production
 
-Aucun déploiement, achat de service ou migration de production n’a été déclenché.
+Le frontend, l’API et les migrations de la version `81d9f24` ont été publiés le 19 octobre 2026 à la demande du propriétaire. L’activation du worker et la recette authentifiée restent à finaliser. Le statut vérifié et les accords nécessaires sont détaillés dans [production-release.md](production-release.md). Aucun générateur vidéo payant n’a été activé.
 
 1. Utiliser Node 24 et pnpm 11.3.0, installer depuis la racine : `pnpm install --frozen-lockfile`.
 2. Sauvegarder la base cible selon le processus de release habituel. Générer Prisma puis appliquer les migrations via le rôle serveur : `pnpm db:generate`, `pnpm db:deploy`. Utiliser la connexion de migration adaptée à votre hébergeur. Les migrations sont additives ; ne pas utiliser `db push` ni réinitialiser la production.
