@@ -12,6 +12,8 @@ import { z } from "zod";
 import { Prisma } from "@actbyme/database";
 import {
   createDirectorDocument,
+  createPerformanceDocument,
+  performanceProductionPlan,
   directorActiveStatuses,
   directorDocumentSchema,
   directorUploadSchema,
@@ -86,11 +88,19 @@ export class DirectorService {
   async create(user: AuthenticatedUser, input: unknown) {
     const data = parseDirector(
       z
-        .object({ title: z.string().trim().min(1).max(140), demo: z.boolean().default(false) })
+        .object({
+          title: z.string().trim().min(1).max(140),
+          demo: z.boolean().default(false),
+          workflow: z.enum(["advertising", "performance"]).optional(),
+        })
         .strict(),
       input,
     );
-    const document = directorDocumentSchema.parse(createDirectorDocument(data.title, data.demo));
+    const document = directorDocumentSchema.parse(
+      data.workflow === "performance"
+        ? createPerformanceDocument(data.title, data.demo)
+        : createDirectorDocument(data.title, data.demo),
+    );
     const project = await this.prisma.client.$transaction(async (transaction) => {
       await transaction.user.upsert({
         where: { id: user.id },
@@ -246,6 +256,17 @@ export class DirectorService {
         );
       return asset;
     };
+    if (document.performance?.sourceAssetId) {
+      const source = requireAsset(document.performance.sourceAssetId, ["video/"])!;
+      if (
+        source.kind !== "performance" ||
+        !source.duration ||
+        Math.abs(source.duration - (document.performance.sourceDuration ?? 0)) > 0.08
+      )
+        throw new BadRequestException(
+          "The original performance must be verified and match the camera plan duration.",
+        );
+    }
     for (const shot of document.shots) {
       shot.referenceIds.forEach((assetId) => requireAsset(assetId));
       const clip = requireAsset(shot.clipAssetId, ["video/"]);
@@ -349,7 +370,9 @@ export class DirectorService {
   }
   async plan(ownerId: string, id: string) {
     const state = await this.get(ownerId, id);
-    return directorProductionPlan(state.document, state.assets, state.version);
+    return state.document.performance
+      ? performanceProductionPlan(state.document, state.assets, state.version)
+      : directorProductionPlan(state.document, state.assets, state.version);
   }
   private async requireWorker(ownerId: string) {
     const capabilities = await this.capabilities(ownerId);
@@ -692,6 +715,7 @@ export class DirectorService {
           requestKey: z.uuid(),
           kind: z.enum(["GENERATE", "EXPORT"]),
           execution: z.enum(["server", "browser"]).default("server"),
+          exportType: z.literal("reference").optional(),
           shotId: z.string().max(80).optional(),
           provider: z.enum(["veo", "higgsfield"]).optional(),
           maxCostCents: z.number().int().min(0).max(100000),
@@ -733,6 +757,17 @@ export class DirectorService {
         if (project.version !== data.version)
           throw new ConflictException("Save the latest version before producing.");
         const document = directorDocumentSchema.parse(project.document);
+        if (
+          document.performance &&
+          (data.kind !== "EXPORT" ||
+            data.execution !== "browser" ||
+            data.exportType !== "reference")
+        )
+          throw new BadRequestException(
+            "Performance plans export free camera references in the browser. AI generation is not part of this workflow.",
+          );
+        if (data.exportType === "reference" && !document.performance)
+          throw new BadRequestException("This project is not a performance camera plan.");
         const assets = await this.validateDocument(ownerId, id, document, transaction);
         const active = await transaction.directorJob.count({
           where: { ownerId, status: { in: directorActiveStatuses } },
@@ -793,7 +828,11 @@ export class DirectorService {
           const exportError =
             data.execution === "browser" ? directorBrowserExportError(document, assets) : null;
           if (exportError) throw new BadRequestException(exportError);
-          if (document.shots.some((shot) => !shot.clipAssetId))
+          if (document.performance && !document.performance.sourceAssetId)
+            throw new BadRequestException(
+              "Import and save an original performance before exporting its camera reference.",
+            );
+          if (!document.performance && document.shots.some((shot) => !shot.clipAssetId))
             throw new BadRequestException(
               "Assign a verified clip to every shot before exporting an MP4.",
             );
@@ -802,6 +841,7 @@ export class DirectorService {
         }
         const usedAssetIds = [
           ...new Set([
+            ...(document.performance?.sourceAssetId ? [document.performance.sourceAssetId] : []),
             ...document.shots.flatMap((shot) => [
               ...directorShotReferenceIds(document, shot),
               ...(shot.clipAssetId ? [shot.clipAssetId] : []),
@@ -832,6 +872,7 @@ export class DirectorService {
               assetIds: usedAssetIds,
               duration: directorDuration(document),
               ...(data.execution === "browser" ? { execution: "browser" } : {}),
+              ...(data.exportType === "reference" ? { reference: true } : {}),
             }),
           },
         });
@@ -883,7 +924,9 @@ export class DirectorService {
           resultAssetId: assetId,
           status: "SUCCEEDED",
           progress: 100,
-          stage: "Ad MP4 available",
+          stage: (job.input as { reference?: boolean }).reference
+            ? "Camera reference MP4 available"
+            : "Ad MP4 available",
         },
       });
       if (!published.count) throw new ConflictException("This export was cancelled or expired.");

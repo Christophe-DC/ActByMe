@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { performanceCameraSchema, performanceReferenceSchema } from "./performance-camera.js";
 
 const identifier = z
   .string()
@@ -35,6 +36,7 @@ export const directorTemplateIds = [
   "pan",
   "tilt",
   "tracking",
+  "performance-angle",
 ] as const;
 export const directorShotSchema = z
   .object({
@@ -52,6 +54,7 @@ export const directorShotSchema = z
     clipOffset: z.number().finite().min(0).max(600),
     originalAudio: z.boolean(),
     followCastId: identifier.nullable(),
+    performanceCamera: performanceCameraSchema.optional(),
   })
   .strict();
 export const directorTrackSchema = z.enum(["performance", "voice", "music", "sfx"]);
@@ -97,12 +100,32 @@ export const directorDocumentSchema = z
     shots: z.array(directorShotSchema).min(1).max(60),
     tracks: z.array(directorTimelineItemSchema).max(120),
     cast: z.array(directorCastSchema).max(20),
+    performance: performanceReferenceSchema.optional(),
   })
   .strict()
   .superRefine((document, context) => {
     const fail = (message: string) => context.addIssue({ code: "custom", message });
     const duration = directorDuration(document);
     if (duration > 600) fail("A Director project can last at most 10 minutes.");
+    if (document.performance) {
+      if (document.shots.length > 30 || duration > 120)
+        fail("Camera references support up to 2 minutes and 30 angles.");
+      if (
+        document.shots.some(
+          (shot) => !shot.performanceCamera || shot.transition !== "cut" || shot.clipAssetId,
+        )
+      )
+        fail("Performance plans require camera angles with cuts, without generated clips.");
+      if (document.performance.sourceAssetId && !document.performance.sourceDuration)
+        fail("The source performance duration is missing.");
+      if (
+        document.performance.sourceDuration &&
+        Math.abs(duration - document.performance.sourceDuration) > 0.001
+      )
+        fail("Camera angles must cover the complete original performance.");
+      if (document.cast.length || document.tracks.length)
+        fail("Performance plans use one neutral stand-in and the original audio.");
+    }
     const ids = [...document.shots, ...document.tracks, ...document.cast].map((item) => item.id);
     if (new Set(ids).size !== ids.length) fail("Timeline and cast identifiers must be unique.");
     const castIds = new Set(document.cast.map((person) => person.id));
@@ -386,6 +409,19 @@ export type DirectorTemplate = {
   points: [number, number, number][];
 };
 export const directorTemplates: DirectorTemplate[] = [
+  {
+    id: "performance-angle",
+    name: "Performance camera",
+    category: "people",
+    description: "A neutral stand-in for planning camera angles and timing.",
+    required: [],
+    prompt:
+      "Use the supplied camera reference for framing and timing. Use the original performance for acting and gestures.",
+    points: [
+      [0, 0.9, 3.8],
+      [0, 0.9, 3.8],
+    ],
+  },
   {
     id: "outside-inside",
     name: "Outside to Inside",

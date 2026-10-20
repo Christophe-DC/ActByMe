@@ -39,6 +39,7 @@ import { supabase } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useDirectorBrowserExport } from "./use-director-browser-export";
 import { useDirectorProject } from "./use-director-project";
+import { PerformanceDirectorEditor } from "./performance-director-editor";
 import { useDirectorDialog } from "./use-director-dialog";
 import { DirectorPreview } from "./director-preview";
 import { DirectorMap } from "./director-map";
@@ -56,9 +57,36 @@ const steps = [
   { id: "perform", label: "Perform", subtitle: "Actors & audio" },
   { id: "generate", label: "Generate", subtitle: "Produce" },
 ] as const;
-export function DirectorEditor({ id }: { id?: string }) {
-  const project = useDirectorProject(id),
-    router = useRouter();
+export function DirectorEditor({ id, legacyDemo = false }: { id?: string; legacyDemo?: boolean }) {
+  const project = useDirectorProject(id, legacyDemo);
+  if (id && !project.loading && !project.state)
+    return (
+      <main className="director-page director-loading">
+        <p role="alert">{project.error ?? "Unable to open this private project."}</p>
+        <button onClick={() => void project.reload()}>Try loading again</button>
+        <Link href="/director">Back to Director</Link>
+      </main>
+    );
+  if (project.loading)
+    return (
+      <main className="director-editor">
+        <DirectorLoading
+          message="Loading your camera plan…"
+          onRetry={() => void project.reload()}
+        />
+      </main>
+    );
+  if (project.document.performance) return <PerformanceDirectorEditor id={id} project={project} />;
+  return <LegacyDirectorEditor id={id} project={project} />;
+}
+function LegacyDirectorEditor({
+  id,
+  project,
+}: {
+  id?: string;
+  project: ReturnType<typeof useDirectorProject>;
+}) {
+  const router = useRouter();
   const { document, state, edit, setError } = project;
   const browserExport = useDirectorBrowserExport(id, project.save, project.refresh, setError);
   const [step, setStep] = useState<(typeof steps)[number]["id"]>("direct"),
@@ -924,7 +952,7 @@ export function DirectorEditor({ id }: { id?: string }) {
         initialMode="login"
         onClose={() => setAuthOpen(false)}
         open={authOpen}
-        returnTo={id ? `/director/${id}` : "/director/demo"}
+        returnTo={id ? `/director/${id}` : "/director/demo?legacy=1"}
       />
       {help ? (
         <div className="director-modal-backdrop">

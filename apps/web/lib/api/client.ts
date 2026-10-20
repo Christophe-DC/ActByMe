@@ -780,10 +780,10 @@ export const directorApi = {
       "/director-projects",
       signal,
     ),
-  create: (title: string, demo: boolean) =>
+  create: (title: string, demo: boolean, workflow?: "performance" | "advertising") =>
     apiFetch<import("@actbyme/shared").DirectorState>("/director-projects", {
       method: "POST",
-      body: JSON.stringify({ title, demo }),
+      body: JSON.stringify({ title, demo, ...(workflow ? { workflow } : {}) }),
     }),
   get: (id: string, signal?: AbortSignal) =>
     directorRead<import("@actbyme/shared").DirectorState>(`/director-projects/${id}`, signal),

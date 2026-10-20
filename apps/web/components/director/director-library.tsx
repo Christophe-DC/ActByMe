@@ -88,6 +88,7 @@ export function TemplateLibrary({
     [category, setCategory] = useState("all");
   const templates = directorTemplates.filter(
     (template) =>
+      template.id !== "performance-angle" &&
       (category === "all" || template.category === category) &&
       `${template.name} ${template.description}`.toLowerCase().includes(search.toLowerCase()),
   );
@@ -95,7 +96,9 @@ export function TemplateLibrary({
     <div className="director-library">
       <div className="director-panel-heading">
         <strong>Shot templates</strong>
-        <span className="director-badge">{directorTemplates.length}</span>
+        <span className="director-badge">
+          {directorTemplates.filter((template) => template.id !== "performance-angle").length}
+        </span>
       </div>
       <label className="director-search">
         <Search size={14} />

@@ -299,6 +299,30 @@ await runVideoCommand(
   ],
   AbortSignal.timeout(30000),
 );
+const performanceSourcePath = join(virtualDirectory, "performance-source.mp4");
+await runVideoCommand(
+  "ffmpeg",
+  [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=teal:s=640x360:r=24:d=2",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:duration=2",
+    "-c:v",
+    "libx264",
+    "-c:a",
+    "aac",
+    "-y",
+    performanceSourcePath,
+  ],
+  AbortSignal.timeout(30000),
+);
+const performanceSource = await readFile(performanceSourcePath);
 const directorSource = await readFile(directorSourcePath),
   directorMusic = await readFile(directorMusicPath),
   directorImage = await readFile(directorImagePath);
@@ -422,7 +446,15 @@ app.use("/test-director-source", (request, response) => {
   const kind = request.query.kind;
   response
     .type(kind === "image" ? "image/png" : kind === "music" ? "audio/wav" : "video/mp4")
-    .send(kind === "image" ? directorImage : kind === "music" ? directorMusic : directorSource);
+    .send(
+      kind === "image"
+        ? directorImage
+        : kind === "music"
+          ? directorMusic
+          : kind === "performance"
+            ? performanceSource
+            : directorSource,
+    );
 });
 app.use(
   "/test-virtual-upload",

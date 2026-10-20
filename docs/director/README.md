@@ -1,5 +1,13 @@
 # ACTBYME Director
 
+## Parcours principal : une performance, plusieurs angles
+
+Le nouveau Director suit **Import → Camera angles → Preview → Export**. Il produit une vraie vidéo de référence de caméra à partir d’un personnage neutre, synchronisée avec une performance originale, sans génération IA payante. Le mode local fonctionne sans compte ; un projet enregistré conserve la performance et les exports dans le stockage privé existant.
+
+Voir le [guide du parcours performance](performance-reference.md) pour les fonctionnalités, limites, choix de rendu et tests. Les anciens projets publicitaires restent accessibles avec leur éditeur et leurs données. Les sections ci-dessous documentent ce parcours historique et ses intégrations optionnelles ; aucune clé de fournisseur ni aucun worker n’est requis pour le nouveau Director.
+
+## Ancien parcours publicitaire
+
 Éditeur publicitaire intégré à `/director`, avec démo libre à `/director/demo`. Le studio de tournage existant reste disponible à `/studio` et AI Virtual Director à `/virtual-director/:id`.
 
 ## Parcours

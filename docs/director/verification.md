@@ -2,7 +2,15 @@
 
 Date : 19 octobre 2026, mise à jour le 20 octobre 2026. Ce compte rendu décrit la validation locale précédant la publication. Le déploiement et les 19 contrôles authentifiés de production sont suivis dans [production-release.md](production-release.md#recette-authentifiée-du-20-octobre-2026). Aucune génération vidéo facturable n’a été effectuée.
 
-## Intégration livrée
+## Nouveau parcours performance — 20 octobre 2026
+
+Le parcours principal de Director est désormais **Import → Camera angles → Preview → Export**, en anglais. Il utilise une seule performance et dix modèles de caméra avec un personnage neutre fixe. Les anciens projets publicitaires conservent leur éditeur ; leur démo reste disponible avec `?legacy=1`. Le [guide du nouveau parcours](performance-reference.md) décrit son architecture, ses limites et sa configuration.
+
+Les nouveaux tests partagés couvrent les dix cadrages, les mouvements, le maintien de la durée source lors des éditions et la compatibilité des anciens documents. Le test PostgreSQL couvre la performance privée, les durées autoritatives, le refus de références étrangères et de génération IA, le coût nul et la publication du MP4 de référence. Cinq parcours Chromium supplémentaires vérifient les imports privé/local, la synchronisation avec le lecteur original, la sauvegarde après connexion, le glisser-déposer, le redimensionnement, la suppression et l’annulation/rétablissement. Les MP4 sont réellement encodés et décodés : 1280×720 avec deux cadrages distincts et un signal audio original mesuré ; 720×1280 en mode local sans écriture serveur. L’annulation d’un export et sa reprise sont aussi contrôlées.
+
+La suite de régression complète comporte désormais **30 tests partagés, 84 tests API et 24 parcours Chromium**, sans test ignoré. La prévisualisation et l’export ne font aucun appel IA. Les réponses d’authentification et le stockage sont isolés dans les fixtures de tests locaux ; le rendu Three.js et FFmpeg.wasm, le MP4 produit et la persistance PostgreSQL sont réels.
+
+## Intégration publicitaire conservée
 
 - Entrée **Director** dans la navigation principale, l’accueil et les projets. Routes `/director`, `/director/demo`, `/director/:id`, avec le projet de démonstration **The Coastal House** clairement identifié.
 - Espaces **Plan**, **Direct**, **Perform**, **Generate** ; treize modèles de plans ; éditeur de caméra 3D et carte avec waypoints déplaçables, timings, cibles, focale, suivi de personnage et vue libre.
@@ -26,9 +34,9 @@ Depuis l’adaptation sans hébergement supplémentaire, les inspections sont co
 | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `pnpm db:generate`                           | Réussi                                                                                     |
 | Migrations sur PostgreSQL isolé              | 22 migrations appliquées, dont Director ; PostgreSQL 18 local et PostgreSQL 16 dans Docker |
-| `pnpm --filter @actbyme/shared test`         | 26 tests réussis, aucun ignoré                                                             |
+| `pnpm --filter @actbyme/shared test`         | 30 tests réussis, aucun ignoré                                                             |
 | `pnpm --filter @actbyme/api test`            | 84 tests réussis, aucun ignoré, avec la base de test locale                                |
-| `pnpm --filter @actbyme/web test:e2e`        | 19 tests Chromium réussis : 10 Director et 9 parcours existants                            |
+| `pnpm --filter @actbyme/web test:e2e`        | 24 tests Chromium réussis : 5 nouveaux, 10 Director historiques et 9 autres parcours       |
 | `pnpm format:check`                          | Réussi                                                                                     |
 | `pnpm lint`                                  | Réussi                                                                                     |
 | `pnpm typecheck`                             | Réussi                                                                                     |

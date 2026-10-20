@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ConfigService } from "@nestjs/config";
-import { UserRole, createDirectorShot } from "@actbyme/shared";
+import { UserRole, createDirectorShot, fitPerformanceDuration } from "@actbyme/shared";
 import { PrismaService } from "../database/prisma.service.js";
 import type { StorageClient } from "../storage/storage.types.js";
 import { runVideoCommand } from "../virtual-director/video-processing.js";
@@ -108,10 +108,15 @@ test(
           (provider) => !provider.ready && provider.reason?.includes("disabled"),
         ),
       );
-      const upload = async (projectId: string, userId: string, payload = bytes) => {
+      const upload = async (
+        projectId: string,
+        userId: string,
+        payload = bytes,
+        kind: "clip" | "performance" = "clip",
+      ) => {
         const reservation = await service.reserve(userId, projectId, {
           name: "result.mp4",
-          kind: "clip",
+          kind,
           contentType: "video/mp4",
           sizeBytes: payload.length,
           rightsBasis: "Synthetic fixture; no real actor.",
@@ -202,6 +207,74 @@ test(
       await assert.rejects(
         service.completeBrowserExport(owner.id, state.id, nextJob.id, { assetId: output }),
         /completed or cancelled/,
+      );
+      // The new performance workflow uses the same private storage and persistence,
+      // but exports the camera reference rather than requiring generated clips.
+      let performance = await service.create(owner, {
+        title: "Private performance plan",
+        demo: false,
+        workflow: "performance",
+      });
+      const original = await upload(performance.id, owner.id, bytes, "performance");
+      const plan = structuredClone(performance.document);
+      fitPerformanceDuration(plan, 2, original);
+      performance = await service.save(owner.id, performance.id, {
+        version: performance.version,
+        document: plan,
+      });
+      const wrongDuration = structuredClone(plan);
+      wrongDuration.shots[0]!.duration = 3;
+      wrongDuration.performance!.sourceDuration = 3;
+      await assert.rejects(
+        service.save(owner.id, performance.id, {
+          version: performance.version,
+          document: wrongDuration,
+        }),
+        /original performance/,
+      );
+      const foreignSource = structuredClone(plan);
+      foreignSource.performance!.sourceAssetId = foreign;
+      await assert.rejects(
+        service.save(owner.id, performance.id, {
+          version: performance.version,
+          document: foreignSource,
+        }),
+        /asset is missing/,
+      );
+      const referenceInput = {
+        ...input,
+        version: performance.version,
+        requestKey: randomUUID(),
+        exportType: "reference",
+      };
+      const referenceState = await service.enqueue(owner.id, performance.id, referenceInput);
+      const referenceJob = referenceState.jobs.find((job) => job.kind === "EXPORT")!;
+      assert.equal(referenceJob.estimatedCostCents, 0);
+      await assert.rejects(
+        service.enqueue(owner.id, performance.id, {
+          ...referenceInput,
+          requestKey: randomUUID(),
+          kind: "GENERATE",
+        }),
+        /Only MP4 export/,
+      );
+      const referenceResult = await upload(performance.id, owner.id);
+      const publishedReference = await service.completeBrowserExport(
+        owner.id,
+        performance.id,
+        referenceJob.id,
+        { assetId: referenceResult },
+      );
+      assert.equal(
+        publishedReference.jobs.find((job) => job.id === referenceJob.id)?.stage,
+        "Camera reference MP4 available",
+      );
+      const exportedPlan = await service.plan(owner.id, performance.id);
+      assert.equal(exportedPlan.format, "actbyme-performance-camera-plan");
+      assert.ok(!JSON.stringify(exportedPlan).includes("DO_NOT_EXPOSE"));
+      assert.equal(
+        (await service.get(owner.id, performance.id)).document.performance!.sourceAssetId,
+        original,
       );
       const malformed = await upload(state.id, owner.id, Buffer.from("fake MP4"));
       assert.equal(

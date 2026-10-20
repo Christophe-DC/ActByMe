@@ -195,6 +195,7 @@ export function directorBrowserExportError(
   if (directorDuration(document) > 120 || document.shots.length > 30)
     return "Browser export is limited to 2 minutes and 30 shots. Export the production plan for longer edits.";
   const used = new Set([
+    ...(document.performance?.sourceAssetId ? [document.performance.sourceAssetId] : []),
     ...document.shots.flatMap((shot) => (shot.clipAssetId ? [shot.clipAssetId] : [])),
     ...document.tracks.flatMap((item) => (item.assetId && item.volume ? [item.assetId] : [])),
   ]);

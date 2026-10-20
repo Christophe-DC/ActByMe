@@ -1,6 +1,6 @@
 /* ACTBYME Director — Cinematic Dark. Scoped to the editor and its project library. */
 body:has(.director-page) > div footer,
-body:has(.director-editor) footer:not(.director-statusbar) {
+body:has(.director-editor) footer:not(.director-statusbar):not(.performance-footer) {
   display: none;
 }
 .director-editor,

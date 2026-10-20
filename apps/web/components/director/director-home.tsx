@@ -16,11 +16,11 @@ import {
   Plus,
   ShieldCheck,
 } from "lucide-react";
-import { directorTemplates } from "@actbyme/shared";
+
 import { directorApi, type DirectorActorRequest } from "@/lib/api/client";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth/auth-modal";
-import { TemplateArt } from "./director-library";
+
 import { downloadDirectorJson } from "./director-generate";
 import { DirectorLoading } from "./director-loading";
 import "./director.css";
@@ -110,8 +110,9 @@ export function DirectorHome() {
     setError(null);
     try {
       const project = await directorApi.create(
-        demo ? "The Coastal House" : title.trim() || "New ad",
+        demo ? "Performance 01" : title.trim() || "Performance 01",
         demo,
+        "performance",
       );
       router.push(`/director/${project.id}`);
     } catch (error) {
@@ -141,16 +142,16 @@ export function DirectorHome() {
         <div>
           <span className="director-eyebrow">
             <span className="director-live-dot" />
-            THE STUDIO FOR YOUR NEXT AD
+            ONE PERFORMANCE. MANY CAMERA ANGLES.
           </span>
           <h1>
-            Edit the video.
+            Direct the camera.
             <br />
-            <em>Before producing it.</em>
+            <em>Keep the performance.</em>
           </h1>
           <p>
-            Plan your shots. Direct the camera. Bring performances and sound together. See your ad
-            take shape before your first AI generation.
+            Import one actor performance, choose your camera angles and compare the plan with the
+            original. Export a free reference video for your usual AI tool.
           </p>
           <div className="director-hero-actions">
             <button
@@ -163,7 +164,7 @@ export function DirectorHome() {
             </button>
             <Link className="director-button" href="/director/demo">
               <Play size={14} />
-              Explore The Coastal House
+              Try the camera demo
             </Link>
           </div>
           <div className="director-hero-features">
@@ -184,24 +185,46 @@ export function DirectorHome() {
         <Link
           href="/director/demo"
           className="director-home-preview"
-          aria-label="Open The Coastal House demo"
+          aria-label="Open performance camera demo"
         >
           <div className="director-mini-topbar">
             <Clapperboard size={12} />
-            <span>THE COASTAL HOUSE</span>
+            <span>PERFORMANCE 01</span>
             <span className="director-badge">DEMO PROJECT</span>
           </div>
           <div className="director-mini-art">
-            <TemplateArt template={directorTemplates[0]!} />
+            <svg
+              viewBox="0 0 600 330"
+              role="img"
+              aria-label="Neutral stand-in with planned camera angles"
+            >
+              <g fill="none" stroke="#edbd72" opacity=".4">
+                <ellipse cx="300" cy="245" rx="155" ry="45" />
+                <path d="M130 180L300 100L480 180 M300 65V275" strokeDasharray="5 8" />
+              </g>
+              <g fill="#a8adb4">
+                <ellipse cx="300" cy="83" rx="27" ry="35" />
+                <rect x="288" y="108" width="24" height="24" rx="9" />
+                <path d="M259 130Q300 113 341 130L329 216H271Z" />
+                <path d="M258 134L238 194L252 200L275 147 M342 134L362 194L348 200L325 147" />
+                <rect x="273" y="209" width="21" height="78" rx="10" />
+                <rect x="306" y="209" width="21" height="78" rx="10" />
+              </g>
+              <g fill="#edbd72">
+                <circle cx="145" cy="205" r="7" />
+                <circle cx="455" cy="205" r="7" />
+                <circle cx="300" cy="288" r="7" />
+              </g>
+            </svg>
             <span className="director-mini-play">
               <Play size={24} />
             </span>
             <div className="director-mini-caption">
-              <span>Outside to Inside</span>
+              <span>Front · Close-up · Profile · Hands · Orbit</span>
               <strong>
-                A place. A story.
+                One performance.
                 <br />
-                Your direction.
+                Your camera plan.
               </strong>
             </div>
           </div>
@@ -215,7 +238,7 @@ export function DirectorHome() {
             <span />
           </div>
           <p>
-            <span>3 shots · 30 seconds</span>
+            <span>5 angles · 15 seconds</span>
             <span>
               Open preview <ArrowUpRight size={13} />
             </span>
@@ -251,7 +274,7 @@ export function DirectorHome() {
                 aria-label="New Director project name"
                 maxLength={140}
                 value={title}
-                placeholder="My next ad"
+                placeholder="My next performance"
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>
@@ -382,7 +405,10 @@ export function DirectorHome() {
           <ArrowLeft size={14} />
           Back to ACTBYME
         </Link>
-        <p>Planning is free. AI generation is optional and requires explicit confirmation.</p>
+        <p>
+          Import → Choose angles → Preview → Export. No paid AI generation or render worker
+          required.
+        </p>
       </div>
       <AuthModal
         initialMode="login"

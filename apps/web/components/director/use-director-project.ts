@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createDirectorDocument,
+  createPerformanceDocument,
   directorDocumentSchema,
   type DirectorDocument,
   type DirectorState,
@@ -17,23 +18,25 @@ const emptyCapabilities: DirectorState["capabilities"] = {
   budgetCents: 0,
   reservedCents: 0,
 };
-export function useDirectorProject(id?: string) {
+export function useDirectorProject(id?: string, legacyDemo = false) {
+  const initialDocument = () =>
+    legacyDemo
+      ? createDirectorDocument("The Coastal House", true)
+      : createPerformanceDocument("Performance 01", true);
   const [state, setState] = useState<DirectorState | null>(
     id
       ? null
       : {
           id: "demo",
           version: 1,
-          document: createDirectorDocument("The Coastal House", true),
+          document: initialDocument(),
           assets: [],
           jobs: [],
           capabilities: emptyCapabilities,
           updatedAt: new Date().toISOString(),
         },
   );
-  const [document, setDocument] = useState<DirectorDocument>(
-    createDirectorDocument("The Coastal House", true),
-  );
+  const [document, setDocument] = useState<DirectorDocument>(initialDocument());
   const stateRef = useRef(state);
   stateRef.current = state;
   const current = useRef(document),
@@ -42,7 +45,7 @@ export function useDirectorProject(id?: string) {
     inFlight = useRef<Promise<DirectorState | null> | null>(null);
   const [loading, setLoading] = useState(Boolean(id)),
     [error, setError] = useState<string | null>(null),
-    [saveStatus, setSaveStatus] = useState("Chargement…"),
+    [saveStatus, setSaveStatus] = useState("Loading…"),
     [conflict, setConflict] = useState(false);
   const blocked = useRef(false),
     [recovered, setRecovered] = useState(false);
@@ -166,7 +169,7 @@ export function useDirectorProject(id?: string) {
     }
     if (JSON.stringify(current.current) === saved.current) return stateRef.current;
     const snapshot = structuredClone(current.current);
-    setSaveStatus("Enregistrement…");
+    setSaveStatus("Saving…");
     const pending = directorApi
       .save(id, version.current, snapshot)
       .then((result) => {

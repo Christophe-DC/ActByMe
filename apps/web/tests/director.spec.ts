@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createDirectorShot } from "@actbyme/shared";
 import { safeAuthReturnTo } from "../lib/auth/return-to";
+import { login } from "./helpers/director-auth";
 test.use({ actionTimeout: 15000 });
 async function expectRenderedScene(page: Page) {
   await expect
@@ -29,52 +30,6 @@ async function expectRenderedScene(page: Page) {
     )
     .toBeGreaterThan(8);
 }
-async function login(page: Page, id: string, initialSession = true) {
-  const user = {
-    id,
-    aud: "authenticated",
-    role: "authenticated",
-    email: "director-test@studio.test",
-    app_metadata: { role: "CLIENT" },
-    user_metadata: {},
-  };
-  if (initialSession)
-    await page.addInitScript(
-      ({ user }) =>
-        localStorage.setItem(
-          "sb-studio-test-auth-token",
-          JSON.stringify({
-            access_token: "studio-token",
-            refresh_token: "studio-refresh",
-            token_type: "bearer",
-            expires_at: Math.floor(Date.now() / 1000) + 3600,
-            user,
-          }),
-        ),
-      { user },
-    );
-  await page.route("https://studio-test.supabase.co/**", (route) =>
-    route.fulfill({
-      json: new URL(route.request().url()).pathname.endsWith("/token")
-        ? {
-            access_token: "studio-token",
-            refresh_token: "studio-refresh",
-            token_type: "bearer",
-            expires_in: 3600,
-            user,
-          }
-        : user,
-    }),
-  );
-  await page.route("http://127.0.0.1:4401/**", async (route) => {
-    if (route.request().url().includes("/users/me"))
-      return route.fulfill({ json: { ...user, role: "CLIENT" } });
-    if (route.request().url().includes("/notifications")) return route.fulfill({ json: [] });
-    await route.continue({
-      headers: { ...route.request().headers(), "x-user-id": id, "x-user-role": "CLIENT" },
-    });
-  });
-}
 test("Director: create, direct, import, synchronize, persist, replace a shot and export real MP4", async ({
   page,
   request,
@@ -83,9 +38,13 @@ test("Director: create, direct, import, synchronize, persist, replace a shot and
   const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
   await login(page, fixture.ownerId);
   await page.setViewportSize({ width: 1440, height: 1050 });
-  await page.goto("/director");
-  await page.getByLabel("New Director project name").fill("Director browser advertising test");
-  await page.getByRole("button", { name: "Create project", exact: true }).click();
+  const legacy = await (
+    await request.post("http://127.0.0.1:4401/director-projects", {
+      headers: { "x-user-id": fixture.ownerId, "x-user-role": "CLIENT" },
+      data: { title: "Legacy advertising project", demo: false },
+    })
+  ).json();
+  await page.goto(`/director/${legacy.id}`);
   await expect(page).toHaveURL(/\/director\/[a-f0-9-]+$/);
   const id = page.url().split("/").at(-1)!,
     headers = { "x-user-id": fixture.ownerId, "x-user-role": "CLIENT" },
@@ -275,7 +234,7 @@ test("Director demo: editing, undo, split, responsive layout and WebGL fallback 
     return route.abort();
   });
   await page.setViewportSize({ width: 1360, height: 950 });
-  await page.goto("/director/demo");
+  await page.goto("/director/demo?legacy=1");
   await expect(page.locator("canvas")).toBeVisible();
   await expectRenderedScene(page);
   await page.screenshot({ path: "test-results/director-demo-desktop.png", fullPage: true });
@@ -466,7 +425,7 @@ test("Authentication destinations reject external URLs and OAuth consumes only a
     ),
   );
   await page.goto("/profile");
-  await expect(page).toHaveURL(/\/director\/demo$/);
+  await expect(page).toHaveURL(/\/director\/demo(?:\?legacy=1)?$/);
   expect(await page.evaluate(() => sessionStorage.getItem("actbyme-auth-return-to"))).toBeNull();
   for (const [path, expiresAt] of [
     ["/director/demo", 1],
@@ -551,7 +510,7 @@ test("Director stops after two failed reads and allows an explicit project reloa
 test("Director panels and imported-file controls stay within the viewport at every supported width", async ({
   page,
 }) => {
-  await page.goto("/director/demo");
+  await page.goto("/director/demo?legacy=1");
   for (const width of [1440, 1024, 820, 768, 600, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const step of ["Generate", "Direct", "Perform", "Plan"]) {
@@ -581,7 +540,7 @@ test("Director demo asks for login before saving and keeps the edited camera aft
 }) => {
   const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
   await login(page, fixture.ownerId, false);
-  await page.goto("/director/demo");
+  await page.goto("/director/demo?legacy=1");
   await page.getByLabel("Camera height").fill("2.5");
   await page.getByRole("button", { name: "Save to my account", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Log in", exact: true });
@@ -590,7 +549,7 @@ test("Director demo asks for login before saving and keeps the edited camera aft
   await dialog.getByLabel("Password", { exact: true }).fill("test-only-password");
   await dialog.locator("form").getByRole("button", { name: "Login", exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page).toHaveURL(/\/director\/demo$/);
+  await expect(page).toHaveURL(/\/director\/demo(?:\?legacy=1)?$/);
   await expect(page.getByLabel("Camera height")).toHaveValue("2.5");
   await page.getByRole("button", { name: "Save to my account", exact: true }).click();
   await expect(page).toHaveURL(/\/director\/[a-f0-9-]+$/);
@@ -600,7 +559,7 @@ test("Director demo asks for login before saving and keeps the edited camera aft
 test("Director uses English across planning, camera controls, casting, production and help", async ({
   page,
 }) => {
-  await page.goto("/director/demo");
+  await page.goto("/director/demo?legacy=1");
   const expectEnglishInterface = async () => {
     const copy = await page.getByRole("main").evaluate((main) => {
       const labels = Array.from(main.querySelectorAll("[aria-label], [title], [placeholder]"))
