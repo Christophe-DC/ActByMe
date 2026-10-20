@@ -92,7 +92,7 @@ test("documented Veo and Higgsfield contracts, safe polling and cancellation", a
     const before = calls.length;
     await assert.rejects(
       providers.download("veo", "https://attacker.test/file.mp4", signal),
-      /Hôte/,
+      /host/,
     );
     assert.equal(calls.length, before);
     assert.equal(
@@ -125,7 +125,7 @@ test("provider failures remain failures and rate limits are retryable only by th
         { id: "models/veo-3.1-generate-preview/operations/filtered" },
         AbortSignal.timeout(5000),
       ),
-      /aucun clip/,
+      /no clip/,
     );
   } finally {
     globalThis.fetch = nativeFetch;

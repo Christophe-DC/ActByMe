@@ -64,7 +64,7 @@ export function useDirectorBrowserExport(
     startedAt.current = Date.now();
     setElapsedSeconds(0);
     const signal = task.controller.signal;
-    setStatus({ progress: 0, stage: "Enregistrement du montage" });
+    setStatus({ progress: 0, stage: "Saving the edit" });
     try {
       const saved = await onSave();
       signal.throwIfAborted();
@@ -85,7 +85,7 @@ export function useDirectorBrowserExport(
           job.status === "PROCESSING" &&
           !saved.jobs.some((old) => old.id === job.id),
       )?.id;
-      if (!task.jobId) throw new Error("L’export n’a pas pu démarrer.");
+      if (!task.jobId) throw new Error("Unable to start the export.");
       signal.throwIfAborted();
       await onRefresh();
       const file = await renderDirectorInBrowser(id, saved, signal, (progress, stage) =>
@@ -95,13 +95,13 @@ export function useDirectorBrowserExport(
       if (download.current) URL.revokeObjectURL(download.current);
       download.current = URL.createObjectURL(file);
       setLocalFile({ url: download.current, name: file.name });
-      setStatus({ progress: 88, stage: "Sauvegarde privée du MP4" });
+      setStatus({ progress: 88, stage: "Saving the private MP4" });
       const reserved = await directorApi.reserve(id, {
         name: file.name,
         kind: "clip",
         contentType: "video/mp4",
         sizeBytes: file.size,
-        rightsBasis: `Assemblage autorisé du projet ${id}, version ${saved.version}.`,
+        rightsBasis: `Authorized assembly of project ${id}, version ${saved.version}.`,
         rightsConfirmed: true,
         aiTransferAllowed: false,
       });
@@ -110,7 +110,7 @@ export function useDirectorBrowserExport(
         reserved.upload,
         file,
         "video/mp4",
-        (value) => setStatus({ progress: 88 + value * 0.06, stage: "Sauvegarde privée du MP4" }),
+        (value) => setStatus({ progress: 88 + value * 0.06, stage: "Saving the private MP4" }),
         signal,
       );
       signal.throwIfAborted();
@@ -121,13 +121,13 @@ export function useDirectorBrowserExport(
       ) {
         if (Date.now() > deadline)
           throw new Error(
-            "La vérification du MP4 prend trop de temps. Le fichier reste téléchargeable ici.",
+            "MP4 verification is taking too long. You can still download the file here.",
           );
-        setStatus({ progress: 95, stage: "Vérification du MP4 sauvegardé" });
+        setStatus({ progress: 95, stage: "Verifying the saved MP4" });
         await new Promise<void>((resolve, reject) => {
           const stop = () => {
             clearTimeout(timer);
-            reject(new DOMException("Annulé", "AbortError"));
+            reject(new DOMException("Cancelled", "AbortError"));
           };
           const timer = setTimeout(() => {
             signal.removeEventListener("abort", stop);
@@ -139,8 +139,7 @@ export function useDirectorBrowserExport(
         checked = await directorApi.get(id);
       }
       const result = checked.assets.find((asset) => asset.id === reserved.assetId);
-      if (result?.status !== "READY")
-        throw new Error(result?.error ?? "La vérification du MP4 a échoué.");
+      if (result?.status !== "READY") throw new Error(result?.error ?? "MP4 verification failed.");
       signal.throwIfAborted();
       await directorApi.mutate(id, `jobs/${task.jobId}/browser-result`, {
         assetId: reserved.assetId,
@@ -154,7 +153,7 @@ export function useDirectorBrowserExport(
         onError(
           error instanceof Error
             ? error.message
-            : "Export navigateur impossible. Réessayez sur un ordinateur récent.",
+            : "Browser export failed. Try again on a recent desktop computer.",
         );
       await onRefresh().catch(() => undefined);
     } finally {

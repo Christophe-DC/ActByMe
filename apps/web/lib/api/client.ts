@@ -137,7 +137,7 @@ async function uploadToSignedUrl(
     });
     request.timeout = 120000;
     request.addEventListener("timeout", () =>
-      reject(new Error("Le transfert a dépassé deux minutes. Réessayez.")),
+      reject(new Error("The upload exceeded two minutes. Please try again.")),
     );
     const formData = new FormData();
     formData.append("cacheControl", "3600");
@@ -765,13 +765,13 @@ async function directorRead<T>(endpoint: string, signal?: AbortSignal): Promise<
       if (signal?.aborted) throw error;
       if (error instanceof APIError && ![502, 503, 504].includes(error.status)) throw error;
       if (attempt === 1)
-        throw new Error("Le studio ne répond pas pour le moment. Réessayez le chargement.", {
+        throw new Error("The studio is not responding right now. Try loading again.", {
           cause: error,
         });
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
-  throw new Error("Impossible de joindre le studio.");
+  throw new Error("Unable to connect to the studio.");
 }
 
 export const directorApi = {

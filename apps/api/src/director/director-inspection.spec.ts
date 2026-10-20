@@ -55,7 +55,7 @@ test(
         else assert.equal(data.duration, null);
         await assert.rejects(
           inspectDirectorBytes(bytes, audio ? "image/png" : "audio/wav", signal),
-          /format réel/,
+          /actual format/,
         );
       }
       await assert.rejects(

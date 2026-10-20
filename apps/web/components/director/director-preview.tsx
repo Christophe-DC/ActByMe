@@ -11,7 +11,7 @@ import {
 import { directorApi } from "@/lib/api/client";
 const DirectorCanvas = dynamic(() => import("./director-canvas"), {
   ssr: false,
-  loading: () => <div className="director-loading">Préparation de la scène 3D…</div>,
+  loading: () => <div className="director-loading">Preparing the 3D scene…</div>,
 });
 class PreviewBoundary extends Component<
   { children: ReactNode; onFailure: () => void },
@@ -27,7 +27,7 @@ class PreviewBoundary extends Component<
   render() {
     return this.state.failed ? (
       <div className="director-loading">
-        WebGL indisponible. Utilisez la vue du dessus et les réglages de caméra.
+        WebGL is unavailable. Use the top view and camera controls.
       </div>
     ) : (
       this.props.children
@@ -68,8 +68,8 @@ function Media({
         if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
         onError(
           error instanceof DOMException && error.name === "NotAllowedError"
-            ? "Le navigateur a suspendu l’audio ou la lecture. Cliquez à nouveau sur Lecture après le chargement."
-            : "Le navigateur ne peut pas lire ce média. Vérifiez son format et réessayez la prévisualisation.",
+            ? "The browser paused audio or playback. Click Play again once loading finishes."
+            : "The browser cannot play this media. Check the format and try previewing again.",
         );
       });
     if (!playing && !element.paused) element.pause();
@@ -90,9 +90,7 @@ function Media({
       playsInline
       preload={preload}
       muted={volume === 0}
-      onError={() =>
-        onError("Clip indisponible. Réessayez après avoir renouvelé la prévisualisation.")
-      }
+      onError={() => onError("Clip unavailable. Refresh the preview and try again.")}
     />
   ) : (
     <audio ref={ref} src={url} preload={preload} />
@@ -165,8 +163,7 @@ export function DirectorPreview({
               expires: Date.now() + result.expiresInSeconds * 1000,
             };
           } catch {
-            if (active())
-              onError("Impossible de charger une ressource privée de prévisualisation.");
+            if (active()) onError("Unable to load a private preview asset.");
             return null;
           } finally {
             requested.current.delete(assetId);
@@ -219,33 +216,33 @@ export function DirectorPreview({
         <div>
           <strong>Camera preview</strong>
           <span className="director-badge">
-            {mode === "3d" ? "3D previs · gratuit" : "Clips importés / générés"}
+            {mode === "3d" ? "3D preview · free" : "Imported / generated clips"}
           </span>
         </div>
         <div className="director-inline">
           <select
-            aria-label="Mode de prévisualisation"
+            aria-label="Preview mode"
             value={mode}
             onChange={(event) => setMode(event.target.value)}
           >
-            <option value="3d">Prévisualisation 3D</option>
-            <option value="clips">Clips de production</option>
+            <option value="3d">3D preview</option>
+            <option value="clips">Production clips</option>
           </select>
           <button
-            title="Vue libre : glisser pour orbiter, molette pour zoomer"
+            title="Free view: drag to orbit, scroll to zoom"
             aria-pressed={free}
-            aria-label="Vue 3D libre"
+            aria-label="Free 3D view"
             onClick={() => setFree(!free)}
           >
             <Move3D size={15} />
           </button>
           <button
-            aria-label="Plein écran"
+            aria-label="Full screen"
             onClick={() => {
               if (!window.document.fullscreenElement)
                 void root.current
                   ?.requestFullscreen()
-                  .catch(() => onError("Le plein écran est indisponible."));
+                  .catch(() => onError("Full screen is unavailable."));
               else void window.document.exitFullscreen();
             }}
           >
@@ -282,8 +279,8 @@ export function DirectorPreview({
                 <Move3D size={30} />
                 <p>
                   {available === null
-                    ? "Vérification WebGL…"
-                    : "La 3D est indisponible sur ce navigateur. La carte et l’édition restent utilisables."}
+                    ? "Checking WebGL…"
+                    : "3D is unavailable in this browser. The map and editor are still usable."}
                 </p>
               </div>
             )
@@ -300,7 +297,7 @@ export function DirectorPreview({
           ) : (
             <div className="director-loading">
               <Video size={30} />
-              <p>Associez un clip à ce plan dans Generate pour le visionner ici.</p>
+              <p>Assign a clip to this shot in Generate to watch it here.</p>
             </div>
           )}
           <div className="director-framing" aria-hidden="true" />
@@ -329,11 +326,11 @@ export function DirectorPreview({
       <div className="director-preview-caption">
         <span>
           {mode === "3d"
-            ? "Décor et personnages schématiques — aucune reconstruction de vos photos."
-            : "Visionnage des fichiers source. Le MP4 final applique le mixage de la timeline."}
+            ? "Schematic scene and characters — no reconstruction of your photos."
+            : "Viewing source clips. The final MP4 applies the timeline audio mix."}
         </span>
         <span>
-          <Volume2 size={12} /> Audio synchronisé
+          <Volume2 size={12} /> Synced audio
         </span>
       </div>
       {document.tracks

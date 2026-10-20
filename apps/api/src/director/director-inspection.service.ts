@@ -29,7 +29,7 @@ export class DirectorInspectionService implements OnModuleInit, OnModuleDestroy 
     const run = () => {
       this.running = this.tick()
         .catch(() => {
-          this.logger.warn("Inspection Director indisponible ; reprise automatique.");
+          this.logger.warn("Director inspection is unavailable; retrying automatically.");
         })
         .finally(() => {
           if (!this.shutdown.signal.aborted) {
@@ -59,8 +59,8 @@ export class DirectorInspectionService implements OnModuleInit, OnModuleDestroy 
         },
         data: {
           status: "FAILED",
-          stage: "Export navigateur expiré",
-          error: "L’onglet a été fermé ou l’export a dépassé deux heures. Relancez l’export.",
+          stage: "Browser export expired",
+          error: "The tab was closed or the export exceeded two hours. Start the export again.",
         },
       });
     }
@@ -75,7 +75,7 @@ export class DirectorInspectionService implements OnModuleInit, OnModuleDestroy 
           claimToken: randomUUID(),
           leaseUntil: new Date(Date.now() + 90000),
           status: "PROCESSING",
-          stage: "Vérification du fichier dans l’API",
+          stage: "Verifying the file in the API",
           progress: 20,
         },
       });
@@ -90,10 +90,10 @@ export class DirectorInspectionService implements OnModuleInit, OnModuleDestroy 
         where: { id: assetId, projectId: job.projectId, status: "INSPECTING" },
       });
       if (asset.sizeBytes > 50 * 1024 * 1024)
-        throw new Error("Import limité à 50 MiB sans worker dédié.");
+        throw new Error("Imports are limited to 50 MiB without a dedicated worker.");
       // The timeout releases this queue even if the storage transport stalls.
       const bytes = await new Promise<Uint8Array>((resolve, reject) => {
-        const stop = () => reject(new Error("Le téléchargement a dépassé le délai autorisé."));
+        const stop = () => reject(new Error("The download exceeded the allowed time."));
         signal.addEventListener("abort", stop, { once: true });
         this.storage
           .getObjectInfo(asset.storageKey)
@@ -102,21 +102,21 @@ export class DirectorInspectionService implements OnModuleInit, OnModuleDestroy 
               info.sizeBytes !== asset.sizeBytes ||
               info.contentType?.split(";")[0] !== asset.contentType
             )
-              throw new Error("La ressource stockée a changé.");
+              throw new Error("The stored asset has changed.");
             signal.throwIfAborted();
             return this.storage.downloadObject(asset.storageKey);
           })
           .then(resolve, reject)
           .finally(() => signal.removeEventListener("abort", stop));
       });
-      if (bytes.length !== asset.sizeBytes) throw new Error("Fichier incomplet.");
+      if (bytes.length !== asset.sizeBytes) throw new Error("Incomplete file.");
       const metadata = await inspectDirectorBytes(bytes, asset.contentType, signal);
       await this.prisma.client.$transaction(async (transaction) => {
         const changed = await transaction.directorJob.updateMany({
           where: guard,
           data: {
             status: "SUCCEEDED",
-            stage: "Ressource vérifiée",
+            stage: "Asset verified",
             progress: 100,
             claimToken: null,
             leaseUntil: null,
@@ -136,14 +136,14 @@ export class DirectorInspectionService implements OnModuleInit, OnModuleDestroy 
         });
         return;
       }
-      const message = error instanceof Error ? error.message.slice(0, 1000) : "Fichier illisible.";
+      const message = error instanceof Error ? error.message.slice(0, 1000) : "Unreadable file.";
       await this.prisma.client.$transaction(async (transaction) => {
         const changed = await transaction.directorJob.updateMany({
           where: guard,
           data: {
             status: "FAILED",
             error: message,
-            stage: "Échec de la vérification",
+            stage: "Verification failed",
             claimToken: null,
             leaseUntil: null,
           },

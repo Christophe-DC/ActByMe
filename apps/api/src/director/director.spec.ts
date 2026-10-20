@@ -149,8 +149,8 @@ test(
       });
       await worker.verifyRuntime();
       await suite.test("owner isolation, saved revisions and stale writes", async () => {
-        await assert.rejects(service.get(other.id, state.id), /introuvable/);
-        await assert.rejects(service.plan(other.id, state.id), /introuvable/);
+        await assert.rejects(service.get(other.id, state.id), /not found/);
+        await assert.rejects(service.plan(other.id, state.id), /not found/);
         const document = structuredClone(state.document);
         document.shots = [
           createDirectorShot("dolly-in", "one", 4),
@@ -159,7 +159,7 @@ test(
         state = await service.save(owner.id, state.id, { version: state.version, document });
         await assert.rejects(
           service.save(owner.id, state.id, { version: 1, document }),
-          /modifié ailleurs/,
+          /modified elsewhere/,
         );
         assert.equal((await service.history(owner.id, state.id)).length, 2);
         assert.equal((await service.get(owner.id, state.id)).version, 2);
@@ -225,7 +225,7 @@ test(
           assert.equal(asset.status, "READY");
           assert.equal(asset.duration, 8);
           assert.equal(asset.width, 320);
-          await assert.rejects(service.media(other.id, state.id, clipId), /introuvable/);
+          await assert.rejects(service.media(other.id, state.id, clipId), /not found/);
           assert.equal((await service.media(owner.id, state.id, clipId)).expiresInSeconds, 300);
           assert.ok(!JSON.stringify(state).includes("storageKey"));
           assert.ok(!JSON.stringify(state).includes("PUBLIC_URL"));
@@ -239,13 +239,13 @@ test(
           document.shots[0]!.clipAssetId = randomUUID();
           await assert.rejects(
             service.save(owner.id, state.id, { version: state.version, document }),
-            /Ressource/,
+            /asset/,
           );
           document.shots[0]!.clipAssetId = clipId!;
           document.shots[0]!.duration = 10;
           await assert.rejects(
             service.save(owner.id, state.id, { version: state.version, document }),
-            /trop court/,
+            /too short/,
           );
         },
       );
@@ -270,7 +270,7 @@ test(
           state = await service.save(owner.id, state.id, { version: state.version, document });
           await assert.rejects(
             service.assertGenerationRights(prisma.client, state.id, state.document),
-            /autorisation/,
+            /permission/,
           );
           const [grant] = await service.requestGrant(owner.id, state.id, {
             actorProfileId: actor.id,
@@ -283,7 +283,7 @@ test(
             aiTransformation: true,
             providerTransfer: true,
           };
-          await assert.rejects(service.acceptGrant(other.id, grant!.id, input), /introuvable/);
+          await assert.rejects(service.acceptGrant(other.id, grant!.id, input), /not found/);
           await service.acceptGrant(actorUser.id, grant!.id, input);
           await service.assertGenerationRights(prisma.client, state.id, state.document);
           const changed = structuredClone(state.document);
@@ -291,12 +291,12 @@ test(
           assert.notEqual(directorConsentScope(changed), directorConsentScope(state.document));
           await assert.rejects(
             service.assertGenerationRights(prisma.client, state.id, changed),
-            /autorisation/,
+            /permission/,
           );
           await service.acceptGrant(actorUser.id, grant!.id, { ...input, accept: false });
           await assert.rejects(
             service.assertGenerationRights(prisma.client, state.id, state.document),
-            /autorisation/,
+            /permission/,
           );
           const cleared = structuredClone(state.document);
           cleared.cast = [];
@@ -331,9 +331,9 @@ test(
               confirmBillable: false,
               confirmRights: true,
             }),
-            /Confirmez/,
+            /confirm the provider/,
           );
-          await assert.rejects(enqueue(randomUUID(), 39), /plafond/);
+          await assert.rejects(enqueue(randomUUID(), 39), /spending limit/);
           const key = randomUUID();
           await Promise.all([enqueue(key), enqueue(key)]);
           assert.equal(
@@ -342,7 +342,7 @@ test(
             }),
             1,
           );
-          await assert.rejects(enqueue(key, 60), /Clé de demande/);
+          await assert.rejects(enqueue(key, 60), /Request key/);
           const job = await prisma.client.directorJob.findFirstOrThrow({
             where: { ownerId: owner.id, kind: "GENERATE" },
           });
@@ -399,7 +399,7 @@ test(
             state.assets.find((asset) => asset.id === job.resultAssetId)!.duration! < 8.15,
             true,
           );
-          await assert.rejects(service.removeAsset(owner.id, state.id, clipId!), /historique/);
+          await assert.rejects(service.removeAsset(owner.id, state.id, clipId!), /history/);
           const history = await service.history(owner.id, state.id);
           const original = history.find((revision) => revision.version === 1)!;
           const restored = await service.restore(owner.id, state.id, {
@@ -422,7 +422,7 @@ test(
           const job = queued.jobs.find(
             (job) => job.kind === "GENERATE" && job.status === "QUEUED",
           )!;
-          await assert.rejects(service.cancel(other.id, state.id, job.id), /introuvable/);
+          await assert.rejects(service.cancel(other.id, state.id, job.id), /not found/);
           await service.cancel(owner.id, state.id, job.id);
           const before = submissions;
           await worker.tick(signal);
@@ -455,7 +455,7 @@ test(
           assert.match(
             (await prisma.client.directorJob.findUniqueOrThrow({ where: { id: interrupted.id } }))
               .error!,
-            /ambiguë/,
+            /ambiguous/,
           );
         },
       );
@@ -490,7 +490,7 @@ test(
           );
           assert.ok((await service.capabilities(owner.id)).reservedCents > 0);
           config.set("DIRECTOR_MONTHLY_BUDGET_CENTS", "1");
-          await assert.rejects(enqueue(), /budget mensuel/);
+          await assert.rejects(enqueue(), /monthly budget/);
           config.set("DIRECTOR_MONTHLY_BUDGET_CENTS", "1000");
         },
       );

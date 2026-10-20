@@ -20,9 +20,9 @@ import { directorDuration, type DirectorDocument, type DirectorTrack } from "@ac
 export type DirectorSelection = { kind: "shot" | "track"; id: string };
 const tracks: { id: DirectorTrack; label: string; icon: typeof Volume2 }[] = [
   { id: "performance", label: "Performances", icon: UserRound },
-  { id: "voice", label: "Voix & dialogues", icon: Mic2 },
-  { id: "music", label: "Musique", icon: AudioLines },
-  { id: "sfx", label: "Effets sonores", icon: Volume2 },
+  { id: "voice", label: "Voice & dialogue", icon: Mic2 },
+  { id: "music", label: "Music", icon: AudioLines },
+  { id: "sfx", label: "Sound effects", icon: Volume2 },
 ];
 export function resizeDirectorShot(document: DirectorDocument, id: string, duration: number) {
   const shot = document.shots.find((shot) => shot.id === id);
@@ -124,7 +124,7 @@ export function DirectorTimeline({
   return (
     <section
       className="director-timeline"
-      aria-label="Timeline multipiste"
+      aria-label="Multitrack timeline"
       onPointerMove={(event) => movePointer(event.clientX)}
       onPointerUp={commitPointer}
       onPointerCancel={() => setPointer(null)}
@@ -132,44 +132,44 @@ export function DirectorTimeline({
       <div className="director-timeline-tools">
         <div className="director-inline">
           <strong>Timeline</strong>
-          <span>{duration.toFixed(1)} secondes</span>
+          <span>{duration.toFixed(1)} seconds</span>
           <span className="director-badge">24 fps</span>
         </div>
         <div className="director-inline">
           <button
-            aria-label="Découper au curseur"
-            title="Découper au curseur (S)"
+            aria-label="Split at playhead"
+            title="Split at playhead (S)"
             onClick={onSplit}
             disabled={selection.kind !== "shot"}
           >
             <Scissors size={14} />
           </button>
-          <button aria-label="Copier la sélection" title="Copier (⌘C)" onClick={onCopy}>
+          <button aria-label="Copy selection" title="Copy (⌘C)" onClick={onCopy}>
             <Copy size={14} />
           </button>
           <button
-            aria-label="Coller la sélection"
-            title="Coller (⌘V)"
+            aria-label="Paste selection"
+            title="Paste (⌘V)"
             disabled={!canPaste}
             onClick={onPaste}
           >
             <ClipboardPaste size={14} />
           </button>
-          <button aria-label="Dupliquer la sélection" title="Dupliquer (⌘D)" onClick={onDuplicate}>
+          <button aria-label="Duplicate selection" title="Duplicate (⌘D)" onClick={onDuplicate}>
             <Layers2 size={14} />
           </button>
-          <button aria-label="Supprimer la sélection" title="Supprimer" onClick={onDelete}>
+          <button aria-label="Delete selection" title="Delete" onClick={onDelete}>
             <Trash2 size={14} />
           </button>
           <span className="director-tool-divider" />
           <button
-            aria-label="Réduire le zoom timeline"
+            aria-label="Zoom out timeline"
             onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
           >
             <Minus size={14} />
           </button>
           <input
-            aria-label="Zoom timeline"
+            aria-label="Timeline zoom"
             type="range"
             min="0.5"
             max="5"
@@ -177,10 +177,7 @@ export function DirectorTimeline({
             value={zoom}
             onChange={(event) => setZoom(Number(event.target.value))}
           />
-          <button
-            aria-label="Agrandir le zoom timeline"
-            onClick={() => setZoom(Math.min(5, zoom + 0.25))}
-          >
+          <button aria-label="Zoom in timeline" onClick={() => setZoom(Math.min(5, zoom + 0.25))}>
             <Plus size={14} />
           </button>
         </div>
@@ -189,10 +186,10 @@ export function DirectorTimeline({
         <div className="director-track-labels">
           <div className="director-ruler-spacer" />
           <div>
-            <Clapperboard size={14} /> Plans
+            <Clapperboard size={14} /> Shots
           </div>
           <div>
-            <Camera size={14} /> Caméras
+            <Camera size={14} /> Cameras
           </div>
           {tracks.map(({ id, label, icon: Icon }) => (
             <div key={id}>
@@ -213,7 +210,7 @@ export function DirectorTimeline({
               onPointerMove={(event) => {
                 if (event.buttons === 1) onSeek(timeFromX(event.clientX));
               }}
-              aria-label="Règle temporelle"
+              aria-label="Time ruler"
               role="slider"
               tabIndex={0}
               aria-valuemin={0}
@@ -274,7 +271,7 @@ export function DirectorTimeline({
                 >
                   <button
                     className="director-clip-select"
-                    aria-label={`Plan ${index + 1} : ${shot.name}`}
+                    aria-label={`Shot ${index + 1} : ${shot.name}`}
                     onClick={() => {
                       onSelect({ kind: "shot", id: shot.id });
                       onSeek(start);
@@ -286,11 +283,11 @@ export function DirectorTimeline({
                     </span>
                     <span>{shot.name}</span>
                     <small>
-                      {shot.duration.toFixed(1)}s {shot.transition === "fade" ? "· fondu" : ""}
+                      {shot.duration.toFixed(1)}s {shot.transition === "fade" ? "· fade" : ""}
                     </small>
                   </button>
                   <button
-                    aria-label={`Redimensionner ${shot.name}`}
+                    aria-label={`Resize ${shot.name}`}
                     className="director-resize-handle"
                     onPointerDown={(event) => {
                       event.stopPropagation();
@@ -319,7 +316,7 @@ export function DirectorTimeline({
                     width: shot.duration * pixelsPerSecond - 3,
                   }}
                   onClick={() => onSelect({ kind: "shot", id: shot.id })}
-                  title="Un mouvement continu reste un seul plan"
+                  title="One continuous camera move remains one shot"
                 >
                   <svg width="100%" height="30" preserveAspectRatio="none" viewBox="0 0 100 30">
                     <path
@@ -358,7 +355,7 @@ export function DirectorTimeline({
               >
                 {!document.tracks.some((item) => item.track === id) ? (
                   <span className="director-empty-track">
-                    Glissez un fichier depuis les ressources · {label.toLowerCase()}
+                    Drag a file from Assets · {label.toLowerCase()}
                   </span>
                 ) : null}
                 {document.tracks
@@ -398,7 +395,7 @@ export function DirectorTimeline({
                         </button>
                         <button
                           className="director-resize-handle"
-                          aria-label={`Redimensionner ${item.label}`}
+                          aria-label={`Resize ${item.label}`}
                           onPointerDown={(event) => {
                             event.currentTarget.setPointerCapture(event.pointerId);
                             setPointer({

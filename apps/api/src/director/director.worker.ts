@@ -99,7 +99,7 @@ export class DirectorWorker {
       where: this.guard(job),
       data,
     });
-    if (!result.count) throw new Error("Le traitement a été annulé ou repris par un autre worker.");
+    if (!result.count) throw new Error("The job was cancelled or claimed by another worker.");
   }
   private async claim() {
     return this.prisma.client.$transaction(async (transaction) => {
@@ -136,17 +136,15 @@ export class DirectorWorker {
     try {
       if (job.status === "SUBMITTING" && !job.providerRequest)
         throw new Error(
-          "Soumission fournisseur ambiguë après interruption. Vérifiez la facturation et le tableau de bord fournisseur avant une nouvelle demande ; aucun renvoi automatique.",
+          "Provider submission is ambiguous after an interruption. Check billing and the provider dashboard before sending a new request; it will not be resent automatically.",
         );
       if (Date.now() - job.createdAt.getTime() > 2 * 3600000)
-        throw new Error(
-          "Le traitement a dépassé deux heures. Vérifiez le fournisseur avant de relancer.",
-        );
+        throw new Error("The job exceeded two hours. Check with the provider before restarting.");
       directory = await mkdtemp(join(tmpdir(), "actbyme-director-"));
       if (job.kind === "INSPECT") await this.inspect(job, directory, combined);
       else if (job.kind === "EXPORT") await this.export(job, directory, combined);
       else if (job.kind === "GENERATE") await this.generate(job, directory, combined);
-      else throw new Error("Type de traitement inconnu.");
+      else throw new Error("Unknown job type.");
     } catch (error) {
       if (signal.aborted) {
         // Preserve checkpoints. A submitted request is never posted again after restart.
@@ -164,7 +162,7 @@ export class DirectorWorker {
           where: this.guard(job),
           data: {
             attempts: { increment: 1 },
-            stage: "Suivi fournisseur temporairement indisponible ; reprise programmée",
+            stage: "Provider tracking is temporarily unavailable; retry scheduled",
             nextRunAt: new Date(Date.now() + Math.min(60000, 2000 * 2 ** job.attempts)),
             claimToken: null,
             leaseUntil: null,
@@ -172,14 +170,14 @@ export class DirectorWorker {
         });
       } else {
         const message =
-          error instanceof Error ? error.message.slice(0, 1500) : "Échec du traitement vidéo.";
+          error instanceof Error ? error.message.slice(0, 1500) : "Video processing failed.";
         await this.prisma.client.$transaction(async (transaction) => {
           const changed = await transaction.directorJob.updateMany({
             where: this.guard(job),
             data: {
               status: "FAILED",
               error: message,
-              stage: "Échec",
+              stage: "Failed",
               claimToken: null,
               leaseUntil: null,
             },
@@ -203,12 +201,12 @@ export class DirectorWorker {
     const asset = await this.prisma.client.directorAsset.findFirst({
       where: { id, projectId, status },
     });
-    if (!asset) throw new Error("Ressource privée introuvable ou non vérifiée.");
+    if (!asset) throw new Error("Private asset not found or not verified.");
     const info = await this.storage.getObjectInfo(asset.storageKey);
     if (!info.sizeBytes || info.sizeBytes > 200 * 1024 * 1024 || info.sizeBytes !== asset.sizeBytes)
-      throw new Error("La ressource stockée ne correspond plus à sa version vérifiée.");
+      throw new Error("The stored asset no longer matches its verified version.");
     const bytes = await this.storage.downloadObject(asset.storageKey);
-    if (bytes.byteLength !== asset.sizeBytes) throw new Error("Téléchargement incomplet.");
+    if (bytes.byteLength !== asset.sizeBytes) throw new Error("Incomplete download.");
     const localPath = join(directory, `${asset.id}.media`);
     await writeFile(localPath, bytes);
     return { ...asset, localPath };
@@ -217,7 +215,7 @@ export class DirectorWorker {
     const { assetId } = z.object({ assetId: z.uuid() }).parse(job.input);
     await this.update(job, {
       status: "PROCESSING",
-      stage: "Vérification réelle du fichier",
+      stage: "Verifying the actual file",
       progress: 20,
     });
     const asset = await this.localAsset(job.projectId, assetId, directory, "INSPECTING");
@@ -233,12 +231,12 @@ export class DirectorWorker {
         data: {
           status: "SUCCEEDED",
           progress: 100,
-          stage: "Ressource vérifiée",
+          stage: "Asset verified",
           claimToken: null,
           leaseUntil: null,
         },
       });
-      if (!changed.count) throw new Error("Inspection annulée.");
+      if (!changed.count) throw new Error("Inspection cancelled.");
       await transaction.directorAsset.update({
         where: { id: asset.id },
         data: { ...metadata, status: "READY" },
@@ -255,7 +253,7 @@ export class DirectorWorker {
       key = `actor-private/director/${job.ownerId}/${job.projectId}/results/${assetId}.mp4`;
     const bytes = await readFile(path);
     if (bytes.byteLength > 200 * 1024 * 1024)
-      throw new Error("L’export dépasse la limite de 200 MiB. Réduisez la durée du projet.");
+      throw new Error("The export exceeds 200 MiB. Reduce the project duration.");
     await this.storage.uploadObject!(key, bytes, "video/mp4");
     try {
       await this.prisma.client.$transaction(async (transaction) => {
@@ -270,15 +268,13 @@ export class DirectorWorker {
             status: "SUCCEEDED",
             progress: 100,
             stage:
-              job.kind === "EXPORT"
-                ? "Publicité MP4 disponible"
-                : "Plan disponible ; vérifiez-le avant de l’utiliser",
+              job.kind === "EXPORT" ? "Ad MP4 available" : "Shot available; review it before use",
             resultAssetId: assetId,
             claimToken: null,
             leaseUntil: null,
           },
         });
-        if (!changed.count) throw new Error("Le résultat a été annulé avant publication.");
+        if (!changed.count) throw new Error("The result was cancelled before publication.");
         await transaction.directorAsset.create({
           data: {
             id: assetId,
@@ -309,7 +305,7 @@ export class DirectorWorker {
     const { document } = snapshotSchema.parse(job.input);
     await this.update(job, {
       status: "PROCESSING",
-      stage: "Chargement des clips privés",
+      stage: "Loading private clips",
       progress: 5,
     });
     const ids = new Set(
@@ -339,7 +335,7 @@ export class DirectorWorker {
         metadata.duration! - document.shots.reduce((total, shot) => total + shot.duration, 0),
       ) > 0.15
     )
-      throw new Error("La durée de l’export ne correspond pas à la timeline.");
+      throw new Error("Export duration does not match the timeline.");
     await this.persistResult(
       job,
       output,
@@ -349,26 +345,26 @@ export class DirectorWorker {
   }
   private async generate(job: DirectorJob, directory: string, signal: AbortSignal) {
     if (this.config.get("DIRECTOR_ENABLE_PAID_GENERATION") !== "true")
-      throw new Error("Génération payante désactivée sur ce processus.");
+      throw new Error("Paid generation is disabled in this process.");
     const { document } = snapshotSchema.parse(job.input);
     const shot = document.shots.find((candidate) => candidate.id === job.shotId);
     const provider = z.enum(["veo", "higgsfield"]).parse(job.provider);
-    if (!shot) throw new Error("Plan absent du snapshot de production.");
+    if (!shot) throw new Error("Shot missing from the production snapshot.");
     await this.service.assertGenerationRights(this.prisma.client, job.projectId, document);
     if (!this.providers.configured(provider))
-      throw new Error("Identifiants fournisseur absents sur le worker.");
+      throw new Error("Provider credentials are missing on the worker.");
     const request = job.providerRequest;
     if (!request) {
       await this.update(job, {
         status: "PROCESSING",
-        stage: "Préparation des références autorisées",
+        stage: "Preparing authorized references",
         progress: 10,
       });
       const references = [];
       for (const id of directorShotReferenceIds(document, shot)) {
         const asset = await this.localAsset(job.projectId, id, directory);
         if (!asset.aiTransferAllowed)
-          throw new Error("Le transfert IA d’une référence n’est pas autorisé.");
+          throw new Error("AI transfer is not authorized for a reference.");
         const segment = directorPerformanceSegments(document, shot).find(
           (segment) => segment.assetId === id,
         );
@@ -394,7 +390,7 @@ export class DirectorWorker {
       }
       await this.update(job, {
         status: "SUBMITTING",
-        stage: "Soumission payante au fournisseur",
+        stage: "Submitting a paid provider request",
         progress: 20,
       });
       const submitted = await this.providers.submit(provider, document, shot, references, signal);
@@ -403,7 +399,7 @@ export class DirectorWorker {
         data: {
           providerRequest: directorJson(submitted),
           status: "WAITING_PROVIDER",
-          stage: "Génération fournisseur en cours",
+          stage: "Provider generation in progress",
           progress: 35,
           claimToken: null,
           leaseUntil: null,
@@ -420,14 +416,14 @@ export class DirectorWorker {
     if (!result.done) {
       await this.update(job, {
         status: "WAITING_PROVIDER",
-        stage: "Génération fournisseur en cours",
+        stage: "Provider generation in progress",
         claimToken: null,
         leaseUntil: null,
         nextRunAt: new Date(Date.now() + 10000),
       });
       return;
     }
-    await this.update(job, { stage: "Vérification du clip généré", progress: 80 });
+    await this.update(job, { stage: "Verifying the generated clip", progress: 80 });
     const output = join(directory, "generated.mp4");
     await writeFile(output, await this.providers.download(provider, result.url, signal));
     const metadata = await inspectDirectorAsset(
@@ -437,7 +433,7 @@ export class DirectorWorker {
       signal,
     );
     if (metadata.duration! < shot.duration - 0.08)
-      throw new Error("Le fournisseur a produit un clip plus court que le plan demandé.");
+      throw new Error("The provider produced a clip shorter than the requested shot.");
     await this.persistResult(
       job,
       output,

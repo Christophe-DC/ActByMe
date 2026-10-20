@@ -27,5 +27,5 @@ test("browser export bounds apply to used media, deduplicate sources and preserv
   document.shots = Array.from({ length: 31 }, (_, index) =>
     createDirectorShot("dolly-in", `shot-${index}`, 2),
   );
-  assert.match(directorBrowserExportError(document, [])!, /30 plans/);
+  assert.match(directorBrowserExportError(document, [])!, /30 shots/);
 });

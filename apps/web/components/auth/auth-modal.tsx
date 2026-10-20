@@ -203,7 +203,7 @@ export function AuthModal({
               </h2>
             </div>
             <button
-              aria-label="Fermer la connexion"
+              aria-label="Close sign-in"
               className="rounded-md p-2 text-[#9CA3AF] transition hover:bg-[#111827] hover:text-white"
               onClick={onClose}
               type="button"

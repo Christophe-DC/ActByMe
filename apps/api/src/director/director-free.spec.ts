@@ -105,7 +105,7 @@ test(
       assert.equal(state.capabilities.browserExportReady, true);
       assert.ok(
         state.capabilities.providers.every(
-          (provider) => !provider.ready && provider.reason?.includes("désactivée"),
+          (provider) => !provider.ready && provider.reason?.includes("disabled"),
         ),
       );
       const upload = async (projectId: string, userId: string, payload = bytes) => {
@@ -159,23 +159,23 @@ test(
       );
       await assert.rejects(
         service.enqueue(owner.id, state.id, { ...input, requestKey: randomUUID() }),
-        /déjà actif/,
+        /already active/,
       );
       const nativeWorker = new DirectorWorker(prisma, storage, config, providers, service);
       // Any optional native worker must leave a browser job alone.
       assert.equal(await nativeWorker.tick(AbortSignal.timeout(10000)), false);
       await assert.rejects(
         service.completeBrowserExport(owner.id, state.id, job.id, { assetId: source }),
-        /doit être vérifié/,
+        /must be verified/,
       );
       const foreign = await upload(otherState.id, other.id);
       await assert.rejects(
         service.completeBrowserExport(owner.id, state.id, job.id, { assetId: foreign }),
-        /doit être vérifié/,
+        /must be verified/,
       );
       await assert.rejects(
         service.completeBrowserExport(other.id, state.id, job.id, { assetId: source }),
-        /introuvable/,
+        /not found/,
       );
       const output = await upload(state.id, owner.id);
       state.document.shots[0]!.waypoints[0]!.position.y = 3;
@@ -201,7 +201,7 @@ test(
       await service.cancel(owner.id, state.id, nextJob.id);
       await assert.rejects(
         service.completeBrowserExport(owner.id, state.id, nextJob.id, { assetId: output }),
-        /terminé ou annulé/,
+        /completed or cancelled/,
       );
       const malformed = await upload(state.id, owner.id, Buffer.from("fake MP4"));
       assert.equal(

@@ -69,7 +69,7 @@ export function useDirectorProject(id?: string) {
       stateRef.current = null;
       setState(null);
       put(createDirectorDocument());
-      setError("Votre session est terminée. Reconnectez-vous pour ouvrir ce projet privé.");
+      setError("Your session has ended. Sign in again to open this private project.");
     });
     return () => subscription.unsubscribe();
   }, [id, put]);
@@ -112,11 +112,11 @@ export function useDirectorProject(id?: string) {
         /* Storage is optional. Server persistence remains authoritative. */
       }
       put(recoveredDocument ?? result.document);
-      setSaveStatus(recoveredDocument ? "Brouillon récupéré" : "Enregistré");
+      setSaveStatus(recoveredDocument ? "Draft recovered" : "Saved");
       setError(null);
     } catch (error) {
       if (!controller.signal.aborted)
-        setError(error instanceof Error ? error.message : "Impossible de charger ce projet.");
+        setError(error instanceof Error ? error.message : "Unable to load this project.");
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
@@ -125,7 +125,7 @@ export function useDirectorProject(id?: string) {
     if (id) void load();
     else {
       saved.current = JSON.stringify(current.current);
-      setSaveStatus("Démo locale · non enregistrée");
+      setSaveStatus("Local demo · not saved");
     }
     return () => loadController.current?.abort();
   }, [id, load]);
@@ -136,7 +136,7 @@ export function useDirectorProject(id?: string) {
       if (typeof change === "function") change(next);
       const parsed = directorDocumentSchema.safeParse(next);
       if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? "Modification invalide.");
+        setError(parsed.error.issues[0]?.message ?? "Invalid change.");
         return false;
       }
       if (JSON.stringify(next) === JSON.stringify(current.current)) return true;
@@ -144,7 +144,7 @@ export function useDirectorProject(id?: string) {
       redoStack.current = [];
       put(next);
       setHistoryTick((tick) => tick + 1);
-      setSaveStatus(id ? "Modifications en attente" : "Démo locale · non enregistrée");
+      setSaveStatus(id ? "Unsaved changes" : "Local demo · not saved");
       try {
         if (id)
           localStorage.setItem(
@@ -177,7 +177,7 @@ export function useDirectorProject(id?: string) {
         setState(result);
         setRecovered(false);
         const dirty = JSON.stringify(current.current) !== saved.current;
-        setSaveStatus(dirty ? "Modifications en attente" : "Enregistré");
+        setSaveStatus(dirty ? "Unsaved changes" : "Saved");
         try {
           if (!dirty) localStorage.removeItem(storageKey);
           else
@@ -195,8 +195,8 @@ export function useDirectorProject(id?: string) {
           blocked.current = true;
           setConflict(true);
         }
-        setSaveStatus("Échec de sauvegarde · brouillon conservé");
-        setError(error instanceof Error ? error.message : "Échec de sauvegarde.");
+        setSaveStatus("Save failed · draft kept");
+        setError(error instanceof Error ? error.message : "Save failed.");
         return null;
       })
       .finally(() => {
@@ -227,7 +227,7 @@ export function useDirectorProject(id?: string) {
             if (JSON.stringify(current.current) !== saved.current) {
               blocked.current = true;
               setConflict(true);
-              setSaveStatus("Conflit · brouillon conservé");
+              setSaveStatus("Conflict · draft kept");
               return;
             }
             version.current = result.version;
@@ -265,7 +265,7 @@ export function useDirectorProject(id?: string) {
       destination.current.push(structuredClone(current.current));
       put(next);
       setHistoryTick((tick) => tick + 1);
-      setSaveStatus("Modifications en attente");
+      setSaveStatus("Unsaved changes");
       try {
         if (id)
           localStorage.setItem(

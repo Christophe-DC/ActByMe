@@ -57,7 +57,7 @@ export function DirectorPerform({
     onEdit((draft) => {
       draft.cast.push({
         id: castId,
-        name: kind === "actor" ? actor!.stageName : name.trim() || "Mannequin de prévisualisation",
+        name: kind === "actor" ? actor!.stageName : name.trim() || "Preview stand-in",
         kind,
         actorProfileId: kind === "actor" ? actorId : null,
         performanceProjectId: null,
@@ -92,7 +92,7 @@ export function DirectorPerform({
   const requestGrant = async (person: DirectorCast) => {
     if (!id || terms.trim().length < 30) {
       onError(
-        "Précisez les usages, la durée, les territoires et les droits de transformation IA dans l’autorisation (30 caractères minimum).",
+        "Describe usage, duration, territories and AI transformation rights in the permission terms (at least 30 characters).",
       );
       return;
     }
@@ -106,7 +106,7 @@ export function DirectorPerform({
         }),
       );
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Demande impossible.");
+      onError(error instanceof Error ? error.message : "Unable to send the request.");
     } finally {
       setBusy(false);
     }
@@ -118,17 +118,17 @@ export function DirectorPerform({
         <UserRound size={16} />
       </div>
       <p className="director-hint">
-        Le casting prépare la scène. Une autorisation distincte est nécessaire avant de transformer
-        une identité réelle.
+        Casting prepares the scene. Separate permission is required before transforming a real
+        person's identity.
       </p>
       <label>
-        Acteurs ACTBYME
+        ACTBYME actors
         <select
-          aria-label="Choisir un acteur ACTBYME"
+          aria-label="Choose an ACTBYME actor"
           value={actorId}
           onChange={(event) => setActorId(event.target.value)}
         >
-          <option value="">Sélectionner un acteur…</option>
+          <option value="">Select an actor…</option>
           {casting.actors.map((actor) => (
             <option key={actor.id} value={actor.id}>
               {actor.stageName}
@@ -142,31 +142,31 @@ export function DirectorPerform({
         onClick={() => addCast("actor")}
       >
         <Plus size={14} />
-        Ajouter au casting
+        Add to cast
       </button>
       <Link className="director-text-link" href="/actors" target="_blank">
-        Voir le catalogue <ExternalLink size={12} />
+        Browse actors <ExternalLink size={12} />
       </Link>
       <details>
-        <summary>Personnage virtuel autorisé</summary>
+        <summary>Authorized virtual character</summary>
         <label>
-          Nom du personnage
+          Character name
           <input
-            aria-label="Nom du personnage virtuel"
+            aria-label="Virtual character name"
             value={name}
             maxLength={120}
             onChange={(event) => setName(event.target.value)}
           />
         </label>
         <label>
-          Base des droits
+          Rights basis
           <textarea
-            aria-label="Droits du personnage virtuel"
+            aria-label="Virtual character rights"
             value={basis}
             maxLength={2000}
             rows={2}
             onChange={(event) => setBasis(event.target.value)}
-            placeholder="Création originale et droits de la référence…"
+            placeholder="Original work and reference rights…"
           />
         </label>
         <label className="director-checkbox">
@@ -175,19 +175,19 @@ export function DirectorPerform({
             checked={rights}
             onChange={(event) => setRights(event.target.checked)}
           />
-          Je suis autorisé à utiliser et transformer ce personnage.
+          I am authorized to use and transform this character.
         </label>
         <button
           disabled={!rights || basis.trim().length < 10 || !name.trim()}
           onClick={() => addCast("virtual")}
         >
           <Plus size={14} />
-          Ajouter le personnage
+          Add character
         </button>
       </details>
       <button onClick={() => addCast("placeholder")}>
         <Plus size={14} />
-        Ajouter un mannequin gratuit
+        Add a free stand-in
       </button>
       {document.cast.map((person) => {
         const grant = grants.find(
@@ -199,7 +199,7 @@ export function DirectorPerform({
             <div className="director-panel-heading">
               <strong>{person.name}</strong>
               <button
-                aria-label={`Retirer ${person.name}`}
+                aria-label={`Remove ${person.name}`}
                 onClick={() =>
                   onEdit((draft) => {
                     draft.cast = draft.cast.filter((candidate) => candidate.id !== person.id);
@@ -217,14 +217,14 @@ export function DirectorPerform({
             </div>
             <small>
               {person.kind === "actor"
-                ? "Acteur ACTBYME · identité réelle"
+                ? "ACTBYME actor · real identity"
                 : person.kind === "placeholder"
-                  ? "Mannequin · prévisualisation uniquement"
-                  : "Personnage virtuel · droits déclarés"}
+                  ? "Stand-in · preview only"
+                  : "Virtual character · declared rights"}
             </small>
             <div className="director-inline">
               <NumberControl
-                label={`${person.name} · début X`}
+                label={`${person.name} · start X`}
                 value={person.position.x}
                 min={-100}
                 max={100}
@@ -235,7 +235,7 @@ export function DirectorPerform({
                 }
               />
               <NumberControl
-                label={`${person.name} · début Z`}
+                label={`${person.name} · start Z`}
                 value={person.position.z}
                 min={-100}
                 max={100}
@@ -248,7 +248,7 @@ export function DirectorPerform({
             </div>
             <div className="director-inline">
               <NumberControl
-                label={`${person.name} · fin X`}
+                label={`${person.name} · end X`}
                 value={person.endPosition.x}
                 min={-100}
                 max={100}
@@ -259,7 +259,7 @@ export function DirectorPerform({
                 }
               />
               <NumberControl
-                label={`${person.name} · fin Z`}
+                label={`${person.name} · end Z`}
                 value={person.endPosition.z}
                 min={-100}
                 max={100}
@@ -271,9 +271,9 @@ export function DirectorPerform({
               />
             </div>
             <label>
-              Référence visuelle
+              Visual reference
               <select
-                aria-label={`Référence visuelle de ${person.name}`}
+                aria-label={`Visual reference for ${person.name}`}
                 value={person.referenceAssetId ?? ""}
                 onChange={(event) =>
                   editCast(person.id, (person) => {
@@ -281,7 +281,7 @@ export function DirectorPerform({
                   })
                 }
               >
-                <option value="">Aucune</option>
+                <option value="">None</option>
                 {assets
                   .filter((asset) => asset.status === "READY" && asset.kind === "character")
                   .map((asset) => (
@@ -293,14 +293,14 @@ export function DirectorPerform({
             </label>
             <button onClick={() => addCue(person)}>
               <Plus size={13} />
-              Ajouter une performance
+              Add performance
             </button>
             {person.kind === "actor" ? (
               <>
                 <label>
-                  Prestation existante
+                  Existing performance request
                   <select
-                    aria-label={`Prestation de ${person.name}`}
+                    aria-label={`Performance request for ${person.name}`}
                     value={person.performanceProjectId ?? ""}
                     onChange={(event) =>
                       editCast(person.id, (person) => {
@@ -308,7 +308,7 @@ export function DirectorPerform({
                       })
                     }
                   >
-                    <option value="">Lier une prestation ACTBYME…</option>
+                    <option value="">Link an ACTBYME performance request…</option>
                     {casting.performances
                       .filter(
                         (project) => project.assignment?.actorProfileId === person.actorProfileId,
@@ -330,22 +330,22 @@ export function DirectorPerform({
                   target="_blank"
                 >
                   {person.performanceProjectId
-                    ? "Ouvrir la prestation"
-                    : "Préparer une demande de prestation"}
+                    ? "Open performance request"
+                    : "Prepare a performance request"}
                   <ExternalLink size={12} />
                 </Link>
                 <p className="director-hint">
                   <ShieldCheck size={14} />
                   {grant
-                    ? "Autorisation acceptée pour cette direction créative."
-                    : "Autorisation IA non acceptée pour la version actuelle."}
+                    ? "Permission accepted for this creative direction."
+                    : "AI permission has not been accepted for the current version."}
                 </p>
                 <button
                   disabled={!id || busy || Boolean(grant)}
                   onClick={() => void requestGrant(person)}
                 >
                   {grant ? <Check size={14} /> : <ShieldCheck size={14} />}
-                  {grant ? "Autorisé" : "Demander l’autorisation IA"}
+                  {grant ? "Authorized" : "Request AI permission"}
                 </button>
               </>
             ) : null}
@@ -354,27 +354,26 @@ export function DirectorPerform({
       })}
       {document.cast.some((person) => person.kind === "actor") ? (
         <label>
-          Conditions proposées aux acteurs
+          Proposed actor terms
           <textarea
-            aria-label="Conditions de l’autorisation acteur"
+            aria-label="Actor permission terms"
             rows={4}
             maxLength={4000}
             value={terms}
             onChange={(event) => setTerms(event.target.value)}
-            placeholder="Usages commerciaux, territoire, durée, transformation IA, fournisseurs et rémunération éventuelle. L’acteur les consultera avant d’accepter."
+            placeholder="Commercial use, territories, duration, AI transformation, providers and any compensation. The actor reviews these before accepting."
           />
           <small>
-            La demande apparaîtra dans Director → Autorisations de l’acteur. Les changements de
-            texte, de durée ou de casting exigent une nouvelle autorisation.
+            The request appears in the actor's Director permissions. Changes to the text, duration
+            or cast require new permission.
           </small>
         </label>
       ) : null}
       {id && casting.performances.some((project) => project.takes.length) ? (
         <details>
-          <summary>Importer une prise ACTBYME validée</summary>
+          <summary>Import an approved ACTBYME take</summary>
           <p className="director-hint">
-            Les prises sont copiées dans ce projet privé. Documentez les droits dans les champs
-            ci-dessus avant l’import.
+            Takes are copied into this private project. Record the rights above before importing.
           </p>
           <label className="director-checkbox">
             <input
@@ -382,13 +381,13 @@ export function DirectorPerform({
               checked={rights}
               onChange={(event) => setRights(event.target.checked)}
             />
-            J’ai les droits de réutilisation de cette prise.
+            I have the rights to reuse this take.
           </label>
           <textarea
-            aria-label="Droits de réutilisation de la prise"
+            aria-label="Take reuse rights"
             value={basis}
             onChange={(event) => setBasis(event.target.value)}
-            placeholder="Licence et autorisation de l’interprète…"
+            placeholder="Performer license and permission…"
           />
           {casting.performances.flatMap((project) =>
             project.takes.map((take) => (

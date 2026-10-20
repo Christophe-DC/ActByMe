@@ -79,7 +79,7 @@ export class DirectorProviders {
     });
     if (!response.ok)
       throw new DirectorProviderError(
-        `Le fournisseur a répondu HTTP ${response.status}. Vérifiez les accès, quotas et le tableau de bord fournisseur.`,
+        `The provider returned HTTP ${response.status}. Check access, quotas and the provider dashboard.`,
         response.status === 429 || response.status >= 500,
       );
     return response.json();
@@ -175,14 +175,12 @@ export class DirectorProviders {
         .parse(await this.request(provider, request.id, "GET", signal));
       if (result.error)
         throw new DirectorProviderError(
-          "Veo a refusé ou échoué à produire ce plan. Consultez le fournisseur.",
+          "Veo refused or failed to produce this shot. Check with the provider.",
         );
       if (!result.done) return { done: false };
       const url = result.response?.generateVideoResponse.generatedSamples?.[0]?.video.uri;
       if (!url)
-        throw new DirectorProviderError(
-          "Veo n’a retourné aucun clip (filtrage ou échec de génération).",
-        );
+        throw new DirectorProviderError("Veo returned no clip (filtered or generation failed).");
       return { done: true, url };
     }
     const result = z
@@ -193,10 +191,10 @@ export class DirectorProviders {
       .parse(await this.request(provider, `requests/${request.id}/status`, "GET", signal));
     if (["failed", "nsfw", "canceled"].includes(result.status))
       throw new DirectorProviderError(
-        `Seedance : ${result.status}. Consultez le fournisseur avant toute nouvelle demande payante.`,
+        `Seedance: ${result.status}. Check with the provider before submitting another paid request.`,
       );
     if (result.status !== "completed") return { done: false };
-    if (!result.video) throw new DirectorProviderError("Higgsfield n’a retourné aucun clip.");
+    if (!result.video) throw new DirectorProviderError("Higgsfield returned no clip.");
     return { done: true, url: result.video.url };
   }
   async cancel(provider: DirectorProviderId, value: unknown, signal: AbortSignal) {
@@ -226,7 +224,7 @@ export class DirectorProviders {
         !allowed.includes(url.hostname)
       )
         throw new DirectorProviderError(
-          "Hôte de résultat non autorisé. Configurez un hôte HTTPS fournisseur vérifié.",
+          "Unapproved result host. Configure a verified HTTPS provider host.",
         );
       const headers: Record<string, string> = {};
       if (provider === "veo" && url.hostname === "generativelanguage.googleapis.com")
@@ -243,17 +241,17 @@ export class DirectorProviders {
       }
       const max = 200 * 1024 * 1024;
       if (!response.ok || !response.body || Number(response.headers.get("content-length")) > max)
-        throw new DirectorProviderError("Impossible de récupérer le clip fournisseur.");
+        throw new DirectorProviderError("Unable to retrieve the provider clip.");
       const chunks: Uint8Array[] = [];
       let total = 0;
       for await (const chunk of response.body) {
         total += chunk.byteLength;
-        if (total > max) throw new DirectorProviderError("Le clip dépasse 200 MiB.");
+        if (total > max) throw new DirectorProviderError("The clip exceeds 200 MiB.");
         chunks.push(chunk);
       }
-      if (!total) throw new DirectorProviderError("Clip fournisseur vide.");
+      if (!total) throw new DirectorProviderError("Empty provider clip.");
       return Buffer.concat(chunks);
     }
-    throw new DirectorProviderError("Trop de redirections fournisseur.");
+    throw new DirectorProviderError("Too many provider redirects.");
   }
 }

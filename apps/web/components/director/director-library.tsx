@@ -100,18 +100,18 @@ export function TemplateLibrary({
       <label className="director-search">
         <Search size={14} />
         <input
-          aria-label="Rechercher un modèle de plan"
-          placeholder="Rechercher un plan…"
+          aria-label="Search shot templates"
+          placeholder="Search shots…"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
       </label>
       <div className="director-library-filters">
         {[
-          ["all", "Tous"],
-          ["spaces", "Lieux"],
-          ["product", "Produit"],
-          ["people", "Acteurs"],
+          ["all", "All"],
+          ["spaces", "Spaces"],
+          ["product", "Product"],
+          ["people", "Actors"],
         ].map(([value, label]) => (
           <button key={value} aria-pressed={category === value} onClick={() => setCategory(value!)}>
             {label}
@@ -124,7 +124,7 @@ export function TemplateLibrary({
             key={template.id}
             className={`director-template-card ${template.id === selected ? "is-active" : ""}`}
             onClick={() => onAdd(template)}
-            title={`${template.description} Ajouter à la timeline.`}
+            title={`${template.description} Add to timeline.`}
           >
             <TemplateArt template={template} selected={template.id === selected} />
             <span>
@@ -134,27 +134,25 @@ export function TemplateLibrary({
           </button>
         ))}
       </div>
-      {!templates.length ? (
-        <p className="director-hint">Aucun modèle ne correspond à votre recherche.</p>
-      ) : null}
+      {!templates.length ? <p className="director-hint">No templates match your search.</p> : null}
       <p className="director-hint">
         <Camera size={14} />
-        Choisissez un modèle pour ajouter un plan. Les waypoints restent dans un seul plan continu.
+        Choose a template to add a shot. Waypoints stay within one continuous shot.
       </p>
     </div>
   );
 }
 const kindLabels: Record<DirectorAssetKind, string> = {
-  property: "Photo de propriété",
-  product: "Image de produit",
-  character: "Référence personnage",
-  brand: "Logo / marque",
-  "reference-video": "Vidéo de référence",
-  performance: "Performance enregistrée",
-  music: "Musique",
-  voice: "Voix / dialogue",
-  sfx: "Effet sonore",
-  clip: "Clip final d’un plan",
+  property: "Property photo",
+  product: "Product image",
+  character: "Character reference",
+  brand: "Logo / brand",
+  "reference-video": "Reference video",
+  performance: "Recorded performance",
+  music: "Music",
+  voice: "Voice / dialogue",
+  sfx: "Sound effect",
+  clip: "Final shot clip",
 };
 export { kindLabels };
 export function AssetLibrary({
@@ -197,7 +195,7 @@ export function AssetLibrary({
     };
     const parsed = directorUploadSchema.safeParse(input);
     if (!parsed.success) {
-      onError(parsed.error.issues[0]?.message ?? "Fichier incompatible.");
+      onError(parsed.error.issues[0]?.message ?? "Incompatible file.");
       return;
     }
     setBusy(true);
@@ -212,7 +210,7 @@ export function AssetLibrary({
       setAiTransfer(false);
       setBasis("");
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Échec de l’import.");
+      onError(error instanceof Error ? error.message : "Import failed.");
       await onChanged().catch(() => undefined);
     } finally {
       setBusy(false);
@@ -222,11 +220,11 @@ export function AssetLibrary({
   return (
     <div className="director-assets">
       <div className="director-panel-heading">
-        <strong>Ressources privées</strong>
+        <strong>Private assets</strong>
         <span className="director-badge">{assets.length}/200</span>
       </div>
       <p className="director-hint">
-        Photos, clips et sons restent liés à ce projet. 50 MiB maximum par fichier (15 MiB par
+        Photos, clips and audio stay private to this project. Up to 50 MiB per file (15 MiB per
         image).
       </p>
       <input
@@ -238,7 +236,7 @@ export function AssetLibrary({
           .flat()
           .filter((type, index, types) => types.indexOf(type) === index)
           .join(",")}
-        aria-label="Importer une ressource"
+        aria-label="Import an asset"
         onChange={(event) => {
           const selected = event.target.files?.[0];
           if (selected) {
@@ -261,16 +259,14 @@ export function AssetLibrary({
       >
         <Upload size={17} />
         <span>
-          Importer un fichier<small>JPEG, PNG, WebP · MP4, MOV · audio</small>
+          Import a file<small>JPEG, PNG, WebP · MP4, MOV · audio</small>
         </span>
         <Plus size={16} />
       </button>
       {!id ? (
-        <p className="director-hint">Créez un projet enregistré pour importer vos fichiers.</p>
+        <p className="director-hint">Create a saved project to import your files.</p>
       ) : !storageReady ? (
-        <p className="director-hint">
-          Stockage privé non configuré. Consultez le guide d’activation.
-        </p>
+        <p className="director-hint">Private storage is not configured. See the setup guide.</p>
       ) : null}
       {file ? (
         <form
@@ -284,7 +280,7 @@ export function AssetLibrary({
             <strong>{file.name}</strong>
             <button
               type="button"
-              aria-label="Fermer l’import"
+              aria-label="Close import"
               disabled={busy}
               onClick={() => setFile(null)}
             >
@@ -292,9 +288,9 @@ export function AssetLibrary({
             </button>
           </div>
           <label>
-            Catégorie
+            Category
             <select
-              aria-label="Catégorie"
+              aria-label="Category"
               value={kind}
               onChange={(event) => setKind(event.target.value as DirectorAssetKind)}
             >
@@ -306,15 +302,15 @@ export function AssetLibrary({
             </select>
           </label>
           <label>
-            Base des droits d’utilisation
+            Usage rights basis
             <textarea
-              aria-label="Base des droits de la ressource"
+              aria-label="Asset rights basis"
               value={basis}
               minLength={10}
               maxLength={2000}
               required
               rows={2}
-              placeholder="Création originale, licence ou autorisation…"
+              placeholder="Original work, license or permission…"
               onChange={(event) => setBasis(event.target.value)}
             />
           </label>
@@ -325,7 +321,7 @@ export function AssetLibrary({
               checked={rights}
               onChange={(event) => setRights(event.target.checked)}
             />
-            Je possède ou détiens les droits de cette ressource et des personnes représentées.
+            I own or hold the rights to this asset and the people shown.
           </label>
           <label className="director-checkbox">
             <input
@@ -333,7 +329,7 @@ export function AssetLibrary({
               checked={aiTransfer}
               onChange={(event) => setAiTransfer(event.target.checked)}
             />
-            J’autorise aussi sa transmission aux fournisseurs IA pour ce projet.
+            I also authorize transfer to AI providers for this project.
           </label>
           <button
             type="submit"
@@ -348,18 +344,18 @@ export function AssetLibrary({
             ) : (
               <>
                 <Upload size={14} />
-                Importer et vérifier
+                Import and verify
               </>
             )}
           </button>
         </form>
       ) : null}
       <select
-        aria-label="Filtrer les ressources"
+        aria-label="Filter assets"
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
       >
-        <option value="all">Toutes les ressources</option>
+        <option value="all">All assets</option>
         {directorAssetKinds.map((kind) => (
           <option key={kind} value={kind}>
             {kindLabels[kind]}
@@ -389,40 +385,40 @@ export function AssetLibrary({
                 {kindLabels[asset.kind]} ·{" "}
                 {asset.duration
                   ? `${asset.duration.toFixed(1)}s`
-                  : `${(asset.sizeBytes / 1024 / 1024).toFixed(1)} Mio`}
+                  : `${(asset.sizeBytes / 1024 / 1024).toFixed(1)} MiB`}
               </small>
               <small className={asset.status === "FAILED" ? "director-error-text" : ""}>
                 {asset.status === "READY"
-                  ? "Vérifié"
+                  ? "Verified"
                   : asset.status === "FAILED"
                     ? asset.error
                     : asset.status === "UPLOADING"
-                      ? "Upload incomplet"
-                      : "Vérification…"}
+                      ? "Incomplete upload"
+                      : "Verifying…"}
               </small>
             </div>
             <div className="director-asset-actions">
               {asset.status === "READY" ? (
                 <>
                   <button
-                    aria-label={`Associer ${asset.name} au plan`}
-                    title="Associer au plan sélectionné"
+                    aria-label={`Assign ${asset.name} to shot`}
+                    title="Assign to the selected shot"
                     onClick={() => onAttach(asset)}
                   >
                     <ChevronRight size={14} />
                   </button>
                   {asset.hasAudio || asset.kind === "performance" ? (
                     <button
-                      aria-label={`Ajouter ${asset.name} à la timeline`}
-                      title="Ajouter une piste"
+                      aria-label={`Add ${asset.name} to timeline`}
+                      title="Add track"
                       onClick={() => onAddTrack(asset)}
                     >
                       <Plus size={14} />
                     </button>
                   ) : null}
                   <button
-                    aria-label={`Voir ${asset.name}`}
-                    title="Ouvrir un lien privé de 5 minutes"
+                    aria-label={`View ${asset.name}`}
+                    title="Open a private link valid for 5 minutes"
                     onClick={() => {
                       if (!id) return;
                       void directorApi
@@ -436,8 +432,8 @@ export function AssetLibrary({
                 </>
               ) : null}
               <button
-                aria-label={`Supprimer ${asset.name}`}
-                title="Retirer une ressource inutilisée ; les versions enregistrées conservent leurs références"
+                aria-label={`Delete ${asset.name}`}
+                title="Remove an unused asset; saved versions retain their references"
                 onClick={() => {
                   if (id)
                     void directorApi
@@ -455,8 +451,8 @@ export function AssetLibrary({
       {!ready.length ? (
         <div className="director-empty-state">
           <ImagePlus size={24} />
-          <p>Votre bibliothèque commence ici.</p>
-          <small>Importez une référence puis associez-la à un plan.</small>
+          <p>Your library starts here.</p>
+          <small>Import a reference and assign it to a shot.</small>
         </div>
       ) : null}
     </div>

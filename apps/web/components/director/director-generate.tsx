@@ -98,7 +98,7 @@ export function DirectorGenerate({
       setBillable(false);
       await onRefresh();
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Impossible de créer le traitement.");
+      onError(error instanceof Error ? error.message : "Unable to create the job.");
     } finally {
       setBusy(false);
     }
@@ -119,7 +119,7 @@ export function DirectorGenerate({
           `${document.title}-demo-production.json`,
         );
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Export impossible.");
+      onError(error instanceof Error ? error.message : "Export failed.");
     } finally {
       setBusy(false);
     }
@@ -136,7 +136,7 @@ export function DirectorGenerate({
         anchor.click();
       } else setViewUrl(url);
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Fichier indisponible.");
+      onError(error instanceof Error ? error.message : "File unavailable.");
     }
   };
   return (
@@ -145,35 +145,33 @@ export function DirectorGenerate({
         <strong>Production</strong>
         <Film size={16} />
       </div>
-      <p className="director-hint">
-        Importez vos clips, associez-les aux plans, puis exportez votre publicité.
-      </p>
-      <section className="director-export-section" aria-label="Export MP4 gratuit">
+      <p className="director-hint">Import your clips, assign them to shots and export your ad.</p>
+      <section className="director-export-section" aria-label="Free MP4 export">
         <div className="director-panel-heading">
           <strong>Export MP4</strong>
-          <span className="director-badge">Gratuit · 720p</span>
+          <span className="director-badge">Free · 720p</span>
         </div>
         <p className="director-hint">
           {!id
-            ? "Créez un projet pour importer vos clips et exporter le MP4."
+            ? "Create a project to import clips and export your MP4."
             : missing.length
-              ? `${document.shots.length - missing.length}/${document.shots.length} plans prêts. Associez un clip à chaque plan.`
-              : "Tous vos plans sont prêts pour l’export."}
+              ? `${document.shots.length - missing.length}/${document.shots.length} shots ready. Assign a clip to every shot.`
+              : "All your shots are ready to export."}
         </p>
         {missing.length ? (
           <button disabled={!id} onClick={onImport}>
             <Upload size={14} />
-            Importer des clips
+            Import clips
           </button>
         ) : null}
         <label className="director-checkbox">
           <input
             type="checkbox"
-            aria-label="Confirmer les droits pour l’export"
+            aria-label="Confirm export rights"
             checked={rights}
             onChange={(event) => setRights(event.target.checked)}
           />
-          J’ai vérifié les clips et leurs droits pour cet export.
+          I have reviewed the clips and their usage rights for this export.
         </label>
         <button
           className="director-primary"
@@ -189,7 +187,7 @@ export function DirectorGenerate({
           onClick={() => void browserExport.start()}
         >
           <Film size={14} />
-          Assembler le MP4
+          Assemble MP4
         </button>
         {exportError ? <p className="director-error-text">{exportError}</p> : null}
         {browserExport.status ? (
@@ -198,17 +196,17 @@ export function DirectorGenerate({
               {browserExport.status.stage}
             </p>
             <progress
-              aria-label="Avancement de l’export navigateur"
+              aria-label="Browser export progress"
               max="100"
               value={browserExport.status.progress}
             />
             <div className="director-panel-heading">
               <span>{Math.floor(browserExport.status.progress)} %</span>
-              <span>{browserExport.elapsedSeconds}s écoulées</span>
+              <span>{browserExport.elapsedSeconds}s elapsed</span>
             </div>
             <button onClick={browserExport.cancel}>
               <X size={12} />
-              Annuler l’export navigateur
+              Cancel browser export
             </button>
           </div>
         ) : null}
@@ -219,15 +217,15 @@ export function DirectorGenerate({
             className="director-button"
           >
             <Download size={14} />
-            Télécharger le MP4 de cet onglet
+            Download the MP4 from this tab
           </a>
         ) : null}
-        <p className="director-hint">Gardez cet onglet ouvert pendant l’export.</p>
+        <p className="director-hint">Keep this tab open while exporting.</p>
         <details>
-          <summary>Limites de l’export gratuit</summary>
+          <summary>Free export limits</summary>
           <p className="director-hint">
-            Jusqu’à 2 minutes, 30 plans et 128 MiB de clips et sons. Le premier export télécharge le
-            moteur vidéo (~31 Mo).
+            Up to 2 minutes, 30 shots and 128 MiB of clips and audio. The first export downloads the
+            video engine (~31 MB).
           </p>
           <a
             href="/director-media/NOTICES.md"
@@ -235,22 +233,22 @@ export function DirectorGenerate({
             rel="noopener noreferrer"
             className="director-hint"
           >
-            Logiciels libres et licences
+            Open-source software and licenses
           </a>
         </details>
         <button disabled={busy} onClick={() => void exportPlan()}>
           <FileJson size={14} />
-          Exporter le dossier de production
+          Export production plan
         </button>
       </section>
       <div className="director-inspector-section">
-        <strong>Clip utilisé dans le montage</strong>
+        <strong>Clip used in the edit</strong>
         <select
-          aria-label="Clip du plan sélectionné"
+          aria-label="Selected shot clip"
           value={shot.clipAssetId ?? ""}
           onChange={(event) => onUseClip(shot.id, event.target.value)}
         >
-          <option value="">Associer un clip importé ou généré…</option>
+          <option value="">Assign an imported or generated clip…</option>
           {assets
             .filter((asset) => asset.status === "READY" && asset.kind === "clip")
             .map((asset) => (
@@ -259,16 +257,14 @@ export function DirectorGenerate({
               </option>
             ))}
         </select>
-        <p className="director-hint">
-          Sélectionnez un autre clip pour remplacer uniquement ce plan.
-        </p>
+        <p className="director-hint">Choose another clip to replace only this shot.</p>
       </div>
       <details className="director-ai-options">
-        <summary>Génération IA · facultative</summary>
+        <summary>AI generation · optional</summary>
         <label>
-          Moteur IA
+          AI provider
           <select
-            aria-label="Moteur de génération vidéo"
+            aria-label="Video generation provider"
             value={providerId}
             onChange={(event) => setProviderId(event.target.value as DirectorProviderId)}
           >
@@ -280,14 +276,14 @@ export function DirectorGenerate({
           <span className={`director-live-dot ${provider?.ready ? "" : "is-offline"}`} />
           <span>
             {provider?.ready
-              ? "Configuré · accès réel à valider au premier appel"
-              : (provider?.reason ?? "Aucun fournisseur configuré dans la démo")}
+              ? "Configured · live access will be checked on the first request"
+              : (provider?.reason ?? "No provider configured in the demo")}
           </span>
         </div>
         <p className="director-hint">
           {provider?.centsPerSecond
-            ? `${(provider.centsPerSecond / 100).toFixed(3)} USD/s · tarif serveur configuré`
-            : "Coût inconnu : tarif non configuré. Aucun achat possible."}
+            ? `${(provider.centsPerSecond / 100).toFixed(3)} USD/s · configured server rate`
+            : "Cost unknown: no rate configured. Purchasing is unavailable."}
         </p>
         <div className="director-production-shot">
           <strong>{shot.name}</strong>
@@ -302,13 +298,12 @@ export function DirectorGenerate({
         ) : (
           <p className="director-success">
             <Check size={14} />
-            Format compatible avec ce connecteur.
+            Format supported by this provider.
           </p>
         )}
         {document.cast.some((person) => person.kind === "placeholder") ? (
           <p className="director-hint">
-            Retirez les mannequins ou remplacez-les par des personnages autorisés avant la
-            génération.
+            Remove preview stand-ins or replace them with authorized characters before generating.
           </p>
         ) : null}
         <button
@@ -327,27 +322,27 @@ export function DirectorGenerate({
           }}
         >
           <WandSparkles size={15} />
-          {shot.clipAssetId ? "Régénérer ce plan" : "Générer ce plan"}
+          {shot.clipAssetId ? "Regenerate this shot" : "Generate this shot"}
           {estimate ? <small>{(estimate / 100).toFixed(2)} USD max.</small> : null}
         </button>
         <details>
-          <summary>Instructions structurées du plan</summary>
+          <summary>Structured shot instructions</summary>
           <textarea
             readOnly
-            aria-label="Prompt du plan"
+            aria-label="Shot prompt"
             rows={9}
             value={directorPrompt(document, shot)}
           />
           <p className="director-hint">
-            Le modèle interprète la caméra et les références. Ni la géométrie, ni l’identité, ni la
-            synchronisation labiale ne sont garanties.
+            The model interprets the camera and references. Geometry, identity and lip sync are not
+            guaranteed.
           </p>
         </details>
       </details>
       <div className="director-inspector-section">
         <div className="director-panel-heading">
-          <strong>Traitements & versions</strong>
-          <button aria-label="Actualiser les traitements" onClick={() => void onRefresh()}>
+          <strong>Jobs & versions</strong>
+          <button aria-label="Refresh jobs" onClick={() => void onRefresh()}>
             <RefreshCw size={13} />
           </button>
         </div>
@@ -359,15 +354,15 @@ export function DirectorGenerate({
                 <strong>
                   {job.kind === "EXPORT"
                     ? "Export MP4"
-                    : (document.shots.find((shot) => shot.id === job.shotId)?.name ?? "Plan")}
+                    : (document.shots.find((shot) => shot.id === job.shotId)?.name ?? "Shot")}
                 </strong>
                 <small>v{job.version}</small>
               </div>
               <p>{job.stage}</p>
-              <progress value={job.progress} max="100" aria-label="Avancement du traitement" />
+              <progress value={job.progress} max="100" aria-label="Job progress" />
               {job.error ? <p className="director-error-text">{job.error}</p> : null}
               {job.estimatedCostCents ? (
-                <small>Réservation : {(job.estimatedCostCents / 100).toFixed(2)} USD</small>
+                <small>Reserved: {(job.estimatedCostCents / 100).toFixed(2)} USD</small>
               ) : null}
               <div className="director-inline">
                 {directorActiveStatuses.includes(job.status) ? (
@@ -382,25 +377,25 @@ export function DirectorGenerate({
                     }}
                   >
                     <X size={12} />
-                    Annuler
+                    Cancel
                   </button>
                 ) : null}
                 {job.resultAssetId ? (
                   <>
                     <button onClick={() => void media(job.resultAssetId!, false)}>
                       <Play size={12} />
-                      Vérifier
+                      Review
                     </button>
                     {job.kind === "GENERATE" &&
                     job.shotId &&
                     document.shots.some((shot) => shot.id === job.shotId) ? (
                       <button onClick={() => onUseClip(job.shotId!, job.resultAssetId!)}>
                         <Check size={12} />
-                        Utiliser
+                        Use
                       </button>
                     ) : null}
                     <button
-                      aria-label="Télécharger le résultat vidéo"
+                      aria-label="Download video result"
                       onClick={() => void media(job.resultAssetId!, true)}
                     >
                       <Download size={12} />
@@ -411,7 +406,7 @@ export function DirectorGenerate({
             </div>
           ))}
         {!state?.jobs.some((job) => job.kind !== "INSPECT") ? (
-          <p className="director-hint">Vos exports et générations apparaîtront ici.</p>
+          <p className="director-hint">Your exports and generations will appear here.</p>
         ) : null}
       </div>
       {confirm ? (
@@ -423,8 +418,8 @@ export function DirectorGenerate({
             aria-labelledby="director-confirm-title"
           >
             <div className="director-panel-heading">
-              <h2 id="director-confirm-title">Confirmer la génération payante</h2>
-              <button aria-label="Fermer la confirmation" onClick={() => setConfirm(false)}>
+              <h2 id="director-confirm-title">Confirm paid generation</h2>
+              <button aria-label="Close confirmation" onClick={() => setConfirm(false)}>
                 <X size={18} />
               </button>
             </div>
@@ -432,15 +427,15 @@ export function DirectorGenerate({
               <strong>{shot.name}</strong> · {shot.duration}s · {provider?.name}
             </p>
             <div className="director-cost">
-              {(estimate / 100).toFixed(2)} <small>USD · plafond de cette demande</small>
+              {(estimate / 100).toFixed(2)} <small>USD · spending limit for this request</small>
             </div>
             <p>
-              Réservé ce mois : {((state?.capabilities.reservedCents ?? 0) / 100).toFixed(2)} /{" "}
+              Reserved this month: {((state?.capabilities.reservedCents ?? 0) / 100).toFixed(2)} /{" "}
               {((state?.capabilities.budgetCents ?? 0) / 100).toFixed(2)} USD.
             </p>
             <p>
-              Les références seront transmises au fournisseur. Une annulation peut rester
-              facturable. Les échecs gardent leur réservation jusqu’à rapprochement de la facture.
+              References will be sent to the provider. Cancellation may still be billable. Failed
+              requests keep their cost reservation until billing is reconciled.
             </p>
             <label className="director-checkbox">
               <input
@@ -448,8 +443,7 @@ export function DirectorGenerate({
                 checked={rights}
                 onChange={(event) => setRights(event.target.checked)}
               />
-              Je confirme les droits d’utilisation, de transformation IA et de transfert des
-              références.
+              I confirm the rights to use, transform with AI and transfer these references.
             </label>
             <label className="director-checkbox">
               <input
@@ -457,8 +451,8 @@ export function DirectorGenerate({
                 checked={billable}
                 onChange={(event) => setBillable(event.target.checked)}
               />
-              J’autorise explicitement cette génération pour un maximum de{" "}
-              {(estimate / 100).toFixed(2)} USD selon le tarif configuré.
+              I explicitly authorize this generation for up to {(estimate / 100).toFixed(2)} USD at
+              the configured rate.
             </label>
             <button
               className="director-primary"
@@ -466,7 +460,7 @@ export function DirectorGenerate({
               onClick={() => void enqueue("GENERATE")}
             >
               {busy ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-              Confirmer et lancer
+              Confirm and start
             </button>
           </div>
         </div>
@@ -477,19 +471,16 @@ export function DirectorGenerate({
             className="director-modal director-video-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Vérifier le résultat"
+            aria-label="Review result"
           >
             <div className="director-panel-heading">
-              <strong>Résultat privé · vérification humaine</strong>
-              <button aria-label="Fermer la vidéo" onClick={() => setViewUrl(null)}>
+              <strong>Private result · human review</strong>
+              <button aria-label="Close video" onClick={() => setViewUrl(null)}>
                 <X size={18} />
               </button>
             </div>
             <video controls src={viewUrl} playsInline />
-            <p>
-              Vérifiez les identités, les mouvements et le contenu avant d’utiliser ce clip dans le
-              montage.
-            </p>
+            <p>Check identities, movements and content before using this clip in the edit.</p>
           </div>
         </div>
       ) : null}

@@ -69,7 +69,7 @@ export class DirectorService {
   ) {}
   async owned(ownerId: string, id: string) {
     const project = await this.prisma.client.directorProject.findFirst({ where: { id, ownerId } });
-    if (!project) throw new NotFoundException("Projet Director introuvable.");
+    if (!project) throw new NotFoundException("Director project not found.");
     return project;
   }
   private async lock(transaction: Prisma.TransactionClient, id: string) {
@@ -100,7 +100,7 @@ export class DirectorService {
       // Serialize creation for per-owner capacity checks.
       await transaction.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id}::uuid FOR UPDATE`;
       if ((await transaction.directorProject.count({ where: { ownerId: user.id } })) >= 100)
-        throw new ConflictException("La limite de 100 projets est atteinte.");
+        throw new ConflictException("The limit of 100 projects has been reached.");
       return transaction.directorProject.create({
         data: {
           ownerId: user.id,
@@ -137,15 +137,15 @@ export class DirectorService {
         const centsPerSecond = configuredDirectorPrice(this.config, id);
         const reason =
           this.config.get("DIRECTOR_ENABLE_PAID_GENERATION") !== "true"
-            ? "Génération payante désactivée : utilisez vos clips importés."
+            ? "Paid generation is disabled: use your imported clips."
             : !storageReady
-              ? "Configurer le stockage privé Supabase."
+              ? "Configure private Supabase storage."
               : !this.providers.configured(id)
-                ? "Identifiants fournisseur absents."
+                ? "Provider credentials are missing."
                 : !centsPerSecond
-                  ? "Tarif vérifié à configurer côté serveur."
+                  ? "Configure a verified rate on the server."
                   : !runtime.some((worker) => (worker.providers as string[]).includes(id))
-                    ? "Worker compatible hors ligne."
+                    ? "A compatible worker is offline."
                     : null;
         return {
           id,
@@ -242,7 +242,7 @@ export class DirectorService {
       );
       if (!asset || (types && !types.some((prefix) => asset.contentType.startsWith(prefix))))
         throw new BadRequestException(
-          "Ressource absente, privée ou incompatible avec cette piste.",
+          "The asset is missing, private or incompatible with this track.",
         );
       return asset;
     };
@@ -251,7 +251,7 @@ export class DirectorService {
       const clip = requireAsset(shot.clipAssetId, ["video/"]);
       if (clip?.duration && shot.clipOffset + shot.duration > clip.duration + 0.08)
         throw new BadRequestException(
-          `Le clip de « ${shot.name} » est trop court pour cette durée.`,
+          `The clip for “${shot.name}” is too short for this duration.`,
         );
     }
     for (const item of document.tracks) {
@@ -260,9 +260,9 @@ export class DirectorService {
         item.track === "performance" ? ["video/"] : ["audio/", "video/"],
       );
       if (asset && item.track !== "performance" && !asset.hasAudio)
-        throw new BadRequestException("Cette ressource ne contient pas d’audio.");
+        throw new BadRequestException("This asset does not contain audio.");
       if (asset?.duration && item.offset + item.duration > asset.duration + 0.08)
-        throw new BadRequestException("La piste dépasse la durée de sa ressource.");
+        throw new BadRequestException("The track extends beyond its source asset.");
     }
     for (const person of document.cast) {
       requireAsset(person.referenceAssetId, ["image/"]);
@@ -276,11 +276,9 @@ export class DirectorService {
           },
         });
         if (!actor)
-          throw new BadRequestException(
-            "Cet acteur n’est pas disponible dans le catalogue public.",
-          );
+          throw new BadRequestException("This actor is unavailable in the public catalogue.");
         if (person.name !== actor.stageName)
-          throw new BadRequestException("Le nom doit correspondre au profil ACTBYME sélectionné.");
+          throw new BadRequestException("The name must match the selected ACTBYME profile.");
       }
       if (
         person.performanceProjectId &&
@@ -295,7 +293,7 @@ export class DirectorService {
         }))
       )
         throw new BadRequestException(
-          "La performance liée n’appartient pas à ce projet ou à cet acteur.",
+          "The linked performance does not belong to this project or actor.",
         );
     }
     return assets;
@@ -311,7 +309,7 @@ export class DirectorService {
       const project = await transaction.directorProject.findUniqueOrThrow({ where: { id } });
       if (project.version !== data.version)
         throw new ConflictException(
-          "Ce projet a été modifié ailleurs. Votre brouillon est conservé ; rechargez la version du serveur pour résoudre le conflit.",
+          "This project was modified elsewhere. Your draft is kept; reload the server version to resolve the conflict.",
         );
       await this.validateDocument(ownerId, id, data.document, transaction);
       await transaction.directorProject.update({
@@ -346,7 +344,7 @@ export class DirectorService {
     const revision = await this.prisma.client.directorRevision.findFirst({
       where: { id: revisionId, projectId: id },
     });
-    if (!revision) throw new NotFoundException("Version introuvable.");
+    if (!revision) throw new NotFoundException("Version not found.");
     return this.save(ownerId, id, { version, document: revision.document });
   }
   async plan(ownerId: string, id: string) {
@@ -357,15 +355,13 @@ export class DirectorService {
     const capabilities = await this.capabilities(ownerId);
     if (!capabilities.storageReady || !capabilities.workerReady)
       throw new ServiceUnavailableException(
-        "L’import et le rendu nécessitent le stockage privé et le worker Director. La préparation reste disponible.",
+        "Importing and rendering require private storage and the Director worker. Planning remains available.",
       );
     return capabilities;
   }
   private requireStorage() {
     if (this.config.get("STORAGE_PROVIDER") !== "supabase")
-      throw new ServiceUnavailableException(
-        "Configurez le stockage privé Supabase pour importer des ressources.",
-      );
+      throw new ServiceUnavailableException("Configure private Supabase storage to import assets.");
   }
   async reserve(ownerId: string, id: string, input: unknown) {
     await this.owned(ownerId, id);
@@ -374,13 +370,13 @@ export class DirectorService {
     return this.prisma.client.$transaction(async (transaction) => {
       await this.lock(transaction, id);
       if ((await transaction.directorAsset.count({ where: { projectId: id } })) >= 200)
-        throw new ConflictException("Limite de 200 ressources atteinte.");
+        throw new ConflictException("The limit of 200 assets has been reached.");
       const bytes = await transaction.directorAsset.aggregate({
         where: { projectId: id },
         _sum: { sizeBytes: true },
       });
       if ((bytes._sum.sizeBytes ?? 0) + data.sizeBytes > 2 * 1024 ** 3)
-        throw new ConflictException("Limite de stockage de 2 GiB par projet atteinte.");
+        throw new ConflictException("The project storage limit of 2 GiB has been reached.");
       const upload = await this.storage.createPresignedUpload({
         namespace: "director",
         contentType: data.contentType,
@@ -418,7 +414,7 @@ export class DirectorService {
       const asset = await transaction.directorAsset.findFirst({
         where: { id: assetId, projectId: id },
       });
-      if (!asset) throw new NotFoundException("Ressource introuvable.");
+      if (!asset) throw new NotFoundException("Asset not found.");
       if (asset.status !== "UPLOADING") return;
       const info = await this.storage.getObjectInfo(asset.storageKey);
       if (
@@ -426,7 +422,7 @@ export class DirectorService {
         info.contentType?.split(";")[0] !== asset.contentType
       )
         throw new BadRequestException(
-          "Le fichier reçu ne correspond pas au format ou à la taille déclarés.",
+          "The uploaded file does not match its declared format or size.",
         );
       await transaction.directorAsset.update({
         where: { id: assetId },
@@ -451,7 +447,7 @@ export class DirectorService {
     const asset = await this.prisma.client.directorAsset.findFirst({
       where: { id: assetId, projectId: id, status: "READY" },
     });
-    if (!asset) throw new NotFoundException("Ressource indisponible.");
+    if (!asset) throw new NotFoundException("Asset unavailable.");
     return {
       url: await this.storage.createSignedReadUrl(
         asset.storageKey,
@@ -487,12 +483,12 @@ export class DirectorService {
         jobs.some((job) => job.resultAssetId === assetId)
       )
         throw new ConflictException(
-          "Cette ressource est conservée par une version ou une production. Détachez-la du projet ; la conservation protège son historique.",
+          "This asset is retained by a version or production. Detach it from the project; retention protects its history.",
         );
       const asset = await transaction.directorAsset.findFirst({
         where: { id: assetId, projectId: id },
       });
-      if (!asset) throw new NotFoundException("Ressource introuvable.");
+      if (!asset) throw new NotFoundException("Asset not found.");
       await this.storage.deleteObject(asset.storageKey);
       await transaction.directorAsset.delete({ where: { id: assetId } });
     });
@@ -545,7 +541,7 @@ export class DirectorService {
         takeStatus: { in: ["QA_PASSED", "APPROVED"] },
       },
     });
-    if (!take) throw new NotFoundException("Prise validée introuvable.");
+    if (!take) throw new NotFoundException("Approved take not found.");
     const reservation = await this.reserve(ownerId, id, {
       name: take.originalFileName,
       kind: "performance",
@@ -559,7 +555,7 @@ export class DirectorService {
       where: { id: reservation.assetId },
     });
     if (!this.storage.uploadObject)
-      throw new ServiceUnavailableException("Stockage privé non configuré.");
+      throw new ServiceUnavailableException("Private storage is not configured.");
     const bytes = await this.storage.downloadObject(`${take.storageBucket}/${take.storagePath}`);
     await this.storage.uploadObject(asset.storageKey, bytes, take.contentType);
     await this.completeUpload(ownerId, id, asset.id);
@@ -583,9 +579,7 @@ export class DirectorService {
     );
     const document = directorDocumentSchema.parse(project.document);
     if (!document.cast.some((person) => person.actorProfileId === data.actorProfileId))
-      throw new BadRequestException(
-        "Ajoutez cet acteur au casting avant de demander son autorisation.",
-      );
+      throw new BadRequestException("Add this actor to the cast before requesting permission.");
     await this.prisma.client.directorActorGrant.upsert({
       where: {
         projectId_actorProfileId_scopeHash: {
@@ -642,7 +636,7 @@ export class DirectorService {
       const grant = await transaction.directorActorGrant.findFirst({
         where: { id: grantId, actorProfile: { userId } },
       });
-      if (!grant) throw new NotFoundException("Autorisation introuvable.");
+      if (!grant) throw new NotFoundException("Permission not found.");
       await this.lock(transaction, grant.projectId);
       const project = await transaction.directorProject.findUniqueOrThrow({
         where: { id: grant.projectId },
@@ -651,9 +645,9 @@ export class DirectorService {
         data.accept &&
         grant.scopeHash !== directorConsentScope(directorDocumentSchema.parse(project.document))
       )
-        throw new ConflictException("Le projet a changé. Demandez une autorisation à jour.");
+        throw new ConflictException("The project has changed. Request updated permission.");
       if (data.accept && grant.revokedAt)
-        throw new ConflictException("Cette autorisation révoquée ne peut pas être réactivée.");
+        throw new ConflictException("This revoked permission cannot be reactivated.");
       await transaction.directorActorGrant.update({
         where: { id: grantId },
         data: data.accept
@@ -670,9 +664,7 @@ export class DirectorService {
   ) {
     for (const person of document.cast) {
       if (person.kind === "placeholder")
-        throw new ConflictException(
-          "Remplacez ou retirez les mannequins de prévisualisation avant une génération IA.",
-        );
+        throw new ConflictException("Replace or remove preview stand-ins before AI generation.");
       if (person.kind === "actor") {
         const grant = await database.directorActorGrant.findFirst({
           where: {
@@ -685,7 +677,7 @@ export class DirectorService {
         });
         if (!grant)
           throw new ConflictException(
-            `L’acteur ${person.name} doit accepter l’autorisation de ce projet dans son espace Director.`,
+            `Actor ${person.name} must accept this project's permission in their Director space.`,
           );
       }
     }
@@ -714,11 +706,11 @@ export class DirectorService {
     });
     if (duplicate) {
       if (duplicate.projectId !== id || duplicate.requestHash !== requestHash)
-        throw new ConflictException("Clé de demande déjà utilisée pour une autre opération.");
+        throw new ConflictException("Request key already used for a different operation.");
       return this.get(ownerId, id);
     }
     if (data.execution === "browser" && data.kind !== "EXPORT")
-      throw new BadRequestException("Seul l’export MP4 peut s’exécuter dans le navigateur.");
+      throw new BadRequestException("Only MP4 export can run in the browser.");
     this.requireStorage();
     const capabilities =
       data.execution === "browser"
@@ -733,19 +725,19 @@ export class DirectorService {
         });
         if (existing) {
           if (existing.requestHash !== requestHash || existing.projectId !== id)
-            throw new ConflictException("Clé de demande déjà utilisée.");
+            throw new ConflictException("Request key already used.");
           return;
         }
         const project = await transaction.directorProject.findUniqueOrThrow({ where: { id } });
         if (project.version !== data.version)
-          throw new ConflictException("Enregistrez la dernière version avant de produire.");
+          throw new ConflictException("Save the latest version before producing.");
         const document = directorDocumentSchema.parse(project.document);
         const assets = await this.validateDocument(ownerId, id, document, transaction);
         const active = await transaction.directorJob.count({
           where: { ownerId, status: { in: directorActiveStatuses } },
         });
         if (active >= 3)
-          throw new ConflictException("Trois tâches sont déjà actives. Attendez leur fin.");
+          throw new ConflictException("Three jobs are already active. Wait for them to finish.");
         if (
           await transaction.directorJob.findFirst({
             where: {
@@ -758,27 +750,27 @@ export class DirectorService {
           })
         )
           throw new ConflictException(
-            "Un traitement de cette version est déjà actif pour ce plan ou cet export.",
+            "A job for this version is already active for this shot or export.",
           );
         if (
           (await transaction.directorJob.count({
             where: { ownerId, createdAt: { gt: new Date(Date.now() - 86400000) } },
           })) >= 100
         )
-          throw new ConflictException("La limite quotidienne de 100 traitements est atteinte.");
+          throw new ConflictException("The daily limit of 100 jobs has been reached.");
         let cost = 0;
         if (data.kind === "GENERATE") {
           if (!data.confirmBillable || !data.provider)
             throw new BadRequestException(
-              "Confirmez explicitement le fournisseur et le coût de cette génération payante.",
+              "Explicitly confirm the provider and cost of this paid generation.",
             );
           const provider = capabilities.providers.find(
             (candidate) => candidate.id === data.provider,
           )!;
           if (!provider.ready)
-            throw new ServiceUnavailableException(provider.reason ?? "Fournisseur indisponible.");
+            throw new ServiceUnavailableException(provider.reason ?? "Provider unavailable.");
           const shot = document.shots.find((candidate) => candidate.id === data.shotId);
-          if (!shot) throw new BadRequestException("Plan introuvable.");
+          if (!shot) throw new BadRequestException("Shot not found.");
           const errors = directorProviderErrors(
             document,
             shot,
@@ -789,12 +781,12 @@ export class DirectorService {
           await this.assertGenerationRights(transaction, id, document);
           cost = Math.ceil(shot.duration * provider.centsPerSecond);
           if (cost > data.maxCostCents)
-            throw new ConflictException("Le coût dépasse le plafond confirmé.");
+            throw new ConflictException("The cost exceeds the confirmed spending limit.");
           // Recompute under the owner lock to serialize budgets across projects.
           const usage = await this.capabilities(ownerId);
           if (usage.reservedCents + cost > usage.budgetCents)
             throw new ConflictException(
-              "Le budget mensuel est atteint. Les tentatives échouées restent réservées par prudence.",
+              "The monthly budget has been reached. Failed attempts keep their reservations as a precaution.",
             );
         } else {
           const exportError =
@@ -802,10 +794,10 @@ export class DirectorService {
           if (exportError) throw new BadRequestException(exportError);
           if (document.shots.some((shot) => !shot.clipAssetId))
             throw new BadRequestException(
-              "Associez un clip vérifié à chaque plan avant l’export MP4.",
+              "Assign a verified clip to every shot before exporting an MP4.",
             );
           if (document.tracks.some((item) => !item.assetId && item.track !== "performance"))
-            throw new BadRequestException("Une piste audio n’a pas de fichier associé.");
+            throw new BadRequestException("An audio track has no assigned file.");
         }
         const usedAssetIds = [
           ...new Set([
@@ -827,7 +819,7 @@ export class DirectorService {
             ...(data.execution === "browser"
               ? {
                   status: "PROCESSING",
-                  stage: "Assemblage dans le navigateur · gardez cet onglet ouvert",
+                  stage: "Assembling in your browser · keep this tab open",
                 }
               : {}),
             shotId: data.shotId,
@@ -855,10 +847,10 @@ export class DirectorService {
         where: { id: jobId, projectId: id, ownerId, kind: "EXPORT" },
       });
       if (!job || (job.input as { execution?: string }).execution !== "browser")
-        throw new NotFoundException("Export navigateur introuvable.");
+        throw new NotFoundException("Browser export not found.");
       if (job.status === "SUCCEEDED" && job.resultAssetId === assetId) return;
       if (job.status !== "PROCESSING")
-        throw new ConflictException("Cet export est terminé ou annulé.");
+        throw new ConflictException("This export is completed or cancelled.");
       const asset = await transaction.directorAsset.findFirst({
         where: {
           id: assetId,
@@ -881,7 +873,7 @@ export class DirectorService {
         !asset.hasAudio
       )
         throw new BadRequestException(
-          "Le MP4 doit être vérifié et correspondre à la durée et au format de cet export.",
+          "The MP4 must be verified and match this export's duration and format.",
         );
       const published = await transaction.directorJob.updateMany({
         where: { id: job.id, status: "PROCESSING" },
@@ -889,10 +881,10 @@ export class DirectorService {
           resultAssetId: assetId,
           status: "SUCCEEDED",
           progress: 100,
-          stage: "Publicité MP4 disponible",
+          stage: "Ad MP4 available",
         },
       });
-      if (!published.count) throw new ConflictException("Cet export a été annulé ou a expiré.");
+      if (!published.count) throw new ConflictException("This export was cancelled or expired.");
     });
     return this.get(ownerId, id);
   }
@@ -901,7 +893,7 @@ export class DirectorService {
     const job = await this.prisma.client.directorJob.findFirst({
       where: { id: jobId, projectId: id },
     });
-    if (!job) throw new NotFoundException("Traitement introuvable.");
+    if (!job) throw new NotFoundException("Job not found.");
     const changed = await this.prisma.client.directorJob.updateMany({
       where: { id: jobId, status: { in: directorActiveStatuses } },
       data: {
@@ -910,8 +902,8 @@ export class DirectorService {
         leaseUntil: null,
         stage:
           job.kind === "GENERATE"
-            ? "Annulation locale ; le fournisseur peut encore facturer."
-            : "Traitement annulé",
+            ? "Cancelled locally; the provider may still charge."
+            : "Job cancelled",
       },
     });
     if (changed.count && job.providerRequest && job.provider)
@@ -924,7 +916,7 @@ export class DirectorService {
         where: { id: assetId, projectId: id, status: "INSPECTING" },
         data: {
           status: "FAILED",
-          error: "Vérification annulée. Retirez ce fichier et importez-le à nouveau.",
+          error: "Verification cancelled. Remove this file and import it again.",
         },
       });
     }

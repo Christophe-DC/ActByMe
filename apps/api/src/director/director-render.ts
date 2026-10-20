@@ -38,7 +38,7 @@ export async function inspectDirectorAsset(
           ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
           : bytes.subarray(0, 4).toString() === "RIFF" &&
             bytes.subarray(8, 12).toString() === "WEBP";
-    if (!valid) throw new Error("La signature du fichier ne correspond pas à son format image.");
+    if (!valid) throw new Error("The file signature does not match its image format.");
   }
   const result = await runVideoCommand(
     binary,
@@ -66,9 +66,9 @@ export async function inspectDirectorAsset(
     (!video ||
       !data.format.format_name.split(",").some((format) => ["mov", "mp4"].includes(format)))
   )
-    throw new Error("Importez une vidéo MP4/MOV valide.");
+    throw new Error("Import a valid MP4/MOV video.");
   if (contentType.startsWith("audio/") && !audio)
-    throw new Error("Le fichier ne contient pas de piste audio lisible.");
+    throw new Error("The file does not contain a playable audio track.");
   const expectedContainers: Record<string, string[]> = {
     "audio/mpeg": ["mp3"],
     "audio/wav": ["wav"],
@@ -82,10 +82,10 @@ export async function inspectDirectorAsset(
       .split(",")
       .some((format) => expectedContainers[contentType]!.includes(format))
   )
-    throw new Error("Le format audio réel ne correspond pas au type déclaré.");
+    throw new Error("The actual audio format does not match the declared type.");
   if (!image && (!data.format.duration || data.format.duration > 600))
-    throw new Error("La ressource doit durer entre 0 et 600 secondes.");
-  if (image && !imageStream) throw new Error("Image illisible.");
+    throw new Error("Assets must be between 0 and 600 seconds long.");
+  if (image && !imageStream) throw new Error("Unreadable image.");
   if (
     imageStream &&
     (!imageStream.width ||
@@ -95,7 +95,7 @@ export async function inspectDirectorAsset(
       imageStream.width < 32 ||
       imageStream.height < 32)
   )
-    throw new Error("La résolution doit être comprise entre 32 et 7680 pixels par côté.");
+    throw new Error("Resolution must be between 32 and 7680 pixels on each side.");
   return {
     duration: image ? null : data.format.duration!,
     width: imageStream?.width ?? null,

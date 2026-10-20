@@ -53,7 +53,7 @@ export async function renderDirectorPlan(
     const shot = document.shots[index]!;
     const asset = assets.find((candidate) => candidate.id === shot.clipAssetId);
     if (!asset?.duration || shot.clipOffset + shot.duration > asset.duration + 0.08)
-      throw new Error(`Le clip du plan ${shot.name} est absent ou trop court.`);
+      throw new Error(`The clip for shot ${shot.name} is missing or too short.`);
     const output = tools.path(`normalized-${index}.mp4`);
     const filter = [
       `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
@@ -119,7 +119,7 @@ export async function renderDirectorPlan(
     clips.push(output);
     await tools.progress(
       15 + Math.round(((index + 1) / document.shots.length) * 50),
-      `Préparation du plan ${index + 1}/${document.shots.length}`,
+      `Preparing shot ${index + 1}/${document.shots.length}`,
     );
   }
   const manifest = tools.path("concat.txt");
@@ -153,7 +153,7 @@ export async function renderDirectorPlan(
     if (!item.assetId || !item.volume || indices.has(item.assetId)) continue;
     const asset = assets.find((candidate) => candidate.id === item.assetId);
     if (!asset?.hasAudio) {
-      if (item.track !== "performance") throw new Error("Une piste audio ne contient aucun son.");
+      if (item.track !== "performance") throw new Error("An audio track does not contain sound.");
       continue;
     }
     indices.set(item.assetId, indices.size + 1);
@@ -183,7 +183,7 @@ export async function renderDirectorPlan(
     "-y",
     output,
   );
-  await tools.progress(75, "Mixage audio et assemblage MP4");
+  await tools.progress(75, "Mixing audio and assembling the MP4");
   await tools.run(args);
   return output;
 }
@@ -193,7 +193,7 @@ export function directorBrowserExportError(
   assets: Pick<DirectorAsset, "id" | "sizeBytes">[],
 ) {
   if (directorDuration(document) > 120 || document.shots.length > 30)
-    return "L’export navigateur est limité à 2 minutes et 30 plans. Exportez le dossier de production pour les montages plus longs.";
+    return "Browser export is limited to 2 minutes and 30 shots. Export the production plan for longer edits.";
   const used = new Set([
     ...document.shots.flatMap((shot) => (shot.clipAssetId ? [shot.clipAssetId] : [])),
     ...document.tracks.flatMap((item) => (item.assetId && item.volume ? [item.assetId] : [])),
@@ -202,6 +202,6 @@ export function directorBrowserExportError(
     assets.filter((asset) => used.has(asset.id)).reduce((sum, asset) => sum + asset.sizeBytes, 0) >
     128 * 1024 * 1024
   )
-    return "Les clips et sons de cet export dépassent 128 MiB. Compressez vos fichiers avant de les importer.";
+    return "The clips and audio for this export exceed 128 MiB. Compress your files before importing them.";
   return null;
 }

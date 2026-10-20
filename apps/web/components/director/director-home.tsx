@@ -65,7 +65,7 @@ export function DirectorHome() {
       }
     } catch (error) {
       if (!controller.signal.aborted)
-        setLoadError(error instanceof Error ? error.message : "Impossible de charger les projets.");
+        setLoadError(error instanceof Error ? error.message : "Unable to load projects.");
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
@@ -88,9 +88,7 @@ export function DirectorHome() {
       .catch(() => {
         if (active) {
           setUserId(null);
-          setError(
-            "Impossible de vérifier votre session. Vous pouvez réessayer de vous connecter.",
-          );
+          setError("Unable to check your session. Please try signing in again.");
         }
       });
     const {
@@ -112,7 +110,7 @@ export function DirectorHome() {
     setError(null);
     try {
       const project = await directorApi.create(
-        demo ? "The Coastal House" : title.trim() || "Nouvelle publicité",
+        demo ? "The Coastal House" : title.trim() || "New ad",
         demo,
       );
       router.push(`/director/${project.id}`);
@@ -130,12 +128,12 @@ export function DirectorHome() {
           <span>/ DIRECTOR</span>
         </Link>
         <nav>
-          <Link href="/projects">Mes projets ACTBYME</Link>
+          <Link href="/projects">My ACTBYME projects</Link>
           <Link href="/studio">Director Studio</Link>
           {authenticated ? (
-            <Link href="/profile">Mon compte</Link>
+            <Link href="/profile">My account</Link>
           ) : (
-            <button onClick={() => setAuthOpen(true)}>Se connecter</button>
+            <button onClick={() => setAuthOpen(true)}>Sign in</button>
           )}
         </nav>
       </header>
@@ -143,7 +141,7 @@ export function DirectorHome() {
         <div>
           <span className="director-eyebrow">
             <span className="director-live-dot" />
-            LE STUDIO DE VOTRE PROCHAINE PUBLICITÉ
+            THE STUDIO FOR YOUR NEXT AD
           </span>
           <h1>
             Edit the video.
@@ -151,8 +149,8 @@ export function DirectorHome() {
             <em>Before producing it.</em>
           </h1>
           <p>
-            Préparez les plans. Dirigez la caméra. Accordez les performances et le son. Voyez votre
-            publicité prendre forme avant sa première génération IA.
+            Plan your shots. Direct the camera. Bring performances and sound together. See your ad
+            take shape before your first AI generation.
           </p>
           <div className="director-hero-actions">
             <button
@@ -160,22 +158,22 @@ export function DirectorHome() {
               disabled={busy || (authenticated && loading)}
               onClick={() => void create(true)}
             >
-              {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Créer mon
-              premier projet
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Create my
+              first project
             </button>
             <Link className="director-button" href="/director/demo">
               <Play size={14} />
-              Explorer The Coastal House
+              Explore The Coastal House
             </Link>
           </div>
           <div className="director-hero-features">
             <span>
               <Move3D size={14} />
-              Prévisualisation 3D gratuite
+              Free 3D preview
             </span>
             <span>
               <ShieldCheck size={14} />
-              Ressources privées
+              Private assets
             </span>
             <span>
               <Film size={14} />
@@ -186,7 +184,7 @@ export function DirectorHome() {
         <Link
           href="/director/demo"
           className="director-home-preview"
-          aria-label="Ouvrir la démo The Coastal House"
+          aria-label="Open The Coastal House demo"
         >
           <div className="director-mini-topbar">
             <Clapperboard size={12} />
@@ -201,9 +199,9 @@ export function DirectorHome() {
             <div className="director-mini-caption">
               <span>Outside to Inside</span>
               <strong>
-                Un lieu. Une histoire.
+                A place. A story.
                 <br />
-                Votre réalisation.
+                Your direction.
               </strong>
             </div>
           </div>
@@ -217,9 +215,9 @@ export function DirectorHome() {
             <span />
           </div>
           <p>
-            <span>3 plans · 30 secondes</span>
+            <span>3 shots · 30 seconds</span>
             <span>
-              Ouvrir la prévisualisation <ArrowUpRight size={13} />
+              Open preview <ArrowUpRight size={13} />
             </span>
           </p>
         </Link>
@@ -232,10 +230,10 @@ export function DirectorHome() {
       <section className="director-home-projects">
         <div className="director-section-heading">
           <div>
-            <span className="director-eyebrow">DE L’INTENTION AU FILM</span>
-            <h2>Vos réalisations</h2>
+            <span className="director-eyebrow">FROM IDEA TO FILM</span>
+            <h2>Your projects</h2>
           </div>
-          <span className="director-hint">Enregistrement automatique · versions privées</span>
+          <span className="director-hint">Automatic saving · private versions</span>
         </div>
         <div className="director-project-grid">
           <form
@@ -246,27 +244,27 @@ export function DirectorHome() {
             }}
           >
             <Plus size={24} />
-            <h3>Une nouvelle idée ?</h3>
+            <h3>A new idea?</h3>
             <label>
-              Nom du projet
+              Project name
               <input
-                aria-label="Nom du nouveau projet Director"
+                aria-label="New Director project name"
                 maxLength={140}
                 value={title}
-                placeholder="Ma prochaine publicité"
+                placeholder="My next ad"
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>
             <button className="director-primary" disabled={busy || loading}>
-              {busy ? <Loader2 size={14} /> : <Plus size={14} />}Créer un projet
+              {busy ? <Loader2 size={14} /> : <Plus size={14} />}Create project
             </button>
           </form>
           {loading ? (
-            <DirectorLoading message="Chargement de vos projets…" onRetry={() => void load()} />
+            <DirectorLoading message="Loading your projects…" onRetry={() => void load()} />
           ) : loadError ? (
             <div className="director-loading">
               <p role="alert">{loadError}</p>
-              <button onClick={() => void load()}>Réessayer le chargement</button>
+              <button onClick={() => void load()}>Try loading again</button>
             </div>
           ) : (
             projects.map((project) => (
@@ -282,7 +280,7 @@ export function DirectorHome() {
                 <h3>{project.title}</h3>
                 <p>
                   <Clock3 size={12} />
-                  {new Date(project.updatedAt).toLocaleDateString("fr-FR")}
+                  {new Date(project.updatedAt).toLocaleDateString("en-US")}
                   <ArrowUpRight size={14} />
                 </p>
               </Link>
@@ -291,7 +289,7 @@ export function DirectorHome() {
         </div>
         {!authenticated ? (
           <p className="director-hint">
-            Connectez-vous pour créer des projets persistants. La démo reste accessible librement.
+            Sign in to create saved projects. The demo is freely accessible.
           </p>
         ) : null}
       </section>
@@ -299,15 +297,14 @@ export function DirectorHome() {
         <section className="director-home-requests">
           <div className="director-section-heading">
             <div>
-              <span className="director-eyebrow">ESPACE ACTEUR</span>
-              <h2>Autorisations Director</h2>
+              <span className="director-eyebrow">ACTOR SPACE</span>
+              <h2>Director permissions</h2>
             </div>
             <ShieldCheck size={22} />
           </div>
           <p className="director-hint">
-            L’acceptation autorise l’usage commercial, la transformation IA et le transfert aux
-            fournisseurs pour les conditions et la direction créative présentées. Consultez le
-            dossier avant de décider.
+            Acceptance allows commercial use, AI transformation and transfer to providers under the
+            terms and creative direction shown. Review the production plan before deciding.
           </p>
           {requests.map((request) => (
             <article key={request.id} className="director-request-card">
@@ -316,22 +313,22 @@ export function DirectorHome() {
                 <p>{request.terms}</p>
                 <small>
                   {request.revokedAt
-                    ? "Autorisation révoquée"
+                    ? "Permission revoked"
                     : !request.current
-                      ? "Direction créative modifiée · demande obsolète"
+                      ? "Creative direction changed · request out of date"
                       : request.acceptedAt
-                        ? "Autorisation acceptée"
-                        : "En attente de votre décision"}
+                        ? "Permission accepted"
+                        : "Waiting for your decision"}
                 </small>
               </div>
               <div>
                 <button
                   onClick={() =>
-                    downloadDirectorJson(request.plan, `${request.title}-autorisation.json`)
+                    downloadDirectorJson(request.plan, `${request.title}-permission.json`)
                   }
                 >
                   <FileJson size={14} />
-                  Lire le dossier de production
+                  Read production plan
                 </button>
                 {request.current && !request.acceptedAt && !request.revokedAt ? (
                   <>
@@ -341,9 +338,8 @@ export function DirectorHome() {
                         checked={consent === request.id}
                         onChange={(event) => setConsent(event.target.checked ? request.id : null)}
                       />
-                      J’ai lu le dossier et les conditions. J’accepte les usages commerciaux, la
-                      transformation IA et la transmission de mon identité et de mes références pour
-                      ce projet.
+                      I have read the production plan and terms. I accept commercial use, AI
+                      transformation and transfer of my identity and references for this project.
                     </label>
                     <button
                       className="director-primary"
@@ -358,7 +354,7 @@ export function DirectorHome() {
                       }}
                     >
                       <Check size={14} />
-                      Accepter cette autorisation
+                      Accept this permission
                     </button>
                   </>
                 ) : request.acceptedAt && !request.revokedAt ? (
@@ -373,7 +369,7 @@ export function DirectorHome() {
                         .finally(() => setBusy(false));
                     }}
                   >
-                    Révoquer pour les prochaines générations
+                    Revoke for future generations
                   </button>
                 ) : null}
               </div>
@@ -384,12 +380,9 @@ export function DirectorHome() {
       <div className="director-home-bottom">
         <Link href="/">
           <ArrowLeft size={14} />
-          Retour à ACTBYME
+          Back to ACTBYME
         </Link>
-        <p>
-          La préparation est gratuite. Les générations IA sont facultatives et demandent une
-          confirmation explicite.
-        </p>
+        <p>Planning is free. AI generation is optional and requires explicit confirmation.</p>
       </div>
       <AuthModal
         initialMode="login"

@@ -15,12 +15,12 @@ export function DirectorLoading({ message, onRetry }: { message: string; onRetry
       {slow ? (
         <>
           <p className="director-hint">
-            La connexion au studio prend un peu de temps. Le premier chargement peut prendre une
-            minute. Vous pouvez patienter ou relancer le chargement.
+            Connecting to the studio is taking a little longer. The first load can take a minute.
+            You can wait or restart loading.
           </p>
           <button onClick={onRetry}>
             <RefreshCw size={14} />
-            Relancer le chargement
+            Restart loading
           </button>
         </>
       ) : null}

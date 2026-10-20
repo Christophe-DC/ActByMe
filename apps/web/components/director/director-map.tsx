@@ -61,7 +61,7 @@ export function DirectorMap({
       className="director-map"
       viewBox={`${minimumX} ${minimumY} ${maximumX - minimumX} ${maximumY - minimumY}`}
       role="group"
-      aria-label="Vue du dessus et trajectoire de caméra"
+      aria-label="Top view and camera path"
       onPointerMove={(event) => {
         if (!drag || !root.current) return;
         const matrix = root.current.getScreenCTM();

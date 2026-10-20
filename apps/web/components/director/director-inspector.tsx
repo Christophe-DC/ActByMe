@@ -95,14 +95,14 @@ export function CameraInspector({
     onSeek(start + at * shot.duration);
   };
   return (
-    <aside className="director-inspector" aria-label="Réglages du plan">
+    <aside className="director-inspector" aria-label="Shot settings">
       <div className="director-panel-heading">
-        <span className="director-eyebrow">Plan continu</span>
+        <span className="director-eyebrow">Continuous shot</span>
         <strong>{shot.duration.toFixed(1)}s</strong>
       </div>
       <label className="director-shot-name">
         <input
-          aria-label="Nom du plan"
+          aria-label="Shot name"
           maxLength={120}
           value={shot.name}
           onChange={(event) => {
@@ -114,21 +114,21 @@ export function CameraInspector({
         />
       </label>
       <div className="director-inspector-tabs">
-        <span>Caméra</span>
+        <span>Camera</span>
         <span>{shot.waypoints.length} waypoints</span>
       </div>
       <div className="director-panel-heading">
         <strong>Waypoint {String(index + 1).padStart(2, "0")}</strong>
         <div className="director-inline">
           <button
-            aria-label="Waypoint précédent"
+            aria-label="Previous waypoint"
             disabled={index === 0}
             onClick={() => selectPoint(shot.waypoints[index - 1]!)}
           >
             <ChevronLeft size={14} />
           </button>
           <button
-            aria-label="Waypoint suivant"
+            aria-label="Next waypoint"
             disabled={index === shot.waypoints.length - 1}
             onClick={() => selectPoint(shot.waypoints[index + 1]!)}
           >
@@ -137,7 +137,7 @@ export function CameraInspector({
         </div>
       </div>
       <NumberControl
-        label="Arrivée dans le plan"
+        label="Arrival within shot"
         value={point.at * shot.duration}
         min={index === 0 ? 0 : (shot.waypoints[index - 1]!.at + 0.001) * shot.duration}
         max={
@@ -154,9 +154,9 @@ export function CameraInspector({
         }}
       />
       <label>
-        Point d’intérêt
+        Point of interest
         <select
-          aria-label="Point d’intérêt suivi"
+          aria-label="Followed point of interest"
           value={shot.followCastId ?? ""}
           onChange={(event) =>
             editShot((shot) => {
@@ -164,7 +164,7 @@ export function CameraInspector({
             })
           }
         >
-          <option value="">Cible manuelle</option>
+          <option value="">Manual target</option>
           {document.cast.map((person) => (
             <option key={person.id} value={person.id}>
               {person.name}
@@ -174,7 +174,7 @@ export function CameraInspector({
       </label>
       <div className="director-xyz">
         <NumberControl
-          label="Caméra X"
+          label="Camera X"
           value={point.position.x}
           min={-100}
           max={100}
@@ -186,7 +186,7 @@ export function CameraInspector({
           }
         />
         <NumberControl
-          label="Hauteur caméra"
+          label="Camera height"
           value={point.position.y}
           min={0.1}
           max={50}
@@ -198,7 +198,7 @@ export function CameraInspector({
           }
         />
         <NumberControl
-          label="Caméra Z"
+          label="Camera Z"
           value={point.position.z}
           min={-100}
           max={100}
@@ -211,9 +211,9 @@ export function CameraInspector({
         />
       </div>
       <label className="director-range-label">
-        Focale <span>{point.lens.toFixed(0)} mm</span>
+        Lens <span>{point.lens.toFixed(0)} mm</span>
         <input
-          aria-label="Focale de la caméra"
+          aria-label="Camera lens"
           type="range"
           min="12"
           max="120"
@@ -227,12 +227,12 @@ export function CameraInspector({
         />
       </label>
       <details>
-        <summary>Position de la cible</summary>
+        <summary>Target position</summary>
         <div className="director-xyz">
           {(["x", "y", "z"] as const).map((axis) => (
             <NumberControl
               key={axis}
-              label={`Cible ${axis.toUpperCase()}`}
+              label={`Target ${axis.toUpperCase()}`}
               value={point.target[axis]}
               min={axis === "y" ? 0.1 : -100}
               max={axis === "y" ? 50 : 100}
@@ -252,7 +252,7 @@ export function CameraInspector({
           Waypoint
         </button>
         <button
-          aria-label="Supprimer ce waypoint"
+          aria-label="Delete this waypoint"
           disabled={index === 0 || index === shot.waypoints.length - 1}
           onClick={() => {
             editShot((shot) => {
@@ -264,8 +264,8 @@ export function CameraInspector({
           <Trash2 size={14} />
         </button>
         <button
-          aria-label="Réinitialiser le mouvement"
-          title="Rétablir le mouvement du modèle"
+          aria-label="Reset camera move"
+          title="Restore the template camera move"
           onClick={() =>
             editShot((shot) => {
               shot.waypoints = createDirectorShot(shot.templateId, shot.id).waypoints;
@@ -277,7 +277,7 @@ export function CameraInspector({
       </div>
       <div className="director-inspector-section">
         <NumberControl
-          label="Durée du plan"
+          label="Shot duration"
           value={shot.duration}
           min={0.5}
           max={120}
@@ -287,7 +287,7 @@ export function CameraInspector({
         <label>
           Interpolation
           <select
-            aria-label="Interpolation du mouvement"
+            aria-label="Camera motion interpolation"
             value={shot.easing}
             onChange={(event) =>
               editShot((shot) => {
@@ -295,14 +295,14 @@ export function CameraInspector({
               })
             }
           >
-            <option value="smooth">Fluide · spline cubique</option>
-            <option value="linear">Linéaire · vitesse constante par segment</option>
+            <option value="smooth">Smooth · cubic spline</option>
+            <option value="linear">Linear · constant speed per segment</option>
           </select>
         </label>
         <label>
-          Transition entrante
+          Incoming transition
           <select
-            aria-label="Transition du plan"
+            aria-label="Shot transition"
             value={shot.transition}
             onChange={(event) =>
               editShot((shot) => {
@@ -310,13 +310,13 @@ export function CameraInspector({
               })
             }
           >
-            <option value="cut">Coupe franche</option>
-            <option value="fade">Fondu au noir</option>
+            <option value="cut">Hard cut</option>
+            <option value="fade">Fade through black</option>
           </select>
         </label>
         {shot.transition === "fade" ? (
           <NumberControl
-            label="Durée du fondu"
+            label="Fade duration"
             value={shot.transitionDuration}
             min={0.05}
             max={Math.min(2, shot.duration / 2)}
@@ -330,7 +330,7 @@ export function CameraInspector({
         ) : null}
       </div>
       <details className="director-inspector-section" open>
-        <summary>Références du plan</summary>
+        <summary>Shot references</summary>
         <div className="director-reference-picker">
           {assets
             .filter((asset) => asset.status === "READY" && asset.kind !== "clip")
@@ -351,16 +351,14 @@ export function CameraInspector({
               </label>
             ))}
           {!assets.some((asset) => asset.status === "READY" && asset.kind !== "clip") ? (
-            <p className="director-hint">
-              Importez vos références depuis la bibliothèque de ressources.
-            </p>
+            <p className="director-hint">Import your references from the asset library.</p>
           ) : null}
         </div>
       </details>
       {shot.clipAssetId ? (
         <div className="director-inspector-section">
           <NumberControl
-            label="Décalage du clip"
+            label="Clip offset"
             value={shot.clipOffset}
             max={Math.max(
               0,
@@ -384,14 +382,14 @@ export function CameraInspector({
                 })
               }
             />
-            Conserver le son original du clip
+            Keep original clip audio
           </label>
         </div>
       ) : null}
       <label>
-        Direction créative
+        Creative direction
         <textarea
-          aria-label="Instructions du plan"
+          aria-label="Shot instructions"
           rows={3}
           maxLength={5000}
           value={shot.prompt}
@@ -400,7 +398,7 @@ export function CameraInspector({
               shot.prompt = event.target.value;
             })
           }
-          placeholder="Lumière de fin de journée, mouvement doux…"
+          placeholder="Late-afternoon light, gentle camera movement…"
         />
       </label>
     </aside>
@@ -421,13 +419,13 @@ export function TrackInspector({
   return (
     <aside className="director-inspector">
       <div className="director-panel-heading">
-        <strong>Élément de timeline</strong>
+        <strong>Timeline item</strong>
         <span className="director-badge">{item.track}</span>
       </div>
       <label>
-        Nom
+        Name
         <input
-          aria-label="Nom de la piste"
+          aria-label="Track name"
           value={item.label}
           maxLength={120}
           onChange={(event) => {
@@ -439,7 +437,7 @@ export function TrackInspector({
         />
       </label>
       <NumberControl
-        label="Début de la piste"
+        label="Track start"
         value={item.start}
         max={duration - item.duration}
         suffix="s"
@@ -450,7 +448,7 @@ export function TrackInspector({
         }
       />
       <NumberControl
-        label="Durée de la piste"
+        label="Track duration"
         value={item.duration}
         min={0.1}
         max={duration - item.start}
@@ -464,7 +462,7 @@ export function TrackInspector({
         }
       />
       <NumberControl
-        label="Décalage dans le fichier"
+        label="Source offset"
         value={item.offset}
         suffix="s"
         onChange={(value) =>
@@ -476,7 +474,7 @@ export function TrackInspector({
       <label className="director-range-label">
         Volume <span>{Math.round(item.volume * 100)}%</span>
         <input
-          aria-label="Volume de la piste"
+          aria-label="Track volume"
           type="range"
           min="0"
           max="1"
@@ -490,7 +488,7 @@ export function TrackInspector({
         />
       </label>
       <NumberControl
-        label="Fondu audio entrant"
+        label="Audio fade-in"
         value={item.fadeIn}
         max={Math.min(10, item.duration - item.fadeOut)}
         suffix="s"
@@ -501,7 +499,7 @@ export function TrackInspector({
         }
       />
       <NumberControl
-        label="Fondu audio sortant"
+        label="Audio fade-out"
         value={item.fadeOut}
         max={Math.min(10, item.duration - item.fadeIn)}
         suffix="s"
@@ -514,9 +512,9 @@ export function TrackInspector({
       {item.track === "performance" ? (
         <>
           <label>
-            Interprète
+            Performer
             <select
-              aria-label="Interprète de la performance"
+              aria-label="Performance actor"
               value={item.castId ?? ""}
               onChange={(event) =>
                 edit((item) => {
@@ -524,7 +522,7 @@ export function TrackInspector({
                 })
               }
             >
-              <option value="">Aucun</option>
+              <option value="">None</option>
               {document.cast.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.name}
@@ -533,9 +531,9 @@ export function TrackInspector({
             </select>
           </label>
           <label>
-            Instructions de jeu
+            Performance instructions
             <textarea
-              aria-label="Instructions de jeu"
+              aria-label="Performance instructions"
               value={item.instructions}
               maxLength={3000}
               rows={4}
@@ -549,8 +547,8 @@ export function TrackInspector({
         </>
       ) : null}
       <p className="director-hint">
-        Glissez cet élément pour changer son début. Utilisez son bord droit pour ajuster sa durée.
-        Les valeurs précises restent disponibles ici.
+        Drag this item to change its start. Use its right edge to adjust the duration. Enter precise
+        values here.
       </p>
     </aside>
   );

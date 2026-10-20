@@ -186,7 +186,7 @@ export const directorUploadSchema = z
       .number()
       .int()
       .min(1)
-      .max(50 * 1024 * 1024, "Fichier limité à 50 MiB pour le mode sans worker."),
+      .max(50 * 1024 * 1024, "Files are limited to 50 MiB without a dedicated worker."),
     rightsBasis: z.string().trim().min(10).max(2000),
     rightsConfirmed: z.literal(true),
     aiTransferAllowed: z.boolean(),
@@ -390,7 +390,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "outside-inside",
     name: "Outside to Inside",
     category: "spaces",
-    description: "Une entrée fluide, du jardin au cœur de la maison.",
+    description: "A smooth entrance from the garden into the heart of the house.",
     required: ["property"],
     prompt:
       "One continuous shot travels from the exterior garden through an open doorway into the living room. Preserve spatial continuity.",
@@ -405,7 +405,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "follow-reveal",
     name: "Follow & Reveal",
     category: "people",
-    description: "Suivre le sujet, puis dévoiler son environnement.",
+    description: "Follow the subject, then reveal the surroundings.",
     required: ["character"],
     prompt:
       "Follow the subject from behind, then move sideways to reveal the environment. One continuous shot.",
@@ -419,7 +419,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "orbit-pull",
     name: "Orbit & Pull Away",
     category: "spaces",
-    description: "Une orbite qui s’ouvre sur une vue d’ensemble.",
+    description: "An orbit that opens into a wide establishing view.",
     required: ["property"],
     prompt: "Orbit around the subject, then smoothly pull away to reveal a wide view. No cuts.",
     points: [
@@ -433,7 +433,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "doorway",
     name: "Through the Doorway",
     category: "spaces",
-    description: "Traverser une ouverture et découvrir une pièce.",
+    description: "Move through an opening to reveal a room.",
     required: ["property"],
     prompt: "A continuous eye-level dolly through an open doorway, revealing the room beyond.",
     points: [
@@ -446,7 +446,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "product-world",
     name: "Product to World",
     category: "product",
-    description: "Du détail produit à l’univers de la marque.",
+    description: "Move from a product detail into the brand's world.",
     required: ["product"],
     prompt:
       "Begin on an intimate product detail, then pull back to reveal its setting. One continuous shot.",
@@ -460,7 +460,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "actor-handoff",
     name: "Actor Handoff",
     category: "people",
-    description: "Passer d’un interprète à l’autre dans un même plan.",
+    description: "Move from one performer to another in a single shot.",
     required: ["character"],
     prompt:
       "Track smoothly from the first performer to a second performer, preserving a single continuous take.",
@@ -474,7 +474,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "product-detail",
     name: "Close-up / Product Detail",
     category: "product",
-    description: "Mettre en valeur une matière, une forme, un détail.",
+    description: "Highlight a material, shape or fine detail.",
     required: ["product"],
     prompt:
       "A slow cinematic macro shot of the product, crisp material detail, shallow depth of field.",
@@ -487,7 +487,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "establishing",
     name: "Establishing Shot",
     category: "spaces",
-    description: "Installer le lieu et l’atmosphère.",
+    description: "Establish the location and atmosphere.",
     required: ["property"],
     prompt: "A wide establishing shot that introduces the location with a subtle cinematic drift.",
     points: [
@@ -499,7 +499,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "dolly-in",
     name: "Dolly In",
     category: "product",
-    description: "Rapprocher progressivement l’attention.",
+    description: "Gradually draw attention closer to the subject.",
     required: [],
     prompt:
       "A slow forward dolly towards the subject. Maintain a stable horizon and continuous motion.",
@@ -512,7 +512,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "dolly-out",
     name: "Dolly Out",
     category: "spaces",
-    description: "Élargir le cadre et dévoiler le contexte.",
+    description: "Widen the frame to reveal the context.",
     required: [],
     prompt: "A slow backward dolly away from the subject, revealing the environment.",
     points: [
@@ -524,7 +524,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "pan",
     name: "Pan",
     category: "spaces",
-    description: "Un balayage horizontal depuis une caméra fixe.",
+    description: "A horizontal sweep from a fixed camera.",
     required: [],
     prompt: "A smooth horizontal pan from a fixed camera position. No translation.",
     points: [
@@ -536,7 +536,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "tilt",
     name: "Tilt",
     category: "spaces",
-    description: "Explorer un sujet de bas en haut.",
+    description: "Reveal a subject from bottom to top.",
     required: [],
     prompt: "A smooth upward tilt from a fixed camera, revealing the subject vertically.",
     points: [
@@ -548,7 +548,7 @@ export const directorTemplates: DirectorTemplate[] = [
     id: "tracking",
     name: "Tracking Shot",
     category: "people",
-    description: "Accompagner le mouvement latéral du sujet.",
+    description: "Follow the subject's lateral movement.",
     required: [],
     prompt:
       "A smooth lateral tracking shot alongside the subject, maintaining consistent distance.",
@@ -602,11 +602,9 @@ export function createDirectorDocument(
     title,
     category: "real-estate",
     brief: demo
-      ? "Présenter une maison côtière lumineuse : arriver, découvrir les matières, puis inviter à la visite."
+      ? "Introduce a bright coastal house: arrive, discover the materials, then invite the viewer inside."
       : "",
-    script: demo
-      ? "Un nouvel horizon. Des espaces pour respirer. Votre prochaine histoire commence ici."
-      : "",
+    script: demo ? "A new horizon. Space to breathe. Your next story starts here." : "",
     aspectRatio: "16:9",
     environment: "coastal",
     shots: demo
@@ -624,7 +622,7 @@ export function createDirectorDocument(
       ? [
           {
             id: "presenter",
-            name: "Mannequin de prévisualisation",
+            name: "Preview stand-in",
             kind: "placeholder",
             actorProfileId: null,
             performanceProjectId: null,
@@ -641,7 +639,7 @@ export function createDirectorDocument(
           {
             id: "demo_walk",
             track: "performance",
-            label: "Walk & welcome · mannequin",
+            label: "Walk & welcome · stand-in",
             start: 0,
             duration: 15,
             offset: 0,
@@ -650,7 +648,7 @@ export function createDirectorDocument(
             fadeOut: 0,
             assetId: null,
             castId: "presenter",
-            instructions: "Marcher vers le salon puis se tourner vers la caméra.",
+            instructions: "Walk toward the living room, then turn to face the camera.",
           },
         ]
       : [],
@@ -737,30 +735,31 @@ export function directorProviderErrors(
   const performances = directorPerformanceSegments(document, shot);
   if (new Set(performances.map((item) => item.assetId)).size !== performances.length)
     errors.push(
-      "Réunissez les extraits d’une même performance dans un fichier avant de générer ce plan.",
+      "Combine excerpts from the same performance into one file before generating this shot.",
     );
   if (references.some((asset) => !asset || asset.status !== "READY"))
-    errors.push("Des références sont absentes ou en cours de vérification.");
+    errors.push("Some references are missing or still being verified.");
   if (references.some((asset) => asset && !asset.aiTransferAllowed))
-    errors.push("Autorisez explicitement le transfert IA de chaque référence.");
+    errors.push("Explicitly authorize AI transfer for every reference.");
   const template = directorTemplates.find((item) => item.id === shot.templateId)!;
   for (const kind of template.required)
     if (!references.some((asset) => asset?.kind === kind))
-      errors.push(`Référence requise : ${kind}.`);
+      errors.push(`Required reference: ${kind}.`);
   if (provider === "veo") {
-    if (document.aspectRatio === "1:1") errors.push("Veo accepte 16:9 ou 9:16.");
-    if (![4, 6, 8].includes(shot.duration)) errors.push("Veo exige un plan de 4, 6 ou 8 secondes.");
+    if (document.aspectRatio === "1:1") errors.push("Veo supports 16:9 or 9:16.");
+    if (![4, 6, 8].includes(shot.duration))
+      errors.push("Veo requires a shot of 4, 6 or 8 seconds.");
     if (references.length && shot.duration !== 8)
-      errors.push("Veo exige 8 secondes avec des images de référence.");
+      errors.push("Veo requires 8 seconds when using reference images.");
     if (
       references.length > 3 ||
       references.some((asset) => asset && !["image/jpeg", "image/png"].includes(asset.contentType))
     )
-      errors.push("Veo accepte jusqu’à 3 références JPEG/PNG dans ce connecteur.");
+      errors.push("This Veo connector supports up to 3 JPEG/PNG references.");
   } else {
     if (shot.duration < 4 || shot.duration > 15 || !Number.isInteger(shot.duration))
-      errors.push("Seedance exige une durée entière entre 4 et 15 secondes.");
-    if (references.length > 3) errors.push("Ce connecteur accepte au plus 3 références par plan.");
+      errors.push("Seedance requires a whole-number duration from 4 to 15 seconds.");
+    if (references.length > 3) errors.push("This connector supports up to 3 references per shot.");
   }
   return errors;
 }
@@ -821,7 +820,7 @@ export function splitDirectorShot(
   });
   copy.shots.splice(index, 1, makeHalf(0, localTime, shot.id), {
     ...makeHalf(localTime, shot.duration, newId),
-    name: `${shot.name} · suite`,
+    name: `${shot.name} · continuation`,
     clipOffset: shot.clipOffset + localTime,
   });
   return copy;

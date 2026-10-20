@@ -26,7 +26,8 @@ export async function inspectDirectorBytes(
   signal: AbortSignal,
 ) {
   signal.throwIfAborted();
-  if (!bytes.length || bytes.length > 50 * 1024 * 1024) throw new Error("Fichier limité à 50 MiB.");
+  if (!bytes.length || bytes.length > 50 * 1024 * 1024)
+    throw new Error("Files are limited to 50 MiB.");
   const result = await new Promise<unknown>((resolve, reject) => {
     const worker = new Worker(
       `
@@ -38,7 +39,7 @@ export async function inspectDirectorBytes(
           const bytes = new Uint8Array(workerData.bytes);
           parentPort.postMessage(await info.analyzeData(bytes.length, (size, offset) => bytes.subarray(offset, offset + size)));
         } finally { info.close(); }
-      })().catch(() => { throw new Error('Fichier média illisible.'); });
+      })().catch(() => { throw new Error('Unreadable media file.'); });
     `,
       {
         eval: true,
@@ -60,17 +61,14 @@ export async function inspectDirectorBytes(
       if (error) reject(error);
       else resolve(value);
     };
-    const stop = () => finish(new Error("Vérification interrompue."));
-    const timeout = setTimeout(
-      () => finish(new Error("Vérification trop longue (30 secondes).")),
-      30000,
-    );
+    const stop = () => finish(new Error("Verification interrupted."));
+    const timeout = setTimeout(() => finish(new Error("Verification exceeded 30 seconds.")), 30000);
     signal.addEventListener("abort", stop, { once: true });
     worker.once("message", (value: unknown) => finish(undefined, value));
     worker.once("error", (error: unknown) =>
-      finish(error instanceof Error ? error : new Error("Fichier média illisible.")),
+      finish(error instanceof Error ? error : new Error("Unreadable media file.")),
     );
-    worker.once("exit", () => finish(new Error("Inspection média interrompue.")));
+    worker.once("exit", () => finish(new Error("Media inspection interrupted.")));
     if (signal.aborted) stop();
   });
   const tracks = resultSchema.parse(result).media.track;
@@ -91,17 +89,17 @@ export async function inspectDirectorBytes(
     "audio/ogg": ["Ogg"],
   };
   if (!general?.Format || !containers[contentType]?.includes(general.Format))
-    throw new Error("Le format réel ne correspond pas au type déclaré.");
+    throw new Error("The actual format does not match the declared type.");
   const isImage = contentType.startsWith("image/");
   if (
     (isImage && !image) ||
     (contentType.startsWith("video/") && !video) ||
     (contentType.startsWith("audio/") && !audio)
   )
-    throw new Error("Le fichier ne contient pas le média attendu.");
+    throw new Error("The file does not contain the expected media.");
   const duration = general.Duration ?? video?.Duration ?? audio?.Duration;
   if (!isImage && (!duration || duration > 600))
-    throw new Error("La ressource doit durer entre 0 et 600 secondes.");
+    throw new Error("Assets must be between 0 and 600 seconds long.");
   const picture = isImage ? image : video;
   if (
     picture &&
@@ -112,7 +110,7 @@ export async function inspectDirectorBytes(
       picture.Width > 7680 ||
       picture.Height > 7680)
   )
-    throw new Error("La résolution doit être comprise entre 32 et 7680 pixels par côté.");
+    throw new Error("Resolution must be between 32 and 7680 pixels on each side.");
   return {
     duration: isImage ? null : duration!,
     width: picture?.Width ?? null,

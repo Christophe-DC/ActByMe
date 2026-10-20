@@ -27,7 +27,7 @@ export async function renderDirectorInBrowser(
     deadline.abort();
     terminate();
   }, 110 * 60000);
-  let stage = "Chargement du moteur vidéo local",
+  let stage = "Loading the local video engine",
     currentProgress = 1;
   const notify = (value: number, text: string) => {
     currentProgress = value;
@@ -63,13 +63,13 @@ export async function renderDirectorInBrowser(
     ]);
     const sources = state.assets.filter((asset) => used.has(asset.id));
     if (sources.length !== used.size || sources.some((asset) => asset.status !== "READY"))
-      throw new Error("Une ressource est absente ou n’a pas été vérifiée.");
+      throw new Error("An asset is missing or has not been verified.");
     const assets = [];
     let totalBytes = 0;
     for (const [index, asset] of sources.entries()) {
       notify(
         3 + Math.round((index / sources.length) * 10),
-        `Chargement du fichier ${index + 1}/${sources.length}`,
+        `Loading file ${index + 1}/${sources.length}`,
       );
       const { url } = await directorApi.media(projectId, asset.id);
       const response = await fetch(url, {
@@ -77,11 +77,11 @@ export async function renderDirectorInBrowser(
         credentials: "omit",
         referrerPolicy: "no-referrer",
       });
-      if (!response.ok) throw new Error(`Impossible de lire ${asset.name}. Réessayez l’export.`);
+      if (!response.ok) throw new Error(`Unable to read ${asset.name}. Try exporting again.`);
       const bytes = new Uint8Array(await response.arrayBuffer());
       totalBytes += bytes.byteLength;
       if (bytes.length !== asset.sizeBytes || totalBytes > 128 * 1024 * 1024)
-        throw new Error("La taille des fichiers a changé ou dépasse 128 MiB.");
+        throw new Error("The file sizes have changed or exceed 128 MiB.");
       const localPath = `source-${index}.media`;
       await ffmpeg.writeFile(localPath, bytes);
       assets.push({ id: asset.id, localPath, hasAudio: asset.hasAudio, duration: asset.duration });
@@ -98,10 +98,7 @@ export async function renderDirectorInBrowser(
             end: 15 + ((shotIndex + 1) / state.document.shots.length) * 50,
             duration: shot.duration,
           };
-          notify(
-            encoding.start,
-            `Encodage du plan ${shotIndex + 1}/${state.document.shots.length}`,
-          );
+          notify(encoding.start, `Encoding shot ${shotIndex + 1}/${state.document.shots.length}`);
           shotIndex++;
         } else {
           const mixing = args.at(-1) === "advertisement.mp4";
@@ -110,7 +107,7 @@ export async function renderDirectorInBrowser(
             end: mixing ? 84 : 74,
             duration: directorDuration(state.document),
           };
-          notify(encoding.start, mixing ? "Mixage audio et finalisation" : "Assemblage des plans");
+          notify(encoding.start, mixing ? "Mixing audio and finishing" : "Assembling shots");
         }
         // Single thread: no SharedArrayBuffer, cross-origin isolation or hosted compute.
         const result = await ffmpeg.exec(
@@ -127,19 +124,19 @@ export async function renderDirectorInBrowser(
         encoding = null;
         if (result !== 0)
           throw new Error(
-            "L’encodage a échoué ou dépassé 20 minutes pour une étape. Vérifiez les clips, fermez les autres onglets et réessayez.",
+            "Encoding failed or a step exceeded 20 minutes. Check your clips, close other tabs and try again.",
           );
       },
       progress: async (value, text) => {
         notify(value, text);
       },
     });
-    notify(85, "Lecture du MP4 terminé");
+    notify(85, "Reading the completed MP4");
     const result = await ffmpeg.readFile(output);
     if (typeof result === "string" || !result.length)
-      throw new Error("Le moteur n’a pas produit de MP4.");
+      throw new Error("The video engine did not produce an MP4.");
     if (result.length > 50 * 1024 * 1024)
-      throw new Error("Le résultat dépasse 50 MiB. Réduisez la durée ou le nombre de plans.");
+      throw new Error("The result exceeds 50 MiB. Reduce the duration or number of shots.");
     return new File(
       [Uint8Array.from(result)],
       `${state.document.title.slice(0, 100)}-v${state.version}.mp4`,

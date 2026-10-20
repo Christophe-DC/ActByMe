@@ -28,7 +28,7 @@ Depuis l’adaptation sans hébergement supplémentaire, les inspections sont co
 | Migrations sur PostgreSQL isolé              | 22 migrations appliquées, dont Director ; PostgreSQL 18 local et PostgreSQL 16 dans Docker |
 | `pnpm --filter @actbyme/shared test`         | 26 tests réussis, aucun ignoré                                                             |
 | `pnpm --filter @actbyme/api test`            | 84 tests réussis, aucun ignoré, avec la base de test locale                                |
-| `pnpm --filter @actbyme/web test:e2e`        | 18 tests Chromium réussis après correctifs : 9 Director et 9 parcours existants            |
+| `pnpm --filter @actbyme/web test:e2e`        | 19 tests Chromium réussis : 10 Director et 9 parcours existants                            |
 | `pnpm format:check`                          | Réussi                                                                                     |
 | `pnpm lint`                                  | Réussi                                                                                     |
 | `pnpm typecheck`                             | Réussi                                                                                     |
@@ -49,6 +49,12 @@ Les tests navigateur traversent l’interface, les routes NestJS et la base. Ils
 La démo a également été ouverte depuis le build optimisé avec `next start`, puis son rendu 3D vérifié dans Chromium et capturé après présentation des frames. La lecture audio prépare les métadonnées des pistes et précharge les médias avant leur arrivée sur la timeline ; les annulations volontaires de lecture ne produisent pas de fausses alertes.
 
 Les correctifs d’interface du 20 octobre ajoutent six parcours : clavier et retour après connexion, destinations OAuth internes à durée limitée, attente explicite et reprise de lecture, absence de nouvelle soumission automatique d’une création échouée, rechargement manuel d’un projet après deux erreurs réseau et enregistrement d’une démo après connexion sans perdre la caméra modifiée. Le contrôle responsive couvre sept largeurs de 320 à 1440 pixels, les quatre espaces, la bibliothèque de fichiers et les options IA ouvertes. Le parcours d’export vérifie que l’action gratuite est visible et la génération IA initialement repliée.
+
+## Cohérence de langue dans Director
+
+L’interface Director utilise désormais l’anglais dans les quatre espaces, les descriptions des treize modèles, la démo The Coastal House, les contrôles accessibles, les infobulles et les confirmations. Les erreurs et étapes d’import, de sauvegarde, de génération et d’export sont également en anglais côté navigateur et API. Les noms, briefs, dialogues et autres contenus saisis par les utilisateurs conservent leur langue d’origine.
+
+Un parcours Chromium supplémentaire vérifie les quatre espaces, les références de démonstration, les infobulles, le casting virtuel, la bibliothèque de fichiers, les options de production et l’aide. Les parcours existants vérifient aussi les messages de connexion, de conflit, d’import et d’export avec les nouveaux libellés anglais.
 
 ## Recette spécifique sans worker supplémentaire
 

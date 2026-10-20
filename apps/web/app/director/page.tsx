@@ -2,8 +2,7 @@ import { DirectorHome } from "@/components/director/director-home";
 export async function generateMetadata() {
   return {
     title: "ACTBYME Director — Edit the video before producing it",
-    description:
-      "Préparez, réalisez et prévisualisez vos publicités en 3D avant de générer vos clips IA.",
+    description: "Plan, direct and preview your ads in 3D before generating AI clips.",
   };
 }
 export default function Page() {

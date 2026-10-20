@@ -133,8 +133,8 @@ test("provider constraints and asset rights are validated before any payable ope
   };
   shot.referenceIds = [asset.id];
   const errors = directorProviderErrors(document, shot, "veo", [asset]);
-  assert.ok(errors.some((error) => error.includes("transfert")));
-  assert.ok(errors.some((error) => error.includes("8 secondes")));
+  assert.ok(errors.some((error) => error.includes("transfer")));
+  assert.ok(errors.some((error) => error.includes("8 seconds")));
   shot.duration = 8;
   asset.aiTransferAllowed = true;
   assert.deepEqual(directorProviderErrors(document, shot, "veo", [asset]), []);

@@ -51,10 +51,10 @@ import { DirectorLoading } from "./director-loading";
 import "./director.css";
 
 const steps = [
-  { id: "plan", label: "Plan", subtitle: "Préparer" },
-  { id: "direct", label: "Direct", subtitle: "Mettre en scène" },
-  { id: "perform", label: "Perform", subtitle: "Acteurs & audio" },
-  { id: "generate", label: "Generate", subtitle: "Produire" },
+  { id: "plan", label: "Plan", subtitle: "Prepare" },
+  { id: "direct", label: "Direct", subtitle: "Direct your scene" },
+  { id: "perform", label: "Perform", subtitle: "Actors & audio" },
+  { id: "generate", label: "Generate", subtitle: "Produce" },
 ] as const;
 export function DirectorEditor({ id }: { id?: string }) {
   const project = useDirectorProject(id),
@@ -152,7 +152,7 @@ export function DirectorEditor({ id }: { id?: string }) {
         if (index < 0) return;
         const copy = structuredClone(draft.shots[index]!);
         copy.id = newId;
-        copy.name = `${copy.name.slice(0, 110)} · copie`;
+        copy.name = `${copy.name.slice(0, 110)} · copy`;
         copy.waypoints.forEach((point, index) => {
           point.id = `${newId}_wp_${index}`;
         });
@@ -163,7 +163,7 @@ export function DirectorEditor({ id }: { id?: string }) {
           draft.tracks.push({
             ...structuredClone(track),
             id: newId,
-            label: `${track.label.slice(0, 110)} · copie`,
+            label: `${track.label.slice(0, 110)} · copy`,
           });
       }
     });
@@ -195,7 +195,7 @@ export function DirectorEditor({ id }: { id?: string }) {
   };
   const remove = () => {
     if (selection.kind === "shot" && document.shots.length === 1) {
-      setError("Conservez au moins un plan dans le projet.");
+      setError("Keep at least one shot in the project.");
       return;
     }
     edit((draft) => {
@@ -228,7 +228,7 @@ export function DirectorEditor({ id }: { id?: string }) {
     }
     const local = time - start;
     if (local < 0.5 || local > shot.duration - 0.5) {
-      setError("Placez le curseur à au moins 0,5 seconde des bords du plan sélectionné.");
+      setError("Place the playhead at least 0.5 seconds from either end of the selected shot.");
       return;
     }
     edit(splitDirectorShot(document, shot.id, local, `shot_${crypto.randomUUID()}`));
@@ -302,7 +302,7 @@ export function DirectorEditor({ id }: { id?: string }) {
             ? "sfx"
             : "music");
     if (track === "performance" ? !asset.contentType.startsWith("video/") : !asset.hasAudio) {
-      setError("Cette ressource ne convient pas à la piste choisie.");
+      setError("This asset is not compatible with the selected track.");
       return;
     }
     const id = `track_${crypto.randomUUID()}`,
@@ -332,9 +332,7 @@ export function DirectorEditor({ id }: { id?: string }) {
       const asset = assets.find((asset) => asset.id === assetId),
         selected = document.shots.find((shot) => shot.id === shotId);
       if (!asset?.duration || !selected || asset.duration < selected.duration - 0.08) {
-        setError(
-          "Ce clip est trop court. Ajustez d’abord la durée du plan ou choisissez un clip plus long.",
-        );
+        setError("This clip is too short. Adjust the shot duration or choose a longer clip.");
         return;
       }
     }
@@ -371,9 +369,7 @@ export function DirectorEditor({ id }: { id?: string }) {
       await directorApi.save(created.id, created.version, document);
       router.push(`/director/${created.id}`);
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Connectez-vous pour enregistrer ce projet.",
-      );
+      setError(error instanceof Error ? error.message : "Sign in to save this project.");
     } finally {
       setBusy(false);
     }
@@ -397,7 +393,7 @@ export function DirectorEditor({ id }: { id?: string }) {
     return (
       <main className="director-page director-loading">
         <DirectorLoading
-          message="Ouverture de votre projet privé…"
+          message="Opening your private project…"
           onRetry={() => void project.reload()}
         />
       </main>
@@ -406,13 +402,13 @@ export function DirectorEditor({ id }: { id?: string }) {
     return (
       <main className="director-page director-load-error">
         <Clapperboard size={40} />
-        <h1>Impossible d’ouvrir Director</h1>
+        <h1>Unable to open Director</h1>
         <p role="alert">{project.error}</p>
-        <button onClick={() => void project.reload()}>Réessayer le chargement</button>
+        <button onClick={() => void project.reload()}>Try loading again</button>
         <Link href={`/login?next=${encodeURIComponent(`/director/${id}`)}`}>
-          Se connecter à ce projet
+          Sign in to this project
         </Link>
-        <Link href="/director">Retour aux projets et connexion</Link>
+        <Link href="/director">Back to projects and sign-in</Link>
       </main>
     );
   return (
@@ -428,15 +424,15 @@ export function DirectorEditor({ id }: { id?: string }) {
           <span className="director-project-title">{document.title}</span>
           <button
             className="director-save-status"
-            aria-label="Enregistrer le projet"
-            title="Enregistrement automatique après chaque modification"
+            aria-label="Save project"
+            title="Changes are saved automatically"
             onClick={() => void project.save()}
           >
             <span className={`director-live-dot ${project.conflict ? "is-offline" : ""}`} />
             {project.saveStatus}
           </button>
         </div>
-        <nav className="director-workflow" aria-label="Espaces Director">
+        <nav className="director-workflow" aria-label="Director workspaces">
           {steps.map((item) => (
             <button
               key={item.id}
@@ -460,16 +456,16 @@ export function DirectorEditor({ id }: { id?: string }) {
             </button>
           ) : null}
           <button
-            title="Annuler (⌘Z)"
-            aria-label="Annuler la modification"
+            title="Undo (⌘Z)"
+            aria-label="Undo change"
             disabled={!project.canUndo}
             onClick={project.undo}
           >
             <Undo2 size={15} />
           </button>
           <button
-            title="Rétablir (⌘⇧Z)"
-            aria-label="Rétablir la modification"
+            title="Redo (⌘⇧Z)"
+            aria-label="Redo change"
             disabled={!project.canRedo}
             onClick={project.redo}
           >
@@ -487,9 +483,9 @@ export function DirectorEditor({ id }: { id?: string }) {
             }}
           >
             <Film size={13} />
-            <span>Exporter le MP4</span>
+            <span>Export MP4</span>
           </button>
-          <button aria-label="Aide et raccourcis Director" onClick={() => setHelp(true)}>
+          <button aria-label="Director help and shortcuts" onClick={() => setHelp(true)}>
             <CircleHelp size={16} />
           </button>
         </div>
@@ -497,19 +493,19 @@ export function DirectorEditor({ id }: { id?: string }) {
       {!id ? (
         <div className="director-demo-banner">
           <span>
-            <span className="director-badge">DEMO PROJECT</span>The Coastal House · prévisualisation
-            gratuite · aucun acteur réel, aucune génération payante
+            <span className="director-badge">DEMO PROJECT</span>The Coastal House · free preview ·
+            no real actors or paid generation
           </span>
           <button disabled={busy} onClick={() => void createFromDemo()}>
             <Save size={13} />
-            Enregistrer dans mon compte
+            Save to my account
           </button>
         </div>
       ) : null}
       {project.error ? (
         <div className="director-error-banner" role="alert">
           <span>{project.error}</span>
-          <button aria-label="Fermer l’erreur" onClick={() => setError(null)}>
+          <button aria-label="Dismiss error" onClick={() => setError(null)}>
             <X size={15} />
           </button>
         </div>
@@ -518,21 +514,21 @@ export function DirectorEditor({ id }: { id?: string }) {
         <div className="director-conflict-banner">
           <span>
             {project.conflict
-              ? "Conflit détecté. Votre brouillon reste sur cet appareil ; la sauvegarde automatique est suspendue."
-              : "Un brouillon non enregistré a été récupéré sur cet appareil."}
+              ? "Conflict detected. Your draft is still on this device; automatic saving is paused."
+              : "An unsaved draft was recovered on this device."}
           </span>
           <button
             onClick={() =>
               downloadDirectorJson(
                 directorProductionPlan(document, assets, project.version),
-                "director-brouillon-recupere.json",
+                "director-recovered-draft.json",
               )
             }
           >
             <Download size={13} />
-            Exporter le brouillon
+            Export draft
           </button>
-          <button onClick={() => void project.discardLocal()}>Recharger la version serveur</button>
+          <button onClick={() => void project.discardLocal()}>Reload server version</button>
         </div>
       ) : null}
       <div className="director-workspace">
@@ -540,13 +536,13 @@ export function DirectorEditor({ id }: { id?: string }) {
           {step === "plan" ? (
             <div className="director-plan-form">
               <div className="director-panel-heading">
-                <strong>Votre intention créative</strong>
+                <strong>Your creative direction</strong>
                 <span className="director-badge">01 / Plan</span>
               </div>
               <label>
-                Titre du projet
+                Project title
                 <input
-                  aria-label="Titre du projet Director"
+                  aria-label="Director project title"
                   value={document.title}
                   maxLength={140}
                   onChange={(event) => {
@@ -558,9 +554,9 @@ export function DirectorEditor({ id }: { id?: string }) {
                 />
               </label>
               <label>
-                Type de publicité
+                Ad category
                 <select
-                  aria-label="Type de publicité"
+                  aria-label="Ad category"
                   value={document.category}
                   onChange={(event) =>
                     editDocument((draft) => {
@@ -568,17 +564,17 @@ export function DirectorEditor({ id }: { id?: string }) {
                     })
                   }
                 >
-                  <option value="real-estate">Immobilier</option>
-                  <option value="product">Produit</option>
-                  <option value="brand">Marque</option>
-                  <option value="social">Réseaux sociaux</option>
-                  <option value="other">Autre</option>
+                  <option value="real-estate">Real estate</option>
+                  <option value="product">Product</option>
+                  <option value="brand">Brand</option>
+                  <option value="social">Social media</option>
+                  <option value="other">Other</option>
                 </select>
               </label>
               <label>
-                Brief créatif
+                Creative brief
                 <textarea
-                  aria-label="Brief créatif"
+                  aria-label="Creative brief"
                   value={document.brief}
                   maxLength={8000}
                   rows={5}
@@ -587,13 +583,13 @@ export function DirectorEditor({ id }: { id?: string }) {
                       draft.brief = event.target.value;
                     })
                   }
-                  placeholder="Objectif, public, ambiance, bénéfice à transmettre…"
+                  placeholder="Goal, audience, mood and key benefit…"
                 />
               </label>
               <label>
-                Scénario & narration
+                Script & narration
                 <textarea
-                  aria-label="Scénario publicitaire"
+                  aria-label="Ad script"
                   value={document.script}
                   maxLength={16000}
                   rows={7}
@@ -607,7 +603,7 @@ export function DirectorEditor({ id }: { id?: string }) {
               <label>
                 Format
                 <select
-                  aria-label="Format du projet"
+                  aria-label="Project aspect ratio"
                   value={document.aspectRatio}
                   onChange={(event) =>
                     editDocument((draft) => {
@@ -615,15 +611,15 @@ export function DirectorEditor({ id }: { id?: string }) {
                     })
                   }
                 >
-                  <option value="16:9">16:9 · paysage</option>
-                  <option value="9:16">9:16 · vertical</option>
-                  <option value="1:1">1:1 · carré</option>
+                  <option value="16:9">16:9 · landscape</option>
+                  <option value="9:16">9:16 · portrait</option>
+                  <option value="1:1">1:1 · square</option>
                 </select>
               </label>
               <label>
-                Décor de prévisualisation
+                Preview environment
                 <select
-                  aria-label="Décor de prévisualisation"
+                  aria-label="Preview environment"
                   value={document.environment}
                   onChange={(event) =>
                     editDocument((draft) => {
@@ -631,13 +627,13 @@ export function DirectorEditor({ id }: { id?: string }) {
                     })
                   }
                 >
-                  <option value="coastal">Maison côtière schématique</option>
-                  <option value="studio">Studio produit</option>
+                  <option value="coastal">Schematic coastal house</option>
+                  <option value="studio">Product studio</option>
                 </select>
               </label>
               <p className="director-hint">
-                La durée totale suit les plans : {duration.toFixed(1)} secondes. Ajustez chaque plan
-                dans Direct.
+                Total duration follows your shots: {duration.toFixed(1)} seconds. Adjust each shot
+                in Direct.
               </p>
             </div>
           ) : step === "perform" && library !== "assets" ? (
@@ -646,7 +642,7 @@ export function DirectorEditor({ id }: { id?: string }) {
                 <button aria-pressed={true} onClick={() => setLibrary("templates")}>
                   Casting
                 </button>
-                <button onClick={() => setLibrary("assets")}>Ressources & audio</button>
+                <button onClick={() => setLibrary("assets")}>Assets & audio</button>
               </div>
               <DirectorPerform
                 id={id}
@@ -665,10 +661,10 @@ export function DirectorEditor({ id }: { id?: string }) {
                   aria-pressed={library === "templates"}
                   onClick={() => setLibrary("templates")}
                 >
-                  {step === "perform" ? "Casting" : "Modèles"}
+                  {step === "perform" ? "Casting" : "Templates"}
                 </button>
                 <button aria-pressed={library === "assets"} onClick={() => setLibrary("assets")}>
-                  Ressources
+                  Assets
                 </button>
               </div>
               {library === "templates" ? (
@@ -700,19 +696,19 @@ export function DirectorEditor({ id }: { id?: string }) {
             <div className="director-panel-heading">
               <strong>
                 <Layers3 size={14} />
-                Vue du dessus
+                Top view
               </strong>
-              <span>Glisser les waypoints · flèches pour affiner</span>
-              <span className="director-badge">{shot.waypoints.length} points · 1 plan</span>
+              <span>Drag waypoints · use arrow keys to fine-tune</span>
+              <span className="director-badge">{shot.waypoints.length} points · 1 shot</span>
               <button
-                aria-label="Agrandir la vue du dessus"
-                title="Agrandir la carte ; Échap pour revenir au montage"
+                aria-label="Expand top view"
+                title="Expand the map; press Escape to return to the editor"
                 onClick={(event) => {
                   const panel = event.currentTarget.closest(".director-map-panel");
                   if (!window.document.fullscreenElement)
                     void panel
                       ?.requestFullscreen()
-                      .catch(() => setError("Le plein écran est indisponible."));
+                      .catch(() => setError("Full screen is unavailable."));
                   else void window.document.exitFullscreen();
                 }}
               >
@@ -761,48 +757,48 @@ export function DirectorEditor({ id }: { id?: string }) {
         ) : step === "plan" ? (
           <aside className="director-inspector">
             <div className="director-panel-heading">
-              <strong>Avant de produire</strong>
+              <strong>Before you produce</strong>
               <Check size={15} />
             </div>
             <ol className="director-onboarding">
               <li>
                 <span>1</span>
                 <div>
-                  <strong>Posez votre intention</strong>
-                  <p>Un message clair, un scénario et un format.</p>
+                  <strong>Set your direction</strong>
+                  <p>A clear message, script and format.</p>
                 </div>
               </li>
               <li>
                 <span>2</span>
                 <div>
-                  <strong>Réalisez votre vidéo</strong>
-                  <p>Choisissez des plans, réglez les caméras et testez sans crédits.</p>
+                  <strong>Direct your video</strong>
+                  <p>Choose shots, adjust cameras and preview without credits.</p>
                 </div>
               </li>
               <li>
                 <span>3</span>
                 <div>
-                  <strong>Ajoutez les voix et les talents</strong>
-                  <p>Importez vos ressources et documentez les autorisations.</p>
+                  <strong>Add voices and talent</strong>
+                  <p>Import your assets and record the permissions.</p>
                 </div>
               </li>
               <li>
                 <span>4</span>
                 <div>
-                  <strong>Validez puis produisez</strong>
-                  <p>Générez ou importez vos clips, vérifiez-les et assemblez le MP4.</p>
+                  <strong>Review and produce</strong>
+                  <p>Generate or import clips, review them and assemble your MP4.</p>
                 </div>
               </li>
             </ol>
             <div className="director-project-stats">
               <span>
-                <strong>{document.shots.length}</strong>plans
+                <strong>{document.shots.length}</strong>shots
               </span>
               <span>
-                <strong>{duration.toFixed(1)}s</strong>durée
+                <strong>{duration.toFixed(1)}s</strong>duration
               </span>
               <span>
-                <strong>{assets.length}</strong>ressources
+                <strong>{assets.length}</strong>assets
               </span>
             </div>
             <details
@@ -810,7 +806,7 @@ export function DirectorEditor({ id }: { id?: string }) {
                 if (event.currentTarget.open) void loadHistory();
               }}
             >
-              <summary>Historique enregistré</summary>
+              <summary>Saved history</summary>
               {history.map((revision) => (
                 <button
                   key={revision.id}
@@ -834,13 +830,13 @@ export function DirectorEditor({ id }: { id?: string }) {
                   }}
                 >
                   Version {revision.version} ·{" "}
-                  {new Date(revision.createdAt).toLocaleString("fr-FR")}
+                  {new Date(revision.createdAt).toLocaleString("en-US")}
                 </button>
               ))}
             </details>
             <p className="director-hint">
-              Les générations et exports utilisent un snapshot immuable. Modifier le montage ne
-              remplace jamais un résultat déjà produit.
+              Generations and exports use a fixed project snapshot. Editing the timeline never
+              replaces an existing result.
             </p>
           </aside>
         ) : selectedTrack ? (
@@ -859,20 +855,18 @@ export function DirectorEditor({ id }: { id?: string }) {
       </div>
       <div className="director-transport">
         <div className="director-inline">
-          <button aria-label="Revenir au début" onClick={() => seek(0)}>
+          <button aria-label="Go to start" onClick={() => seek(0)}>
             <SkipBack size={15} />
           </button>
           <button
             className="director-play-button"
-            aria-label={
-              playing ? "Mettre la prévisualisation en pause" : "Lire la prévisualisation"
-            }
+            aria-label={playing ? "Pause preview" : "Play preview"}
             onClick={toggle}
           >
             {playing ? <Pause size={17} /> : <Play size={17} />}
           </button>
           <button
-            aria-label="Plan suivant"
+            aria-label="Next shot"
             onClick={() => {
               const active = directorShotAt(document, time);
               seek(Math.min(duration, active.start + active.shot.duration));
@@ -885,7 +879,7 @@ export function DirectorEditor({ id }: { id?: string }) {
           </span>
         </div>
         <input
-          aria-label="Position de lecture"
+          aria-label="Playback position"
           type="range"
           min="0"
           max={duration}
@@ -895,7 +889,7 @@ export function DirectorEditor({ id }: { id?: string }) {
         />
         <span className="director-free-label">
           <Check size={12} />
-          Prévisualisation gratuite
+          Free preview
         </span>
       </div>
       <DirectorTimeline
@@ -919,13 +913,11 @@ export function DirectorEditor({ id }: { id?: string }) {
       <footer className="director-statusbar">
         <span>
           <span className="director-live-dot" />
-          {id
-            ? `Projet privé · version ${project.version}`
-            : "Démo locale · modifications temporaires"}
+          {id ? `Private project · version ${project.version}` : "Local demo · temporary changes"}
         </span>
-        <span>Concevoir avant de générer.</span>
+        <span>Plan before you generate.</span>
         <Link href="/studio">
-          Director Studio · tournage acteur <ArrowLeft size={12} />
+          Director Studio · actor recording <ArrowLeft size={12} />
         </Link>
       </footer>
       <AuthModal
@@ -943,45 +935,43 @@ export function DirectorEditor({ id }: { id?: string }) {
             aria-labelledby="director-help-title"
           >
             <div className="director-panel-heading">
-              <h2 id="director-help-title">Votre première publicité</h2>
-              <button aria-label="Fermer l’aide" onClick={() => setHelp(false)}>
+              <h2 id="director-help-title">Your first ad</h2>
+              <button aria-label="Close help" onClick={() => setHelp(false)}>
                 <X size={18} />
               </button>
             </div>
             <p>
-              Préparez le brief dans Plan. Dans Direct, ajoutez des modèles et déplacez les
-              waypoints sur la carte. La caméra suit réellement la trajectoire 3D ; chaque mouvement
-              continu reste un plan.
+              Prepare your brief in Plan. In Direct, add shot templates and move waypoints on the
+              map. The 3D camera follows the path; each continuous move remains one shot.
             </p>
             <p>
-              Importez vos références dans Ressources, puis associez-les au plan. Ajoutez les
-              acteurs et sons dans Perform. La musique, les dialogues et les effets suivent la
-              timeline pendant la lecture.
+              Import references in Assets and assign them to a shot. Add actors and sound in
+              Perform. Music, dialogue and effects follow the timeline during playback.
             </p>
             <p>
-              Dans Generate, importez vos clips ou configurez un fournisseur vidéo. Vérifiez chaque
-              résultat, associez les clips aux plans puis assemblez le MP4.
+              In Generate, import your clips or configure a video provider. Review each result,
+              assign clips to shots and assemble your MP4.
             </p>
             <div className="director-shortcuts">
-              <span>Espace</span>
-              <strong>Lecture / pause</strong>
+              <span>Space</span>
+              <strong>Play / pause</strong>
               <span>⌘ / Ctrl Z</span>
-              <strong>Annuler</strong>
+              <strong>Undo</strong>
               <span>⌘ / Ctrl ⇧ Z</span>
-              <strong>Rétablir</strong>
+              <strong>Redo</strong>
               <span>⌘ / Ctrl D</span>
-              <strong>Dupliquer</strong>
+              <strong>Duplicate</strong>
               <span>S</span>
-              <strong>Découper au curseur</strong>
-              <span>Suppr.</span>
-              <strong>Supprimer la sélection</strong>
+              <strong>Split at playhead</strong>
+              <span>Delete</span>
+              <strong>Delete selection</strong>
             </div>
             <p>
-              La prévisualisation utilise un décor schématique, sans reconstruction des photos ni
-              garantie de résultat IA. Aucun appel payant ne part sans votre confirmation.
+              The preview uses a schematic scene, without reconstructing your photos or guaranteeing
+              an AI result. Paid requests always require your confirmation.
             </p>
             <button className="director-primary" onClick={() => setHelp(false)}>
-              Commencer à réaliser
+              Start directing
             </button>
           </div>
         </div>
