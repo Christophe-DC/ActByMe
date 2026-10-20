@@ -10,37 +10,60 @@ export function PerformancePreview({
   time: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const scene = useRef<ReturnType<typeof createPerformanceScene> | null>(null);
+  const scene = useRef<Awaited<ReturnType<typeof createPerformanceScene>> | null>(null);
   const latest = useRef({ document, time });
   latest.current = { document, time };
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const element = canvas.current!;
+    const task = new AbortController();
+    const size = () => {
+      const width = Math.min(1280, Math.max(320, element.clientWidth));
+      const ratio =
+        latest.current.document.aspectRatio === "16:9"
+          ? 16 / 9
+          : latest.current.document.aspectRatio === "9:16"
+            ? 9 / 16
+            : 1;
+      return { width, height: Math.round(width / ratio) };
+    };
+    const fail = (error: unknown) => {
+      if (task.signal.aborted) return;
+      setLoading(false);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "3D is unavailable. Try a recent desktop browser with WebGL enabled.",
+      );
+    };
     const resize = () => {
+      if (!scene.current) return;
       try {
-        const width = Math.min(1280, Math.max(320, element.clientWidth));
-        const ratio =
-          latest.current.document.aspectRatio === "16:9"
-            ? 16 / 9
-            : latest.current.document.aspectRatio === "9:16"
-              ? 9 / 16
-              : 1;
-        if (!scene.current)
-          scene.current = createPerformanceScene(element, width, Math.round(width / ratio));
-        else scene.current.resize(width, Math.round(width / ratio));
+        const { width, height } = size();
+        scene.current.resize(width, height);
         scene.current.render(latest.current.document, latest.current.time);
-        element.dataset.engine = "three-performance";
-        setError(null);
-      } catch {
-        setError(
-          "3D is unavailable in this browser. Try a recent desktop browser with WebGL enabled. Your camera plan is still saved.",
-        );
+      } catch (error) {
+        fail(error);
       }
     };
+    const { width, height } = size();
+    void createPerformanceScene(element, width, height, task.signal)
+      .then((loaded) => {
+        if (task.signal.aborted) {
+          loaded.dispose();
+          return;
+        }
+        scene.current = loaded;
+        resize();
+        element.dataset.engine = "three-performance";
+        setLoading(false);
+      })
+      .catch(fail);
     const observer = new ResizeObserver(resize);
     observer.observe(element);
-    resize();
     return () => {
+      task.abort();
       observer.disconnect();
       scene.current?.dispose();
       scene.current = null;
@@ -68,6 +91,11 @@ export function PerformancePreview({
       }}
     >
       <canvas ref={canvas} aria-label="Neutral stand-in camera preview" />
+      {loading ? (
+        <p className="performance-preview-loading" role="status">
+          Loading studio figure…
+        </p>
+      ) : null}
       {error ? (
         <p className="performance-preview-error" role="alert">
           {error}

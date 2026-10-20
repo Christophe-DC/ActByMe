@@ -16,3 +16,6 @@ test-results
 
 # Reproduced from pinned npm packages before web dev/build
 apps/web/public/director-media/v1/
+
+# Local demonstration exports and their original test footage
+/artifacts/director-demo/

@@ -68,6 +68,10 @@ test("Performance Director: import privately, edit synchronized angles, persist 
     api = `http://127.0.0.1:4401/director-projects/${id}`;
   const state = async () => (await request.get(api, { headers })).json();
   await expect(page.getByRole("heading", { name: "Your original performance" })).toBeVisible();
+  await expect(page.getByLabel("Neutral stand-in camera preview")).toHaveAttribute(
+    "data-model",
+    "studio-neutral-v1",
+  );
   const data = await (
     await request.get("http://127.0.0.1:4401/test-director-source?kind=performance")
   ).body();
@@ -239,6 +243,7 @@ test("Performance Director remains simple and within the viewport, and blocks un
 }) => {
   await page.goto("/director/demo");
   await expect(page.getByRole("button", { name: /Apply .* angle/ })).toHaveCount(10);
+  await expect(page.getByRole("button", { name: /Apply .* angle/ }).locator("img")).toHaveCount(10);
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const step of ["Import", "Camera angles", "Preview", "Export"]) {
@@ -257,6 +262,39 @@ test("Performance Director remains simple and within the viewport, and blocks un
   });
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Choose an MP4 or MOV");
   await page.screenshot({ path: "test-results/performance-director-mobile.png", fullPage: true });
+});
+
+test("Performance Director reports an unavailable figure instead of exporting an empty studio", async ({
+  page,
+  request,
+}) => {
+  await page.route("**/director-models/neutral-figure-v1.glb", (route) =>
+    route.fulfill({ status: 503, body: "Temporarily unavailable" }),
+  );
+  await page.goto("/director/demo");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "neutral 3D figure could not be loaded",
+  );
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("checkbox", { name: /I have permission to use this performance/ }).check();
+  const data = await (
+    await request.get("http://127.0.0.1:4401/test-director-source?kind=performance")
+  ).body();
+  await page.getByLabel("Import performance video").setInputFiles({
+    name: "performance.mp4",
+    mimeType: "video/mp4",
+    buffer: data,
+  });
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByLabel("Confirm reference export rights").check();
+  await page.getByRole("button", { name: "Render reference MP4", exact: false }).click();
+  await expect(page.getByRole("main").getByRole("alert").first()).toContainText(
+    "neutral 3D figure could not be loaded",
+  );
+  await expect(
+    page.getByRole("button", { name: "Render reference MP4", exact: false }),
+  ).toBeEnabled();
+  await expect(page.getByRole("link", { name: "Download camera reference MP4" })).toHaveCount(0);
 });
 
 test("Performance Director keeps a local performance and its camera choices when signing in and saving", async ({

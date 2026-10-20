@@ -81,7 +81,7 @@ export const performancePresets: {
     id: "hands",
     name: "Hands",
     description: "Frame the stand-in's hands. Actual gestures remain in the original video.",
-    camera: camera("hands", { distance: 1.6, lens: 45, focus: "hands", elevation: 12 }),
+    camera: camera("hands", { distance: 1.3, lens: 45, focus: "hands", elevation: 12 }),
   },
   {
     id: "overhead",
@@ -132,11 +132,11 @@ export function samplePerformanceCamera(camera: PerformanceCamera, progress: num
     x: 0,
     y:
       camera.focus === "face"
-        ? 1.56
+        ? 1.64
         : camera.focus === "mouth"
-          ? 1.48
+          ? 1.58
           : camera.focus === "hands"
-            ? 0.94
+            ? 1.18
             : 0.9,
     z: camera.focus === "hands" ? 0.28 : 0.08,
   };

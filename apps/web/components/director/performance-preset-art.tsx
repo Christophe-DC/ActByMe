@@ -30,7 +30,7 @@ function getPresetImages() {
   pending ??= (async () => {
     const { createPerformanceScene } = await import("./performance-scene");
     const canvas = window.document.createElement("canvas"),
-      scene = createPerformanceScene(canvas, 224, 126);
+      scene = await createPerformanceScene(canvas, 224, 126);
     try {
       const document = createPerformanceDocument(),
         images: Record<string, string> = {};

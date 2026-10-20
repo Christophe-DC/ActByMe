@@ -1,6 +1,6 @@
 # Director — performance camera references
 
-Director’s primary workflow is **Import → Camera angles → Preview → Export**. It uses one original actor performance and a neutral procedural figure. It does not reconstruct the actor, their clothes or set, and does not track gestures or generate lip sync.
+Director’s primary workflow is **Import → Camera angles → Preview → Export**. It uses one original actor performance and a detailed neutral figure in a fixed presentation pose. It does not reconstruct the actor, their clothes or set, and does not track gestures or generate lip sync.
 
 ## What creators can do
 
@@ -14,6 +14,8 @@ Director’s primary workflow is **Import → Camera angles → Preview → Expo
 ## Export and infrastructure
 
 `performance-scene.ts` is shared by the preview, preset thumbnails and reference renderer. Export samples it offline at 24 frames per second. It renders every frame individually, including cuts and orbit/push/pull movements; it does not record the screen or depend on real-time playback speed. A permanent caption identifies the output as a neutral camera reference, without reproduced gestures or lip sync.
+
+The detailed, texture-free figure is derived from Blender Studio’s CC0 Human Base Meshes, normalized and posed offline. Its GLB (about 1.5 MiB) is checked in under `apps/web/public/director-models/`; no third-party model CDN or runtime Blender process is used. Preview and export wait for the same model, and a failed model load produces an explicit error instead of an empty MP4. The studio uses tone mapping, warm key/cool rim lighting, an environment generated in the browser, static soft shadows and subtle floor guides. GPU geometry and render targets are disposed per scene. Source, license and the optional regeneration command are documented in that directory’s `NOTICE.md`.
 
 FFmpeg.wasm, served from the existing same-origin media assets, encodes batches of at most 48 JPEG frames. Each batch is removed from its virtual filesystem after encoding, then encoded chunks are concatenated and the original audio is muxed in. An audio-free source or muted plan produces a silent AAC track. The result is 720p (1280×720, 720×1280 or 720×720). Input and output are limited to 50 MiB, duration to 120 seconds, and the camera plan to 30 angles. Rendering can take several minutes and the tab must stay open. Cancellation terminates the browser worker. Very long/busy exports are bounded by a one-hour deadline.
 

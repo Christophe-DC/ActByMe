@@ -210,6 +210,13 @@ body:has(.performance-director) > div footer:not(.performance-footer) {
   place-items: center;
   color: #abb2bd;
 }
+.performance-canvas-wrap > .performance-preview-loading {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  aspect-ratio: auto;
+  background: #252c35;
+}
 .performance-inspector {
   padding: 17px;
   max-height: 650px;

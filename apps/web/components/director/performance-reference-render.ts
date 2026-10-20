@@ -23,7 +23,8 @@ export async function renderPerformanceReference(
   const context = drawing.getContext("2d");
   if (!context) throw new Error("Your browser cannot create video frames.");
   const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-  const scene = createPerformanceScene(canvas, width, height);
+  progress(0, "Loading the studio figure");
+  const scene = await createPerformanceScene(canvas, width, height, signal);
   const ffmpeg = new FFmpeg();
   const deadline = new AbortController();
   signal = AbortSignal.any([signal, deadline.signal]);
