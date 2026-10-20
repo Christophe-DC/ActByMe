@@ -200,7 +200,11 @@ test(
           where: { id: reserved.assetId },
         });
         objects.set(asset.storageKey, { bytes: source, contentType: "video/mp4" });
-        await service.completeUpload(owner.id, state.id, asset.id);
+        const uploaded = await service.completeUpload(owner.id, state.id, asset.id);
+        assert.equal(
+          uploaded.jobs.find((job) => job.kind === "INSPECT")?.stage,
+          "Queued for verification",
+        );
         await worker.tick(signal);
         return asset.id;
       };
@@ -346,6 +350,16 @@ test(
           const job = await prisma.client.directorJob.findFirstOrThrow({
             where: { ownerId: owner.id, kind: "GENERATE" },
           });
+          assert.equal(job.stage, "Queued for processing");
+          // Older jobs can retain the original database default without a data migration.
+          await prisma.client.directorJob.update({
+            where: { id: job.id },
+            data: { stage: "En attente du worker" },
+          });
+          assert.equal(
+            (await service.get(owner.id, state.id)).jobs.find((item) => item.id === job.id)?.stage,
+            "Queued for processing",
+          );
           const document = structuredClone(state.document);
           document.shots[0]!.prompt = "New creative direction after the first job";
           state = await service.save(owner.id, state.id, { version: state.version, document });

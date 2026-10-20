@@ -217,7 +217,7 @@ export class DirectorService {
           shotId,
           provider,
           status,
-          stage,
+          stage: stage === "En attente du worker" ? "Queued for processing" : stage,
           error,
           progress,
           estimatedCostCents,
@@ -436,6 +436,7 @@ export class DirectorService {
           requestKey: randomUUID(),
           requestHash: assetId,
           kind: "INSPECT",
+          stage: "Queued for verification",
           input: { assetId },
         },
       });
@@ -816,6 +817,7 @@ export class DirectorService {
             requestHash,
             version: project.version,
             kind: data.kind,
+            stage: "Queued for processing",
             ...(data.execution === "browser"
               ? {
                   status: "PROCESSING",
