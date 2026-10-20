@@ -10,13 +10,14 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "media:prepare": "node scripts/prepare-director-media.mjs"
+    "media:prepare": "node scripts/prepare-director-media.mjs && node scripts/prepare-director-motion.mjs"
   },
   "dependencies": {
     "@actbyme/shared": "workspace:*",
     "@actbyme/ui": "workspace:*",
     "@ffmpeg/core": "0.12.10",
     "@ffmpeg/ffmpeg": "0.12.15",
+    "@mediapipe/tasks-vision": "1.1.1",
     "@next/env": "^16.2.6",
     "@react-three/fiber": "^9.8.1",
     "@supabase/supabase-js": "^2.106.1",

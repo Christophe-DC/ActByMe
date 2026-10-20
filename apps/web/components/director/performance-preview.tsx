@@ -1,18 +1,20 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { type DirectorDocument } from "@actbyme/shared";
+import { type PerformanceMotion, type DirectorDocument } from "@actbyme/shared";
 import { createPerformanceScene } from "./performance-scene";
 export function PerformancePreview({
   document,
   time,
+  motion,
 }: {
   document: DirectorDocument;
   time: number;
+  motion?: PerformanceMotion | null;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Awaited<ReturnType<typeof createPerformanceScene>> | null>(null);
-  const latest = useRef({ document, time });
-  latest.current = { document, time };
+  const latest = useRef({ document, time, motion });
+  latest.current = { document, time, motion };
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -42,7 +44,7 @@ export function PerformancePreview({
       try {
         const { width, height } = size();
         scene.current.resize(width, height);
-        scene.current.render(latest.current.document, latest.current.time);
+        scene.current.render(latest.current.document, latest.current.time, latest.current.motion);
       } catch (error) {
         fail(error);
       }
@@ -71,11 +73,11 @@ export function PerformancePreview({
   }, []);
   useEffect(() => {
     try {
-      scene.current?.render(document, time);
+      scene.current?.render(document, time, motion);
     } catch (error) {
       setError((error as Error).message);
     }
-  }, [document, time]);
+  }, [document, time, motion]);
   return (
     <div
       className="performance-canvas-wrap"
@@ -101,7 +103,9 @@ export function PerformancePreview({
           {error}
         </p>
       ) : null}
-      <span className="performance-preview-caption">Neutral stand-in · camera framing only</span>
+      <span className="performance-preview-caption">
+        {motion ? "Movement estimated from video" : "Neutral stand-in · camera framing only"}
+      </span>
     </div>
   );
 }

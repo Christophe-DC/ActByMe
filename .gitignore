@@ -19,3 +19,9 @@ apps/web/public/director-media/v1/
 
 # Local demonstration exports and their original test footage
 /artifacts/director-demo/
+
+# Versioned MediaPipe runtime/models reproduced and verified at build time
+apps/web/public/director-motion/v1/
+
+# Consented source motion QA exports
+/artifacts/director-motion-demo/

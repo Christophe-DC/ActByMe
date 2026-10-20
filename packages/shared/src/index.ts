@@ -11,3 +11,4 @@ export * from "./director.js";
 export * from "./director-render-plan.js";
 export * from "./performance-camera.js";
 export * from "./performance-director.js";
+export * from "./performance-motion.js";

@@ -116,7 +116,7 @@ export function performanceProductionPlan(
     aspectRatio: document.aspectRatio,
     fps: 24,
     disclaimer:
-      "Camera framing and timing only. The neutral stand-in does not reproduce the actor's gestures, face, clothing or lip sync. Use the original performance as the acting reference.",
+      "Camera framing and timing with a generic stand-in. Visible movement may be estimated when enabled; the stand-in does not reproduce the actor's identity, clothing or exact lip sync. Use the original performance as the acting reference.",
     source: source
       ? {
           id: source.id,
@@ -131,7 +131,7 @@ export function performanceProductionPlan(
           originalAudio: document.performance?.originalAudio,
         },
     prompt:
-      "Use the camera reference video for camera angles, movement and edit timing. Use the original actor performance for gestures, expression, dialogue and identity, subject to the actor's permission. The stand-in is only a framing guide. Additional images and your creative prompt define the intended appearance and environment.",
+      "Use the camera reference video for camera angles, movement and edit timing. Use the original actor performance for gestures, expression, dialogue and identity, subject to the actor's permission. The stand-in estimates visible movement when enabled; use the original for precise acting. Camera trajectory coordinates use the neutral reference frame; face/hand focus follows the animated subject in the MP4. Additional images and your creative prompt define the intended appearance and environment.",
     shots: document.shots.map((shot, index) => {
       const entry = {
         id: shot.id,

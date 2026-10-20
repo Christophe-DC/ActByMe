@@ -14,6 +14,17 @@ const nextConfig: NextConfig = {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_KEY,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL,
   },
+  async headers() {
+    return [
+      {
+        source: "/director-motion/v1/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        ],
+      },
+    ];
+  },
   transpilePackages: ["@actbyme/shared", "@actbyme/ui"],
 };
 

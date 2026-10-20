@@ -6,6 +6,9 @@ export default [
   {
     ignores: [
       "**/public/director-media/v1/**",
+      "**/public/director-motion/v1/**",
+      "**/test-results/**",
+      "**/playwright-report/**",
       "**/.next/**",
       "**/dist/**",
       "**/generated/**",

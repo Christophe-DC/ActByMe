@@ -5,3 +5,9 @@ generated
 pnpm-lock.yaml
 
 apps/web/public/director-media/v1/
+
+apps/web/public/director-motion/v1/
+
+**/test-results/
+**/playwright-report/
+/artifacts/

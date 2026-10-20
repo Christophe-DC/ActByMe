@@ -80,7 +80,7 @@ export const performancePresets: {
   {
     id: "hands",
     name: "Hands",
-    description: "Frame the stand-in's hands. Actual gestures remain in the original video.",
+    description: "Frame the figure's hands. Tracked finger movements are approximate.",
     camera: camera("hands", { distance: 1.3, lens: 45, focus: "hands", elevation: 12 }),
   },
   {

@@ -139,6 +139,7 @@ body:has(.performance-director) > div footer:not(.performance-footer) {
   font-size: 10px;
 }
 .performance-original-frame {
+  position: relative;
   aspect-ratio: 16 / 9;
   display: grid;
   place-items: center;
@@ -698,4 +699,79 @@ main.performance-director.director-editor > header.performance-header > input {
 .performance-advanced summary {
   color: #c5cbd4;
   font-size: 11px;
+}
+.performance-motion-status {
+  padding: 12px 14px;
+  border-top: 1px solid #ffffff14;
+  font-size: 12px;
+}
+.performance-motion-status > label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.performance-motion-status small,
+.performance-motion-status p,
+.performance-motion-status div > span {
+  color: #b3bac5;
+}
+.performance-motion-status div > span {
+  margin-left: 8px;
+}
+.performance-motion-status p {
+  margin: 7px 0 0;
+  line-height: 1.5;
+}
+.performance-motion-status progress {
+  width: 100%;
+  height: 5px;
+  margin: 10px 0;
+  accent-color: #edbd72;
+}
+.performance-motion-status button {
+  padding: 5px 9px;
+  font-size: 11px;
+  margin: 6px 6px 0 0;
+}
+.performance-motion-status strong {
+  color: #dce9dd;
+}
+.performance-motion-status details {
+  margin-top: 8px;
+}
+.performance-motion-status summary {
+  cursor: pointer;
+  color: #b3bac5;
+}
+.director-editor .performance-motion-status {
+  background: #111214;
+  text-align: left;
+}
+.director-editor .performance-motion-status > label {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.director-editor .performance-motion-status input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #edbd72;
+}
+.performance-motion-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.director-editor .performance-motion-status details label {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
 }

@@ -28,6 +28,7 @@ import {
   fitPerformanceDuration,
   performancePresets,
   performanceProductionPlan,
+  performanceMotionSummary,
   removePerformanceShot,
   resizePerformanceShot,
   syncPerformanceWaypoints,
@@ -40,6 +41,9 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import type { useDirectorProject } from "./use-director-project";
 import { PerformanceTimeline } from "./performance-timeline";
 import { PerformancePresetArt } from "./performance-preset-art";
+import { usePerformanceMotion } from "./use-performance-motion";
+import { PerformanceMotionOverlay } from "./performance-motion-overlay";
+import { PerformanceMotionStatus } from "./performance-motion-status";
 import { usePerformanceExport } from "./use-performance-export";
 import { uploadPerformanceAsset } from "./performance-media";
 import { downloadDirectorJson } from "./director-generate";
@@ -73,7 +77,8 @@ export function PerformanceDirectorEditor({
     [busy, setBusy] = useState<string | null>(null),
     [rights, setRights] = useState(false),
     [exportRights, setExportRights] = useState(false),
-    [authOpen, setAuthOpen] = useState(false);
+    [authOpen, setAuthOpen] = useState(false),
+    [showTracking, setShowTracking] = useState(false);
   const video = useRef<HTMLVideoElement>(null),
     input = useRef<HTMLInputElement>(null),
     importTask = useRef<AbortController | null>(null);
@@ -82,6 +87,7 @@ export function PerformanceDirectorEditor({
   const source = state?.assets.find((asset) => asset.id === sourceId);
   const shot = document.shots.find((shot) => shot.id === selected) ?? document.shots[0]!;
   const camera = shot.performanceCamera!;
+  const movement = usePerformanceMotion(localFile, sourceId, sourceUrl);
   const exporter = usePerformanceExport(
     id,
     document,
@@ -89,6 +95,8 @@ export function PerformanceDirectorEditor({
     project.save,
     project.refresh,
     setError,
+    movement.motion,
+    movement.enabled,
   );
   const locked = Boolean(busy || exporter.status);
   const stop = useCallback(() => {
@@ -123,6 +131,7 @@ export function PerformanceDirectorEditor({
       return;
     }
     let active = true;
+    setSourceUrl(null);
     const load = () => {
       void directorApi
         .media(id, sourceId)
@@ -449,6 +458,9 @@ export function PerformanceDirectorEditor({
                 </button>
               </div>
             )}
+            {movement.motion && showTracking ? (
+              <PerformanceMotionOverlay motion={movement.motion} time={time} />
+            ) : null}
           </div>
           <p>The original video is the reference for acting, gestures and dialogue.</p>
         </section>
@@ -459,8 +471,18 @@ export function PerformanceDirectorEditor({
               {activeShot.name} · {clock(time)}
             </span>
           </header>
-          <Preview document={document} time={time} />
-          <p>Framing and timing only. No reconstruction, motion capture or lip sync.</p>
+          <Preview document={document} time={time} motion={movement.motion} />
+          <p>
+            {movement.motion
+              ? "Visible movement estimated from your video. Hidden parts, depth and facial detail may differ."
+              : "Camera reference only until movement analysis is ready. No scene or identity reconstruction."}
+          </p>
+          <PerformanceMotionStatus
+            motion={movement}
+            disabled={locked}
+            showTracking={showTracking}
+            onTracking={setShowTracking}
+          />
         </section>
         <aside className="performance-inspector" aria-label="Camera plan controls">
           {step === 0 ? (
@@ -479,7 +501,7 @@ export function PerformanceDirectorEditor({
                   onChange={(event) => setRights(event.target.checked)}
                 />
                 I have permission to use this performance and its audio for camera planning and
-                reference export.
+                reference export and local movement analysis.
               </label>
               <input
                 ref={input}
@@ -570,7 +592,12 @@ export function PerformanceDirectorEditor({
               </label>
               <button
                 className="director-primary"
-                disabled={!exportRights || locked || (Boolean(id) && !sourceId)}
+                disabled={
+                  !exportRights ||
+                  locked ||
+                  (Boolean(id) && !sourceId) ||
+                  (movement.enabled && movement.hasSource && !movement.motion)
+                }
                 onClick={() => {
                   stop();
                   void exporter.start();
@@ -588,12 +615,15 @@ export function PerformanceDirectorEditor({
                 disabled={locked}
                 onClick={() =>
                   downloadDirectorJson(
-                    performanceProductionPlan(
-                      document,
-                      state?.assets,
-                      project.version,
-                      localFile?.name,
-                    ),
+                    {
+                      ...performanceProductionPlan(
+                        document,
+                        state?.assets,
+                        project.version,
+                        localFile?.name,
+                      ),
+                      motion: performanceMotionSummary(movement.motion),
+                    },
                     `${document.title}-camera-plan.json`,
                   )
                 }
@@ -653,8 +683,9 @@ export function PerformanceDirectorEditor({
                 {document.shots.length} angles · {duration.toFixed(2)} seconds
               </p>
               <p>
-                The neutral figure only shows framing. Gestures, expressions, identity and lip sync
-                come from your original performance, not this preview.
+                The neutral figure estimates visible movement when transfer is enabled. Check it
+                against the original: hidden parts and depth can be uncertain, and facial movement
+                is approximate. Your original remains the acting reference.
               </p>
               <button onClick={() => setStep(1)}>Adjust camera angles</button>
               <button onClick={() => setStep(3)}>
@@ -970,7 +1001,7 @@ export function PerformanceDirectorEditor({
             ? "Private project · auto-saved"
             : "Local plan · save a project for cloud persistence"}
         </span>
-        <span>The stand-in does not reproduce the actor's gestures.</span>
+        <span>Movement is estimated. The original remains the acting reference.</span>
         <Link href="/studio">
           Record with Director Studio
           <ArrowRight size={12} />

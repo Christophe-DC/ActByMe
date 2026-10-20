@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type DirectorDocument, type DirectorState } from "@actbyme/shared";
+import { type PerformanceMotion, type DirectorDocument, type DirectorState } from "@actbyme/shared";
 import { directorApi } from "@/lib/api/client";
 
 export function usePerformanceExport(
@@ -10,12 +10,22 @@ export function usePerformanceExport(
   save: () => Promise<DirectorState | null>,
   refresh: () => Promise<void>,
   onError: (message: string) => void,
+  motion: PerformanceMotion | null,
+  motionRequested: boolean,
 ) {
   const active = useRef<{ controller: AbortController; jobId?: string } | null>(null);
   const download = useRef<string | null>(null);
   const [status, setStatus] = useState<{ progress: number; stage: string } | null>(null);
   const [file, setFile] = useState<{ url: string; name: string; signature: string } | null>(null);
-  const signature = useMemo(() => JSON.stringify(document), [document]);
+  const motionKey = motion
+    ? `${motion.version}:${motion.sourceHash}`
+    : motionRequested
+      ? "pending-motion"
+      : "camera-only";
+  const signature = useMemo(
+    () => `${JSON.stringify(document)}:${motionKey}`,
+    [document, motionKey],
+  );
   const cancel = () => active.current?.controller.abort();
   useEffect(
     () => () => {
@@ -37,6 +47,10 @@ export function usePerformanceExport(
     const signal = task.controller.signal;
     setStatus({ progress: 0, stage: "Preparing the camera reference" });
     try {
+      if (motionRequested && (source || document.performance?.sourceAssetId) && !motion)
+        throw new Error(
+          "Wait for movement analysis, or explicitly turn off movement transfer to export a fixed camera reference.",
+        );
       let snapshot = structuredClone(document),
         original = source;
       if (id) {
@@ -78,11 +92,16 @@ export function usePerformanceExport(
         original,
         signal,
         (progress, stage) => setStatus({ progress, stage }),
+        motion,
       );
       signal.throwIfAborted();
       if (download.current) URL.revokeObjectURL(download.current);
       download.current = URL.createObjectURL(result);
-      setFile({ url: download.current, name: result.name, signature: JSON.stringify(snapshot) });
+      setFile({
+        url: download.current,
+        name: result.name,
+        signature: `${JSON.stringify(snapshot)}:${motionKey}`,
+      });
       if (id && task.jobId) {
         setStatus({ progress: 88, stage: "Saving the private reference MP4" });
         const reserved = await directorApi.reserve(id, {

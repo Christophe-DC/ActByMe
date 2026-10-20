@@ -1,4 +1,4 @@
-import { directorDuration, type DirectorDocument } from "@actbyme/shared";
+import { directorDuration, type PerformanceMotion, type DirectorDocument } from "@actbyme/shared";
 import { createPerformanceScene } from "./performance-scene";
 
 /** Deterministic offline frames: export never depends on playback speed or a MediaRecorder clock. */
@@ -7,6 +7,7 @@ export async function renderPerformanceReference(
   source: Blob | null,
   signal: AbortSignal,
   progress: (value: number, stage: string) => void,
+  motion?: PerformanceMotion | null,
 ) {
   if (!document.performance) throw new Error("Open a performance camera plan first.");
   const duration = directorDuration(document);
@@ -57,7 +58,7 @@ export async function renderPerformanceReference(
       for (let frame = 0; frame < count; frame++) {
         signal.throwIfAborted();
         const time = Math.min(duration - 0.000001, (start + frame) / fps);
-        const active = scene.render(document, time);
+        const active = scene.render(document, time, motion);
         context.drawImage(canvas, 0, 0);
         context.fillStyle = "rgba(12,14,17,.83)";
         context.fillRect(0, 0, width, 52);
@@ -72,7 +73,9 @@ export async function renderPerformanceReference(
         context.font = "13px Arial";
         context.fillStyle = "#eeeeee";
         context.fillText(
-          "Camera reference · neutral stand-in · gestures and lip sync not reproduced",
+          motion
+            ? "Estimated movement · single-camera reference · verify against original"
+            : "Camera reference · neutral stand-in · movement transfer disabled",
           18,
           height - 13,
         );

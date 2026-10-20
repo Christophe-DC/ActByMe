@@ -1,9 +1,15 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { directorShotAt, samplePerformanceCamera, type DirectorDocument } from "@actbyme/shared";
+import {
+  directorShotAt,
+  samplePerformanceCamera,
+  type DirectorDocument,
+  type PerformanceMotion,
+} from "@actbyme/shared";
+import { createPerformanceRig } from "./performance-rig";
 import { loadPerformanceModel } from "./performance-model";
 
-/** One studio, neutral fixed pose and camera sampler for preview, thumbnails and every MP4 frame. */
+/** One studio, animated neutral figure and camera sampler for preview, thumbnails and every MP4 frame. */
 export async function createPerformanceScene(
   canvas: HTMLCanvasElement,
   width: number,
@@ -24,7 +30,7 @@ export async function createPerformanceScene(
   renderer.toneMappingExposure = 0.95;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.VSMShadowMap;
-  // The subject and lights are static: the map is shared by every camera frame.
+  // Reuse the shadow map for camera-only work; animated poses invalidate it per frame.
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
   const scene = new THREE.Scene();
@@ -74,6 +80,7 @@ export async function createPerformanceScene(
     object.castShadow = true;
     object.receiveShadow = true;
   });
+  const rig = createPerformanceRig(mannequin);
   scene.add(mannequin);
   const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x343c47, roughness: 0.93 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMaterial);
@@ -121,20 +128,35 @@ export async function createPerformanceScene(
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
     },
-    render(document: DirectorDocument, time: number) {
+    render(document: DirectorDocument, time: number, motion?: PerformanceMotion | null) {
       if (lost) throw new Error("3D rendering was interrupted. Reload the page and try again.");
       const active = directorShotAt(document, time);
       if (!active.shot.performanceCamera) throw new Error("This shot has no performance camera.");
+      rig.apply(motion, time);
+      if (motion) renderer.shadowMap.needsUpdate = true;
       const view = samplePerformanceCamera(
         active.shot.performanceCamera,
         active.localTime / active.shot.duration,
       );
+      if (motion) {
+        const focus = rig.focus(active.shot.performanceCamera.focus);
+        const offset = focus.sub(new THREE.Vector3(view.target.x, view.target.y, view.target.z));
+        view.position.x += offset.x;
+        view.position.y += offset.y;
+        view.position.z += offset.z;
+        view.target.x += offset.x;
+        view.target.y += offset.y;
+        view.target.z += offset.z;
+      }
       camera.position.set(view.position.x, view.position.y, view.position.z);
       camera.lookAt(view.target.x, view.target.y, view.target.z);
       camera.fov = (2 * Math.atan(24 / (2 * view.lens)) * 180) / Math.PI;
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
-      canvas.dataset.model = "studio-neutral-v1";
+      canvas.dataset.model = "studio-performer-v2";
+      canvas.dataset.motion = motion ? "estimated" : "camera-only";
+      if (motion) canvas.dataset.joints = JSON.stringify(rig.joints());
+      else delete canvas.dataset.joints;
       return active;
     },
     dispose(destroyContext = false) {
@@ -152,6 +174,9 @@ export async function createPerformanceScene(
       contactTexture.dispose();
       environment.dispose();
       key.shadow.dispose();
+      mannequin.traverse((object) => {
+        if (object instanceof THREE.SkinnedMesh) object.skeleton.dispose();
+      });
       renderer.dispose();
       if (destroyContext) renderer.forceContextLoss();
     },

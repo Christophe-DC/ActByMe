@@ -70,12 +70,14 @@ test("Performance Director: import privately, edit synchronized angles, persist 
   await expect(page.getByRole("heading", { name: "Your original performance" })).toBeVisible();
   await expect(page.getByLabel("Neutral stand-in camera preview")).toHaveAttribute(
     "data-model",
-    "studio-neutral-v1",
+    "studio-performer-v2",
   );
   const data = await (
     await request.get("http://127.0.0.1:4401/test-director-source?kind=performance")
   ).body();
   await page.getByRole("checkbox", { name: /I have permission to use this performance/ }).check();
+  // Color-bar fixtures intentionally test camera-only rendering, not person tracking.
+  await page.getByLabel("Transfer movement from video", { exact: true }).uncheck();
   await page
     .getByLabel("Import performance video")
     .setInputFiles({ name: "QA-performance.mp4", mimeType: "video/mp4", buffer: data });
@@ -108,6 +110,7 @@ test("Performance Director: import privately, edit synchronized angles, persist 
     .not.toContain("00:00.00 /");
   await page.getByRole("button", { name: "Pause performance preview", exact: true }).click();
   await page.reload();
+  await page.getByLabel("Transfer movement from video", { exact: true }).uncheck();
   await expect(page.getByLabel("Original actor performance")).toBeVisible();
   await expect(page.getByRole("button", { name: "Angle 2: Hands", exact: true })).toBeVisible();
   const saved = await state();
@@ -210,6 +213,8 @@ test("Performance Director local mode accepts a source without uploading it and 
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await expect(page.getByLabel("Import performance video")).toBeDisabled();
   await page.getByRole("checkbox", { name: /I have permission to use this performance/ }).check();
+  // Color-bar fixtures intentionally test camera-only rendering, not person tracking.
+  await page.getByLabel("Transfer movement from video", { exact: true }).uncheck();
   const data = await (
     await request.get("http://127.0.0.1:4401/test-director-source?kind=video")
   ).body();
@@ -255,6 +260,8 @@ test("Performance Director remains simple and within the viewport, and blocks un
   }
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("checkbox", { name: /I have permission to use this performance/ }).check();
+  // Color-bar fixtures intentionally test camera-only rendering, not person tracking.
+  await page.getByLabel("Transfer movement from video", { exact: true }).uncheck();
   await page.getByLabel("Import performance video").setInputFiles({
     name: "not-video.txt",
     mimeType: "text/plain",
@@ -268,7 +275,7 @@ test("Performance Director reports an unavailable figure instead of exporting an
   page,
   request,
 }) => {
-  await page.route("**/director-models/neutral-figure-v1.glb", (route) =>
+  await page.route("**/director-models/neutral-performer-v2.glb", (route) =>
     route.fulfill({ status: 503, body: "Temporarily unavailable" }),
   );
   await page.goto("/director/demo");
@@ -277,6 +284,8 @@ test("Performance Director reports an unavailable figure instead of exporting an
   );
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("checkbox", { name: /I have permission to use this performance/ }).check();
+  // Color-bar fixtures intentionally test camera-only rendering, not person tracking.
+  await page.getByLabel("Transfer movement from video", { exact: true }).uncheck();
   const data = await (
     await request.get("http://127.0.0.1:4401/test-director-source?kind=performance")
   ).body();
@@ -306,6 +315,8 @@ test("Performance Director keeps a local performance and its camera choices when
   await page.goto("/director/demo");
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("checkbox", { name: /I have permission to use this performance/ }).check();
+  // Color-bar fixtures intentionally test camera-only rendering, not person tracking.
+  await page.getByLabel("Transfer movement from video", { exact: true }).uncheck();
   const bytes = await (
     await request.get("http://127.0.0.1:4401/test-director-source?kind=performance")
   ).body();
