@@ -405,6 +405,7 @@ body:has(.director-editor) footer:not(.director-statusbar) {
   margin-bottom: 0;
 }
 .director-inspector-section {
+  min-width: 0;
   border-top: 1px solid var(--director-border);
   padding-top: 12px;
   margin-top: 2px;
@@ -414,6 +415,39 @@ body:has(.director-editor) footer:not(.director-statusbar) {
 }
 .director-inspector-section > strong {
   font-size: 11px;
+}
+.director-export-section,
+.director-ai-options {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.director-export-section {
+  padding: 12px;
+  border: 1px solid #edbd7233;
+  border-radius: 5px;
+  background: #edbd7207;
+}
+.director-export-section .director-hint,
+.director-export-section details {
+  margin: 0;
+}
+.director-export-progress progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--director-accent);
+}
+.director-export-progress p {
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+.director-ai-options > :not(summary) {
+  margin-top: 10px;
+}
+.director-workspace > .director-inspector.director-generate {
+  display: flex;
+  flex-direction: column;
 }
 .director-inspector .director-shot-name input {
   padding: 0;
@@ -1014,11 +1048,7 @@ body:has(.director-editor) footer:not(.director-statusbar) {
   gap: 6px;
 }
 .director-hidden-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  clip-path: inset(50%);
-  overflow: hidden;
+  display: none;
 }
 .director-assets,
 .director-perform,

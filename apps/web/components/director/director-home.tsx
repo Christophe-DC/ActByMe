@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -22,6 +22,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { TemplateArt } from "./director-library";
 import { downloadDirectorJson } from "./director-generate";
+import { DirectorLoading } from "./director-loading";
 import "./director.css";
 export function DirectorHome() {
   const router = useRouter();
@@ -29,49 +30,73 @@ export function DirectorHome() {
       { id: string; title: string; version: number; updatedAt: string }[]
     >([]),
     [requests, setRequests] = useState<DirectorActorRequest[]>([]),
-    [authenticated, setAuthenticated] = useState(false),
+    [userId, setUserId] = useState<string | null>(),
     [loading, setLoading] = useState(true),
+    [loadError, setLoadError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [authOpen, setAuthOpen] = useState(false),
     [error, setError] = useState<string | null>(null),
     [title, setTitle] = useState(""),
     [consent, setConsent] = useState<string | null>(null);
+  const authenticated = Boolean(userId);
+  const loadController = useRef<AbortController | null>(null);
+  const load = useCallback(async () => {
+    loadController.current?.abort();
+    if (userId === undefined) return;
+    if (!userId) {
+      setProjects([]);
+      setRequests([]);
+      setLoading(false);
+      setLoadError(null);
+      return;
+    }
+    const controller = new AbortController();
+    loadController.current = controller;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [projects, requests] = await Promise.all([
+        directorApi.list(controller.signal),
+        directorApi.actorRequests(controller.signal),
+      ]);
+      if (!controller.signal.aborted) {
+        setProjects(projects);
+        setRequests(requests);
+      }
+    } catch (error) {
+      if (!controller.signal.aborted)
+        setLoadError(error instanceof Error ? error.message : "Impossible de charger les projets.");
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, [userId]);
+  useEffect(() => {
+    void load();
+    return () => loadController.current?.abort();
+  }, [load]);
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      setLoading(false);
+      setUserId(null);
       return;
     }
     let active = true;
-    const load = async (hasSession: boolean) => {
-      if (!active) return;
-      setAuthenticated(hasSession);
-      if (!hasSession) {
-        setProjects([]);
-        setRequests([]);
-        setLoading(false);
-        return;
-      }
-      try {
-        const [projects, requests] = await Promise.all([
-          directorApi.list(),
-          directorApi.actorRequests(),
-        ]);
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) setUserId(data.session?.user.id ?? null);
+      })
+      .catch(() => {
         if (active) {
-          setProjects(projects);
-          setRequests(requests);
-          setError(null);
+          setUserId(null);
+          setError(
+            "Impossible de vérifier votre session. Vous pouvez réessayer de vous connecter.",
+          );
         }
-      } catch (error) {
-        if (active) setError((error as Error).message);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void supabase.auth.getSession().then(({ data }) => load(Boolean(data.session)));
+      });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setTimeout(() => void load(Boolean(session)), 0);
+      if (active) setUserId(session?.user.id ?? null);
     });
     return () => {
       active = false;
@@ -130,7 +155,11 @@ export function DirectorHome() {
             publicité prendre forme avant sa première génération IA.
           </p>
           <div className="director-hero-actions">
-            <button className="director-primary" disabled={busy} onClick={() => void create(true)}>
+            <button
+              className="director-primary"
+              disabled={busy || (authenticated && loading)}
+              onClick={() => void create(true)}
+            >
               {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Créer mon
               premier projet
             </button>
@@ -233,9 +262,11 @@ export function DirectorHome() {
             </button>
           </form>
           {loading ? (
+            <DirectorLoading message="Chargement de vos projets…" onRetry={() => void load()} />
+          ) : loadError ? (
             <div className="director-loading">
-              <Loader2 size={22} className="animate-spin" />
-              Chargement des projets…
+              <p role="alert">{loadError}</p>
+              <button onClick={() => void load()}>Réessayer le chargement</button>
             </div>
           ) : (
             projects.map((project) => (
@@ -360,7 +391,12 @@ export function DirectorHome() {
           confirmation explicite.
         </p>
       </div>
-      <AuthModal initialMode="login" onClose={() => setAuthOpen(false)} open={authOpen} />
+      <AuthModal
+        initialMode="login"
+        onClose={() => setAuthOpen(false)}
+        open={authOpen}
+        returnTo="/director"
+      />
     </main>
   );
 }

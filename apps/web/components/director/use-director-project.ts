@@ -47,6 +47,7 @@ export function useDirectorProject(id?: string) {
   const blocked = useRef(false),
     [recovered, setRecovered] = useState(false);
   const sessionClosed = useRef(false);
+  const loadController = useRef<AbortController | null>(null);
   const undoStack = useRef<DirectorDocument[]>([]),
     redoStack = useRef<DirectorDocument[]>([]);
   const [historyTick, setHistoryTick] = useState(0);
@@ -62,6 +63,8 @@ export function useDirectorProject(id?: string) {
     } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_OUT") return;
       sessionClosed.current = true;
+      loadController.current?.abort();
+      setLoading(false);
       blocked.current = true;
       stateRef.current = null;
       setState(null);
@@ -72,10 +75,19 @@ export function useDirectorProject(id?: string) {
   }, [id, put]);
   const load = useCallback(async () => {
     if (!id) return;
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
+    sessionClosed.current = false;
+    if (stateRef.current?.id !== id) {
+      stateRef.current = null;
+      setState(null);
+    }
     setLoading(true);
+    setError(null);
     try {
-      const result = await directorApi.get(id);
-      if (sessionClosed.current) return;
+      const result = await directorApi.get(id, controller.signal);
+      if (sessionClosed.current || controller.signal.aborted) return;
       stateRef.current = result;
       setState(result);
       version.current = result.version;
@@ -103,9 +115,10 @@ export function useDirectorProject(id?: string) {
       setSaveStatus(recoveredDocument ? "Brouillon récupéré" : "Enregistré");
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Impossible de charger ce projet.");
+      if (!controller.signal.aborted)
+        setError(error instanceof Error ? error.message : "Impossible de charger ce projet.");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [id, put, storageKey]);
   useEffect(() => {
@@ -114,6 +127,7 @@ export function useDirectorProject(id?: string) {
       saved.current = JSON.stringify(current.current);
       setSaveStatus("Démo locale · non enregistrée");
     }
+    return () => loadController.current?.abort();
   }, [id, load]);
   const edit = useCallback(
     (change: DirectorDocument | ((draft: DirectorDocument) => void)) => {
@@ -199,13 +213,16 @@ export function useDirectorProject(id?: string) {
     return () => clearTimeout(timer);
   }, [document, id, loading, conflict]);
   useEffect(() => {
-    if (!id || loading) return;
+    if (!id || loading || !stateRef.current || sessionClosed.current) return;
+    let polling = false;
+    const controller = new AbortController();
     const timer = setInterval(() => {
-      if (inFlight.current || window.document.hidden) return;
+      if (inFlight.current || polling || window.document.hidden || sessionClosed.current) return;
+      polling = true;
       void directorApi
-        .get(id)
+        .get(id, controller.signal)
         .then((result) => {
-          if (sessionClosed.current) return;
+          if (sessionClosed.current || controller.signal.aborted) return;
           if (result.version !== version.current) {
             if (JSON.stringify(current.current) !== saved.current) {
               blocked.current = true;
@@ -219,9 +236,15 @@ export function useDirectorProject(id?: string) {
           }
           setState(result);
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          polling = false;
+        });
     }, 4000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
   }, [id, loading, put]);
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -275,6 +298,7 @@ export function useDirectorProject(id?: string) {
     save,
     refresh,
     loading,
+    reload: load,
     error,
     setError,
     saveStatus,

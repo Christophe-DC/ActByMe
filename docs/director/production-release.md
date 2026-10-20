@@ -52,6 +52,8 @@ Le nettoyage a initialement rencontré une ancienne session déjà révoquée pe
 
 ## Points à améliorer et limites de recette
 
+Ces constats proviennent de la recette initiale ; les correctifs d’interface livrés ensuite sont décrits ci-dessous.
+
 - **Démarrage de l’API :** le contrôle initial de cette recette a pris environ 52 secondes ; les contrôles publics précédents avaient déjà observé un premier appel expiré à 35 secondes, puis des réponses rapides une fois l’API réveillée. Afficher un état de réveil explicite et proposer une reprise du chargement. La cause exacte et le plan d’hébergement n’ont pas été confirmés par les logs Render.
 - **Retour après connexion :** la connexion ouverte depuis Director redirige actuellement vers `/profile`. Préserver la destination demandée éviterait de devoir revenir à Director.
 - **Accessibilité de la connexion :** la fenêtre existante ne présente pas de rôle de dialogue, ne transfère pas le focus et ne se ferme pas avec Échap dans la recette publique. Corriger la sémantique et la gestion du clavier.
@@ -60,5 +62,15 @@ Le nettoyage a initialement rencontré une ancienne session déjà révoquée pe
 Pour la suite du produit : mettre en avant le parcours gratuit « importer → affecter → prévisualiser → exporter », guider la préparation des références, puis ajouter miniatures, formes d’onde audio et outils de texte/logo/CTA. Améliorer aussi l’estimation du rendu et la réutilisation des segments inchangés pour accélérer les exports suivants.
 
 Cette recette confirme le parcours gratuit sur Chromium. Les moteurs IA restent désactivés et non validés par une génération réelle ; le consentement et les prestations avec un véritable acteur, Safari/Firefox, les projets aux limites de taille et la charge concurrente n’ont pas été recettés en production. Les tests locaux restent la couverture de ces règles et des autres cas automatisés documentés, sans remplacer ces validations externes.
+
+## Correctifs d’interface après la recette
+
+- **Connexion au studio :** message explicite après huit secondes, possibilité de relancer le chargement et annulation de la lecture précédente. Les lectures initiales des projets disposent de deux essais maximum, de 45 secondes chacun, pour les interruptions réseau et les erreurs de passerelle temporaires. Les créations, sauvegardes et générations ne sont jamais soumises à nouveau automatiquement. La consultation périodique ne démarre pas lorsqu’un projet n’a pas pu être chargé et ne superpose pas ses requêtes.
+- **Connexion utilisateur :** retour à Director après authentification, y compris depuis la démo. L’enregistrement d’une démo anonyme ouvre maintenant la connexion avant de soumettre une création ; les réglages restent présents après la connexion par mot de passe. Le callback Google existant `/profile` est conservé, avec une destination interne à usage unique, limitée à cinq minutes dans le même onglet. Les destinations externes ou expirées sont ignorées.
+- **Accessibilité :** véritable dialogue modal nommé, focus initial sur l’email, boucle Tab/Maj+Tab, fermeture par Échap et retour du focus au bouton d’origine. Les raccourcis de montage ne se déclenchent pas pendant un dialogue.
+- **Largeur :** le champ d’import est réellement masqué. La règle générale de largeur des champs ne peut plus étendre cet élément invisible au-delà du panneau Ressources. La timeline conserve son défilement horizontal propre.
+- **Production simplifiée :** l’export MP4 gratuit et l’état des plans sont placés en premier. La génération IA facultative et les limites détaillées restent repliées. La confirmation des droits est maintenue. L’avancement d’encodage utilise le temps de sortie signalé par FFmpeg, avec pourcentage et temps écoulé ; aucune estimation arbitraire du temps restant n’est affichée.
+
+La recette automatisée comprend désormais **18 parcours Chromium**, dont le montage MP4 réel, l’annulation, le remplacement d’un plan, le clavier, le retour après connexion, les destinations de redirection, les connexions lentes, la reprise manuelle et l’absence de débordement de 320 à 1440 pixels. Les neuf parcours existants de Director Studio et Virtual Director font partie de cette suite. Aucune migration, dépendance ou configuration serveur supplémentaire n’est nécessaire à ces correctifs.
 
 Aucune nouvelle variable ni clé n’est nécessaire au parcours gratuit si le stockage Supabase privé existant est déjà configuré. Le [guide courant](README.md#activation-et-mise-en-production) documente le build, la vérification du bucket et les éventuelles activations futures, qui restent séparées du mode gratuit.

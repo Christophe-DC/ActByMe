@@ -18,7 +18,7 @@ import {
   SkipBack,
   SkipForward,
   Undo2,
-  WandSparkles,
+  Film,
   X,
 } from "lucide-react";
 import {
@@ -35,6 +35,8 @@ import {
   type DirectorTimelineItem,
 } from "@actbyme/shared";
 import { directorApi } from "@/lib/api/client";
+import { supabase } from "@/lib/supabase/client";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { useDirectorBrowserExport } from "./use-director-browser-export";
 import { useDirectorProject } from "./use-director-project";
 import { useDirectorDialog } from "./use-director-dialog";
@@ -45,6 +47,7 @@ import { CameraInspector, TrackInspector } from "./director-inspector";
 import { DirectorTimeline, type DirectorSelection } from "./director-timeline";
 import { DirectorPerform } from "./director-perform";
 import { DirectorGenerate, downloadDirectorJson } from "./director-generate";
+import { DirectorLoading } from "./director-loading";
 import "./director.css";
 
 const steps = [
@@ -65,6 +68,7 @@ export function DirectorEditor({ id }: { id?: string }) {
     [time, setTime] = useState(0),
     [playing, setPlaying] = useState(false),
     [help, setHelp] = useState(false),
+    [authOpen, setAuthOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [history, setHistory] = useState<{ id: string; version: number; createdAt: string }[]>([]);
   const clock = useRef(0);
@@ -251,6 +255,8 @@ export function DirectorEditor({ id }: { id?: string }) {
   };
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || window.document.querySelector("dialog[open], [role=dialog]"))
+        return;
       if (
         event.target instanceof HTMLElement &&
         (event.target.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName))
@@ -353,6 +359,14 @@ export function DirectorEditor({ id }: { id?: string }) {
   const createFromDemo = async () => {
     setBusy(true);
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setPlaying(false);
+        setAuthOpen(true);
+        return;
+      }
       const created = await directorApi.create(document.title, false);
       await directorApi.save(created.id, created.version, document);
       router.push(`/director/${created.id}`);
@@ -382,8 +396,10 @@ export function DirectorEditor({ id }: { id?: string }) {
   if (project.loading)
     return (
       <main className="director-page director-loading">
-        <Loader2 size={28} className="animate-spin" />
-        <p>Ouverture de votre projet privé…</p>
+        <DirectorLoading
+          message="Ouverture de votre projet privé…"
+          onRetry={() => void project.reload()}
+        />
       </main>
     );
   if (id && !state)
@@ -392,6 +408,10 @@ export function DirectorEditor({ id }: { id?: string }) {
         <Clapperboard size={40} />
         <h1>Impossible d’ouvrir Director</h1>
         <p role="alert">{project.error}</p>
+        <button onClick={() => void project.reload()}>Réessayer le chargement</button>
+        <Link href={`/login?next=${encodeURIComponent(`/director/${id}`)}`}>
+          Se connecter à ce projet
+        </Link>
         <Link href="/director">Retour aux projets et connexion</Link>
       </main>
     );
@@ -466,8 +486,8 @@ export function DirectorEditor({ id }: { id?: string }) {
               setLibrary("assets");
             }}
           >
-            <WandSparkles size={13} />
-            <span>Produire la vidéo</span>
+            <Film size={13} />
+            <span>Exporter le MP4</span>
           </button>
           <button aria-label="Aide et raccourcis Director" onClick={() => setHelp(true)}>
             <CircleHelp size={16} />
@@ -728,6 +748,15 @@ export function DirectorEditor({ id }: { id?: string }) {
             onSave={project.save}
             onRefresh={project.refresh}
             onUseClip={useClip}
+            onImport={() => {
+              setLibrary("assets");
+              if (window.matchMedia("(max-width: 600px)").matches)
+                requestAnimationFrame(() =>
+                  window.document
+                    .querySelector(".director-left-panel")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                );
+            }}
           />
         ) : step === "plan" ? (
           <aside className="director-inspector">
@@ -899,6 +928,12 @@ export function DirectorEditor({ id }: { id?: string }) {
           Director Studio · tournage acteur <ArrowLeft size={12} />
         </Link>
       </footer>
+      <AuthModal
+        initialMode="login"
+        onClose={() => setAuthOpen(false)}
+        open={authOpen}
+        returnTo={id ? `/director/${id}` : "/director/demo"}
+      />
       {help ? (
         <div className="director-modal-backdrop">
           <div

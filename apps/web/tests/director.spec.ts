@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createDirectorShot } from "@actbyme/shared";
+import { safeAuthReturnTo } from "../lib/auth/return-to";
 test.use({ actionTimeout: 15000 });
 async function expectRenderedScene(page: Page) {
   await expect
@@ -28,7 +29,7 @@ async function expectRenderedScene(page: Page) {
     )
     .toBeGreaterThan(8);
 }
-async function login(page: Page, id: string) {
+async function login(page: Page, id: string, initialSession = true) {
   const user = {
     id,
     aud: "authenticated",
@@ -37,21 +38,34 @@ async function login(page: Page, id: string) {
     app_metadata: { role: "CLIENT" },
     user_metadata: {},
   };
-  await page.addInitScript(
-    ({ user }) =>
-      localStorage.setItem(
-        "sb-studio-test-auth-token",
-        JSON.stringify({
-          access_token: "studio-token",
-          refresh_token: "studio-refresh",
-          token_type: "bearer",
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          user,
-        }),
-      ),
-    { user },
+  if (initialSession)
+    await page.addInitScript(
+      ({ user }) =>
+        localStorage.setItem(
+          "sb-studio-test-auth-token",
+          JSON.stringify({
+            access_token: "studio-token",
+            refresh_token: "studio-refresh",
+            token_type: "bearer",
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            user,
+          }),
+        ),
+      { user },
+    );
+  await page.route("https://studio-test.supabase.co/**", (route) =>
+    route.fulfill({
+      json: new URL(route.request().url()).pathname.endsWith("/token")
+        ? {
+            access_token: "studio-token",
+            refresh_token: "studio-refresh",
+            token_type: "bearer",
+            expires_in: 3600,
+            user,
+          }
+        : user,
+    }),
   );
-  await page.route("https://studio-test.supabase.co/**", (route) => route.fulfill({ json: user }));
   await page.route("http://127.0.0.1:4401/**", async (route) => {
     if (route.request().url().includes("/users/me"))
       return route.fulfill({ json: { ...user, role: "CLIENT" } });
@@ -170,6 +184,8 @@ test("Director: create, direct, import, synchronize, persist, replace a shot and
   await expect(page.getByLabel("Hauteur caméra")).toHaveValue("2.4");
   await page.screenshot({ path: "test-results/director-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Generate", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Export MP4 gratuit" })).toBeVisible();
+  await expect(page.getByLabel("Moteur de génération vidéo")).not.toBeVisible();
   const planDownload = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Exporter le dossier de production", exact: true })
@@ -357,6 +373,7 @@ test("Director requires billing confirmation and preserves a conflicting draft a
   const picture = await page.locator(".director-viewport").boundingBox();
   expect(Math.abs(picture!.width / picture!.height - 16 / 9)).toBeLessThan(0.02);
   await page.getByRole("button", { name: "Generate", exact: true }).click();
+  await page.getByText("Génération IA · facultative", { exact: true }).click();
   await page.getByRole("button", { name: /Générer ce plan/ }).click();
   const dialog = page.getByRole("dialog", { name: "Confirmer la génération payante" });
   await expect(dialog).toBeVisible();
@@ -405,4 +422,193 @@ test("Director requires billing confirmation and preserves a conflicting draft a
   expect((await recovered).suggestedFilename()).toContain("brouillon");
   await page.getByRole("button", { name: "Recharger la version serveur", exact: true }).click();
   await expect(page.getByLabel("Hauteur caméra")).toHaveValue("1.6");
+});
+
+test("Director login dialog keeps keyboard focus, closes with Escape and returns to Director", async ({
+  page,
+  request,
+}) => {
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  await login(page, fixture.ownerId, false);
+  await page.goto("/director");
+  const trigger = page.getByRole("button", { name: "Créer mon premier projet", exact: true });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Log in", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Email", { exact: true })).toBeFocused();
+  await dialog.getByRole("button", { name: "Continue with Google", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Fermer la connexion", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Continue with Google", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByLabel("Email", { exact: true }).fill("director-test@studio.test");
+  await dialog.getByLabel("Password", { exact: true }).fill("test-only-password");
+  await dialog.locator("form").getByRole("button", { name: "Login", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page).toHaveURL(/\/director$/);
+  await expect(page.getByLabel("Nom du nouveau projet Director")).toBeEnabled();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+});
+
+test("Authentication destinations reject external URLs and OAuth consumes only a fresh internal return", async ({
+  page,
+  request,
+}) => {
+  for (const unsafe of [
+    undefined,
+    "https://example.com",
+    "//example.com",
+    "/\\example.com",
+    "/\n/example.com",
+    "javascript:alert(1)",
+  ])
+    expect(safeAuthReturnTo(unsafe)).toBe("/profile");
+  expect(safeAuthReturnTo("/director/project?view=plan")).toBe("/director/project?view=plan");
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  await login(page, fixture.ownerId);
+  await page.goto("/director");
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "actbyme-auth-return-to",
+      JSON.stringify({ path: "/director/demo", expiresAt: Date.now() + 60000 }),
+    ),
+  );
+  await page.goto("/profile");
+  await expect(page).toHaveURL(/\/director\/demo$/);
+  expect(await page.evaluate(() => sessionStorage.getItem("actbyme-auth-return-to"))).toBeNull();
+  for (const [path, expiresAt] of [
+    ["/director/demo", 1],
+    ["//example.com", Date.now() + 60000],
+  ] as const) {
+    await page.evaluate(
+      ({ path, expiresAt }) =>
+        sessionStorage.setItem("actbyme-auth-return-to", JSON.stringify({ path, expiresAt })),
+      { path, expiresAt },
+    );
+    await page.goto("/profile");
+    await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/profile$/);
+  }
+});
+
+test("Director explains a slow connection, retries reads and never repeats a failed creation", async ({
+  page,
+  request,
+}) => {
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  await login(page, fixture.ownerId);
+  let reads = 0,
+    creations = 0;
+  await page.route("http://127.0.0.1:4401/director-projects", async (route) => {
+    if (route.request().method() === "GET") {
+      reads++;
+      if (reads === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 9000));
+        return route.fulfill({ status: 503, json: { message: "Temporary cold service" } });
+      }
+      return route.fallback();
+    }
+    if (route.request().method() === "POST") {
+      creations++;
+      return route.abort("failed");
+    }
+    return route.fallback();
+  });
+  await page.goto("/director");
+  await expect(
+    page.getByText("Le premier chargement peut prendre une", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText("Chargement de vos projets…", { exact: true })).not.toBeVisible();
+  expect(reads).toBe(2);
+  await page.getByLabel("Nom du nouveau projet Director").fill("Failed mutation must not repeat");
+  await page.getByRole("button", { name: "Créer un projet", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Créer un projet", exact: true })).toBeEnabled();
+  await page.waitForTimeout(1200);
+  expect(creations).toBe(1);
+});
+
+test("Director stops after two failed reads and allows an explicit project reload", async ({
+  page,
+  request,
+}) => {
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  const created = await (
+    await request.post("http://127.0.0.1:4401/director-projects", {
+      headers: { "x-user-id": fixture.ownerId, "x-user-role": "CLIENT" },
+      data: { title: "Connection recovery", demo: false },
+    })
+  ).json();
+  await login(page, fixture.ownerId);
+  let reads = 0;
+  await page.route(`http://127.0.0.1:4401/director-projects/${created.id}`, (route) => {
+    reads++;
+    if (reads <= 2)
+      return route.fulfill({ status: 503, json: { message: "Temporary gateway failure" } });
+    return route.fallback();
+  });
+  await page.goto(`/director/${created.id}`);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Le studio ne répond pas");
+  await page.waitForTimeout(4500);
+  expect(reads).toBe(2);
+  await page.getByRole("button", { name: "Réessayer le chargement", exact: true }).click();
+  await expect(page.locator("canvas")).toBeVisible();
+  expect(reads).toBe(3);
+});
+
+test("Director panels and imported-file controls stay within the viewport at every supported width", async ({
+  page,
+}) => {
+  await page.goto("/director/demo");
+  for (const width of [1440, 1024, 820, 768, 600, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const step of ["Generate", "Direct", "Perform", "Plan"]) {
+      await page.getByRole("button", { name: step, exact: true }).click();
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth), {
+          message: `${step} at ${width}px must not overflow`,
+        })
+        .toBeLessThanOrEqual(1);
+      if (step === "Generate") {
+        const options = page.getByText("Génération IA · facultative", { exact: true });
+        await options.click();
+        await expect(page.getByLabel("Moteur de génération vidéo")).toBeVisible();
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+          .toBeLessThanOrEqual(1);
+        await options.click();
+      }
+    }
+  }
+  await page.screenshot({ path: "test-results/director-responsive-fixed.png", fullPage: true });
+});
+
+test("Director demo asks for login before saving and keeps the edited camera after login", async ({
+  page,
+  request,
+}) => {
+  const fixture = await (await request.get("http://127.0.0.1:4401/test-fixture")).json();
+  await login(page, fixture.ownerId, false);
+  await page.goto("/director/demo");
+  await page.getByLabel("Hauteur caméra").fill("2.5");
+  await page.getByRole("button", { name: "Enregistrer dans mon compte", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Log in", exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Email", { exact: true }).fill("director-test@studio.test");
+  await dialog.getByLabel("Password", { exact: true }).fill("test-only-password");
+  await dialog.locator("form").getByRole("button", { name: "Login", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page).toHaveURL(/\/director\/demo$/);
+  await expect(page.getByLabel("Hauteur caméra")).toHaveValue("2.5");
+  await page.getByRole("button", { name: "Enregistrer dans mon compte", exact: true }).click();
+  await expect(page).toHaveURL(/\/director\/[a-f0-9-]+$/);
+  await expect(page.getByLabel("Hauteur caméra")).toHaveValue("2.5");
 });

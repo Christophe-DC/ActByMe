@@ -28,7 +28,7 @@ Depuis l’adaptation sans hébergement supplémentaire, les inspections sont co
 | Migrations sur PostgreSQL isolé              | 22 migrations appliquées, dont Director ; PostgreSQL 18 local et PostgreSQL 16 dans Docker |
 | `pnpm --filter @actbyme/shared test`         | 26 tests réussis, aucun ignoré                                                             |
 | `pnpm --filter @actbyme/api test`            | 84 tests réussis, aucun ignoré, avec la base de test locale                                |
-| `pnpm --filter @actbyme/web test:e2e`        | 12 tests Chromium réussis : 3 Director et 9 parcours existants                             |
+| `pnpm --filter @actbyme/web test:e2e`        | 18 tests Chromium réussis après correctifs : 9 Director et 9 parcours existants            |
 | `pnpm format:check`                          | Réussi                                                                                     |
 | `pnpm lint`                                  | Réussi                                                                                     |
 | `pnpm typecheck`                             | Réussi                                                                                     |
@@ -47,6 +47,8 @@ Lors de la livraison initiale (avant l’adaptation navigateur), le Dockerfile f
 Les tests navigateur traversent l’interface, les routes NestJS et la base. Ils vérifient la création, la caméra, le déplacement d’un waypoint, la lecture d’un véritable fichier audio, l’import de références et clips, la persistance après rechargement, le téléchargement JSON et MP4, le remplacement d’un seul plan, l’isolation entre propriétaires, les conflits de sauvegarde, l’acceptation explicite du coût, le mode mobile et le repli sans WebGL. Une vérification des pixels WebGL confirme que le décor 3D est réellement dessiné avant la capture. Les tests existants continuent de couvrir les prestations d’acteurs et leurs soumissions.
 
 La démo a également été ouverte depuis le build optimisé avec `next start`, puis son rendu 3D vérifié dans Chromium et capturé après présentation des frames. La lecture audio prépare les métadonnées des pistes et précharge les médias avant leur arrivée sur la timeline ; les annulations volontaires de lecture ne produisent pas de fausses alertes.
+
+Les correctifs d’interface du 20 octobre ajoutent six parcours : clavier et retour après connexion, destinations OAuth internes à durée limitée, attente explicite et reprise de lecture, absence de nouvelle soumission automatique d’une création échouée, rechargement manuel d’un projet après deux erreurs réseau et enregistrement d’une démo après connexion sans perdre la caméra modifiée. Le contrôle responsive couvre sept largeurs de 320 à 1440 pixels, les quatre espaces, la bibliothèque de fichiers et les options IA ouvertes. Le parcours d’export vérifie que l’action gratuite est visible et la génération IA initialement repliée.
 
 ## Recette spécifique sans worker supplémentaire
 

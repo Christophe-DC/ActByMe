@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, X } from "lucide-react";
 import { Button } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+import { consumeAuthReturnTo, rememberAuthReturnTo, safeAuthReturnTo } from "@/lib/auth/return-to";
 
 type AuthMode = "login" | "signup";
 
@@ -12,12 +13,17 @@ export function AuthModal({
   initialMode,
   onClose,
   open,
+  returnTo,
 }: {
   initialMode: AuthMode;
   onClose: () => void;
   open: boolean;
+  returnTo?: string;
 }) {
   const router = useRouter();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const destination = safeAuthReturnTo(returnTo);
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +38,23 @@ export function AuthModal({
       setNotice("");
     }
   }, [initialMode, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.showModal();
+    dialog.querySelector<HTMLInputElement>("input")?.focus();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [open]);
 
   if (!open) {
     return null;
@@ -64,8 +87,9 @@ export function AuthModal({
         return;
       }
 
+      consumeAuthReturnTo();
       onClose();
-      router.push("/profile");
+      router.push(destination);
       router.refresh();
       return;
     }
@@ -87,8 +111,9 @@ export function AuthModal({
       return;
     }
 
+    consumeAuthReturnTo();
     onClose();
-    router.push("/profile");
+    router.push(destination);
     router.refresh();
   }
 
@@ -101,26 +126,51 @@ export function AuthModal({
       return;
     }
 
+    const remembered = rememberAuthReturnTo(destination);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/profile`,
+        redirectTo: `${window.location.origin}${remembered ? "/profile" : destination}`,
       },
     });
 
     if (authError) {
+      consumeAuthReturnTo();
       setError(authError.message);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-      <button
-        aria-label="Close authentication modal"
-        className="absolute inset-0 bg-black/75 backdrop-blur-md"
-        onClick={onClose}
-        type="button"
-      />
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-modal="true"
+      className="fixed inset-0 m-0 flex h-dvh max-h-none w-full max-w-none items-center justify-center overflow-y-auto border-0 bg-transparent px-4 py-6 backdrop:bg-black/75 backdrop:backdrop-blur-md"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab" || event.ctrlKey || event.metaKey) return;
+        const elements = [
+          ...event.currentTarget.querySelectorAll<HTMLElement>(
+            "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex='0']",
+          ),
+        ].filter((element) => element.getClientRects().length > 0);
+        const first = elements[0],
+          last = elements.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="relative grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-xl border border-white/10 bg-[#09090B] shadow-2xl shadow-black/60 lg:grid-cols-[1.05fr_0.95fr]">
         <section className="relative hidden min-h-[620px] overflow-hidden bg-[#111827] lg:block">
           <img
@@ -148,11 +198,12 @@ export function AuthModal({
           <div className="mb-8 flex items-center justify-between gap-4">
             <div>
               <p className="text-sm text-[#9CA3AF]">ActByMe</p>
-              <h2 className="mt-1 text-3xl font-semibold">
+              <h2 id={titleId} className="mt-1 text-3xl font-semibold">
                 {mode === "login" ? "Log in" : "Sign up"}
               </h2>
             </div>
             <button
+              aria-label="Fermer la connexion"
               className="rounded-md p-2 text-[#9CA3AF] transition hover:bg-[#111827] hover:text-white"
               onClick={onClose}
               type="button"
@@ -182,12 +233,13 @@ export function AuthModal({
             </button>
           </div>
 
-          <form className="space-y-4" onSubmit={handleEmailAuth}>
+          <form aria-busy={isSubmitting} className="space-y-4" onSubmit={handleEmailAuth}>
             <AuthField
               label="Email"
               onChange={setEmail}
               placeholder="you@example.com"
               type="email"
+              autoComplete="email"
               value={email}
             />
             <AuthField
@@ -195,6 +247,7 @@ export function AuthModal({
               onChange={setPassword}
               placeholder={mode === "signup" ? "Minimum 6 characters" : "Your password"}
               type="password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               value={password}
             />
             {error ? <AuthMessage message={error} tone="error" /> : null}
@@ -224,14 +277,17 @@ export function AuthModal({
             type="button"
             variant="outline"
           >
-            <span className="flex size-5 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111827]">
+            <span
+              aria-hidden="true"
+              className="flex size-5 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111827]"
+            >
               G
             </span>
             Continue with Google
           </Button>
         </section>
       </div>
-    </div>
+    </dialog>
   );
 }
 
@@ -241,17 +297,20 @@ function AuthField({
   placeholder,
   type,
   value,
+  autoComplete,
 }: {
   label: string;
   onChange: (value: string) => void;
   placeholder: string;
   type: string;
   value: string;
+  autoComplete: string;
 }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-[#D1D5DB]">{label}</span>
       <input
+        autoComplete={autoComplete}
         className="h-12 w-full rounded-lg border border-[#1F2937] bg-[#111827] px-4 text-sm text-[#F9FAFB] outline-none transition placeholder:text-[#6B7280] focus:border-white"
         minLength={type === "password" ? 6 : undefined}
         onChange={(event) => onChange(event.target.value)}
@@ -270,5 +329,12 @@ function AuthMessage({ message, tone }: { message: string; tone: "error" | "info
       ? "border-red-500/40 bg-red-500/10 text-red-100"
       : "border-[#14B8A6]/40 bg-[#14B8A6]/10 text-[#CCFBF1]";
 
-  return <div className={`rounded-lg border px-4 py-3 text-sm ${className}`}>{message}</div>;
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={`rounded-lg border px-4 py-3 text-sm ${className}`}
+    >
+      {message}
+    </div>
+  );
 }

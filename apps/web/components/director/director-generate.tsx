@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ShieldCheck,
   WandSparkles,
+  Upload,
   X,
 } from "lucide-react";
 import {
@@ -45,6 +46,7 @@ export function DirectorGenerate({
   onSave,
   onRefresh,
   onUseClip,
+  onImport,
   browserExport,
 }: {
   browserExport: ReturnType<typeof useDirectorBrowserExport>;
@@ -56,6 +58,7 @@ export function DirectorGenerate({
   onSave: () => Promise<DirectorState | null>;
   onRefresh: () => Promise<void>;
   onUseClip: (shotId: string, assetId: string) => void;
+  onImport: () => void;
 }) {
   const [providerId, setProviderId] = useState<DirectorProviderId>("veo"),
     [confirm, setConfirm] = useState(false),
@@ -140,88 +143,106 @@ export function DirectorGenerate({
     <aside className="director-inspector director-generate">
       <div className="director-panel-heading">
         <strong>Production</strong>
-        <span className="director-badge">À la demande</span>
+        <Film size={16} />
       </div>
       <p className="director-hint">
-        Validez votre prévisualisation avant de générer. Chaque plan se remplace indépendamment.
+        Importez vos clips, associez-les aux plans, puis exportez votre publicité.
       </p>
-      <label>
-        Moteur IA
-        <select
-          aria-label="Moteur de génération vidéo"
-          value={providerId}
-          onChange={(event) => setProviderId(event.target.value as DirectorProviderId)}
+      <section className="director-export-section" aria-label="Export MP4 gratuit">
+        <div className="director-panel-heading">
+          <strong>Export MP4</strong>
+          <span className="director-badge">Gratuit · 720p</span>
+        </div>
+        <p className="director-hint">
+          {!id
+            ? "Créez un projet pour importer vos clips et exporter le MP4."
+            : missing.length
+              ? `${document.shots.length - missing.length}/${document.shots.length} plans prêts. Associez un clip à chaque plan.`
+              : "Tous vos plans sont prêts pour l’export."}
+        </p>
+        {missing.length ? (
+          <button disabled={!id} onClick={onImport}>
+            <Upload size={14} />
+            Importer des clips
+          </button>
+        ) : null}
+        <label className="director-checkbox">
+          <input
+            type="checkbox"
+            aria-label="Confirmer les droits pour l’export"
+            checked={rights}
+            onChange={(event) => setRights(event.target.checked)}
+          />
+          J’ai vérifié les clips et leurs droits pour cet export.
+        </label>
+        <button
+          className="director-primary"
+          disabled={
+            !id ||
+            missing.length > 0 ||
+            busy ||
+            Boolean(browserExport.status) ||
+            !state?.capabilities.browserExportReady ||
+            !rights ||
+            Boolean(exportError)
+          }
+          onClick={() => void browserExport.start()}
         >
-          <option value="veo">Google Veo 3.1</option>
-          <option value="higgsfield">Seedance 2.0 · Higgsfield</option>
-        </select>
-      </label>
-      <div className="director-provider-status">
-        <span className={`director-live-dot ${provider?.ready ? "" : "is-offline"}`} />
-        <span>
-          {provider?.ready
-            ? "Configuré · accès réel à valider au premier appel"
-            : (provider?.reason ?? "Aucun fournisseur configuré dans la démo")}
-        </span>
-      </div>
-      <p className="director-hint">
-        {provider?.centsPerSecond
-          ? `${(provider.centsPerSecond / 100).toFixed(3)} USD/s · tarif serveur configuré`
-          : "Coût inconnu : tarif non configuré. Aucun achat possible."}
-      </p>
-      <div className="director-production-shot">
-        <strong>{shot.name}</strong>
-        <span>{shot.duration.toFixed(1)}s</span>
-      </div>
-      {errors.length ? (
-        <ul className="director-validation-list">
-          {errors.map((error) => (
-            <li key={error}>{error}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="director-success">
-          <Check size={14} />
-          Format compatible avec ce connecteur.
-        </p>
-      )}
-      {document.cast.some((person) => person.kind === "placeholder") ? (
-        <p className="director-hint">
-          Retirez les mannequins ou remplacez-les par des personnages autorisés avant la génération.
-        </p>
-      ) : null}
-      <button
-        className="director-primary"
-        disabled={
-          !id ||
-          !provider?.ready ||
-          errors.length > 0 ||
-          busy ||
-          document.cast.some((person) => person.kind === "placeholder")
-        }
-        onClick={() => {
-          setConfirm(true);
-          setRights(false);
-          setBillable(false);
-        }}
-      >
-        <WandSparkles size={15} />
-        {shot.clipAssetId ? "Régénérer ce plan" : "Générer ce plan"}
-        {estimate ? <small>{(estimate / 100).toFixed(2)} USD max.</small> : null}
-      </button>
-      <details>
-        <summary>Instructions structurées du plan</summary>
-        <textarea
-          readOnly
-          aria-label="Prompt du plan"
-          rows={9}
-          value={directorPrompt(document, shot)}
-        />
-        <p className="director-hint">
-          Le modèle interprète la caméra et les références. Ni la géométrie, ni l’identité, ni la
-          synchronisation labiale ne sont garanties.
-        </p>
-      </details>
+          <Film size={14} />
+          Assembler le MP4
+        </button>
+        {exportError ? <p className="director-error-text">{exportError}</p> : null}
+        {browserExport.status ? (
+          <div className="director-export-progress">
+            <p role="status" aria-live="polite">
+              {browserExport.status.stage}
+            </p>
+            <progress
+              aria-label="Avancement de l’export navigateur"
+              max="100"
+              value={browserExport.status.progress}
+            />
+            <div className="director-panel-heading">
+              <span>{Math.floor(browserExport.status.progress)} %</span>
+              <span>{browserExport.elapsedSeconds}s écoulées</span>
+            </div>
+            <button onClick={browserExport.cancel}>
+              <X size={12} />
+              Annuler l’export navigateur
+            </button>
+          </div>
+        ) : null}
+        {browserExport.localFile ? (
+          <a
+            href={browserExport.localFile.url}
+            download={browserExport.localFile.name}
+            className="director-button"
+          >
+            <Download size={14} />
+            Télécharger le MP4 de cet onglet
+          </a>
+        ) : null}
+        <p className="director-hint">Gardez cet onglet ouvert pendant l’export.</p>
+        <details>
+          <summary>Limites de l’export gratuit</summary>
+          <p className="director-hint">
+            Jusqu’à 2 minutes, 30 plans et 128 MiB de clips et sons. Le premier export télécharge le
+            moteur vidéo (~31 Mo).
+          </p>
+          <a
+            href="/director-media/NOTICES.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="director-hint"
+          >
+            Logiciels libres et licences
+          </a>
+        </details>
+        <button disabled={busy} onClick={() => void exportPlan()}>
+          <FileJson size={14} />
+          Exporter le dossier de production
+        </button>
+      </section>
       <div className="director-inspector-section">
         <strong>Clip utilisé dans le montage</strong>
         <select
@@ -239,84 +260,90 @@ export function DirectorGenerate({
             ))}
         </select>
         <p className="director-hint">
-          Importez vos clips manuellement dans Ressources si aucun fournisseur n’est configuré.
+          Sélectionnez un autre clip pour remplacer uniquement ce plan.
         </p>
       </div>
-      <div className="director-inspector-section">
-        <div className="director-panel-heading">
-          <strong>Export final</strong>
-          <Film size={16} />
+      <details className="director-ai-options">
+        <summary>Génération IA · facultative</summary>
+        <label>
+          Moteur IA
+          <select
+            aria-label="Moteur de génération vidéo"
+            value={providerId}
+            onChange={(event) => setProviderId(event.target.value as DirectorProviderId)}
+          >
+            <option value="veo">Google Veo 3.1</option>
+            <option value="higgsfield">Seedance 2.0 · Higgsfield</option>
+          </select>
+        </label>
+        <div className="director-provider-status">
+          <span className={`director-live-dot ${provider?.ready ? "" : "is-offline"}`} />
+          <span>
+            {provider?.ready
+              ? "Configuré · accès réel à valider au premier appel"
+              : (provider?.reason ?? "Aucun fournisseur configuré dans la démo")}
+          </span>
         </div>
         <p className="director-hint">
-          {missing.length
-            ? `${missing.length} plan(s) attendent un clip.`
-            : "Tous les plans ont un clip associé."}
+          {provider?.centsPerSecond
+            ? `${(provider.centsPerSecond / 100).toFixed(3)} USD/s · tarif serveur configuré`
+            : "Coût inconnu : tarif non configuré. Aucun achat possible."}
         </p>
+        <div className="director-production-shot">
+          <strong>{shot.name}</strong>
+          <span>{shot.duration.toFixed(1)}s</span>
+        </div>
+        {errors.length ? (
+          <ul className="director-validation-list">
+            {errors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="director-success">
+            <Check size={14} />
+            Format compatible avec ce connecteur.
+          </p>
+        )}
+        {document.cast.some((person) => person.kind === "placeholder") ? (
+          <p className="director-hint">
+            Retirez les mannequins ou remplacez-les par des personnages autorisés avant la
+            génération.
+          </p>
+        ) : null}
         <button
+          className="director-primary"
           disabled={
             !id ||
-            missing.length > 0 ||
+            !provider?.ready ||
+            errors.length > 0 ||
             busy ||
-            Boolean(browserExport.status) ||
-            !state?.capabilities.browserExportReady ||
-            !rights ||
-            Boolean(exportError)
+            document.cast.some((person) => person.kind === "placeholder")
           }
-          onClick={() => void browserExport.start()}
+          onClick={() => {
+            setConfirm(true);
+            setRights(false);
+            setBillable(false);
+          }}
         >
-          <Film size={14} />
-          Assembler le MP4
+          <WandSparkles size={15} />
+          {shot.clipAssetId ? "Régénérer ce plan" : "Générer ce plan"}
+          {estimate ? <small>{(estimate / 100).toFixed(2)} USD max.</small> : null}
         </button>
-        <p className="director-hint">
-          Export local gratuit · MP4 720p · 2 minutes / 30 plans · clips et sons cumulés ≤ 128 MiB.
-          Gardez cet onglet ouvert pendant l’assemblage. Le premier export télécharge le moteur
-          vidéo (~31 Mo).
-        </p>
-        <a
-          href="/director-media/NOTICES.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="director-hint"
-        >
-          Logiciels libres et licences
-        </a>
-        {exportError ? <p className="director-error-text">{exportError}</p> : null}
-        {browserExport.status ? (
-          <div role="status" aria-live="polite">
-            <p>{browserExport.status.stage}</p>
-            <progress
-              aria-label="Avancement de l’export navigateur"
-              max="100"
-              value={browserExport.status.progress}
-            />
-            <button onClick={browserExport.cancel}>
-              <X size={12} /> Annuler l’export navigateur
-            </button>
-          </div>
-        ) : null}
-        {browserExport.localFile ? (
-          <a href={browserExport.localFile.url} download={browserExport.localFile.name}>
-            Télécharger le MP4 de cet onglet
-          </a>
-        ) : null}
-        <label className="director-checkbox">
-          <input
-            type="checkbox"
-            aria-label="Confirmer les droits pour l’export"
-            checked={rights}
-            onChange={(event) => setRights(event.target.checked)}
+        <details>
+          <summary>Instructions structurées du plan</summary>
+          <textarea
+            readOnly
+            aria-label="Prompt du plan"
+            rows={9}
+            value={directorPrompt(document, shot)}
           />
-          J’ai vérifié les clips et leurs droits pour cet export.
-        </label>
-        <button disabled={busy} onClick={() => void exportPlan()}>
-          <FileJson size={14} />
-          Exporter le dossier de production
-        </button>
-        <p className="director-hint">
-          Le dossier JSON inclut plans, trajectoires, prompts, références et timings, sans URL
-          privée.
-        </p>
-      </div>
+          <p className="director-hint">
+            Le modèle interprète la caméra et les références. Ni la géométrie, ni l’identité, ni la
+            synchronisation labiale ne sont garanties.
+          </p>
+        </details>
+      </details>
       <div className="director-inspector-section">
         <div className="director-panel-heading">
           <strong>Traitements & versions</strong>
@@ -384,7 +411,7 @@ export function DirectorGenerate({
             </div>
           ))}
         {!state?.jobs.some((job) => job.kind !== "INSPECT") ? (
-          <p className="director-hint">Aucune génération n’a été lancée.</p>
+          <p className="director-hint">Vos exports et générations apparaîtront ici.</p>
         ) : null}
       </div>
       {confirm ? (

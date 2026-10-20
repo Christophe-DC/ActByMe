@@ -58,6 +58,7 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
       headers,
     });
   } catch (error) {
+    if (options?.signal?.aborted) throw error;
     throw new Error(
       error instanceof TypeError
         ? `Unable to reach the ActByMe API at ${API_URL}.`
@@ -749,21 +750,43 @@ export type DirectorActorRequest = {
   current: boolean;
   plan: ReturnType<typeof import("@actbyme/shared").directorProductionPlan>;
 };
+// Retry only idempotent reads when a sleeping service or a temporary gateway
+// error interrupts the connection. Mutations are never submitted a second time.
+async function directorRead<T>(endpoint: string, signal?: AbortSignal): Promise<T> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    signal?.throwIfAborted();
+    const requestSignal = AbortSignal.any([
+      AbortSignal.timeout(45000),
+      ...(signal ? [signal] : []),
+    ]);
+    try {
+      return await apiFetch<T>(endpoint, { cache: "no-store", signal: requestSignal });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (error instanceof APIError && ![502, 503, 504].includes(error.status)) throw error;
+      if (attempt === 1)
+        throw new Error("Le studio ne répond pas pour le moment. Réessayez le chargement.", {
+          cause: error,
+        });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  throw new Error("Impossible de joindre le studio.");
+}
+
 export const directorApi = {
-  list: () =>
-    apiFetch<{ id: string; title: string; version: number; updatedAt: string }[]>(
+  list: (signal?: AbortSignal) =>
+    directorRead<{ id: string; title: string; version: number; updatedAt: string }[]>(
       "/director-projects",
-      { cache: "no-store" },
+      signal,
     ),
   create: (title: string, demo: boolean) =>
     apiFetch<import("@actbyme/shared").DirectorState>("/director-projects", {
       method: "POST",
       body: JSON.stringify({ title, demo }),
     }),
-  get: (id: string) =>
-    apiFetch<import("@actbyme/shared").DirectorState>(`/director-projects/${id}`, {
-      cache: "no-store",
-    }),
+  get: (id: string, signal?: AbortSignal) =>
+    directorRead<import("@actbyme/shared").DirectorState>(`/director-projects/${id}`, signal),
   save: (id: string, version: number, document: import("@actbyme/shared").DirectorDocument) =>
     apiFetch<import("@actbyme/shared").DirectorState>(`/director-projects/${id}`, {
       method: "PATCH",
@@ -792,8 +815,8 @@ export const directorApi = {
       upload: { uploadUrl: string; method: "PUT" | "POST"; token?: string };
     }>(`/director-projects/${id}/assets`, { method: "POST", body: JSON.stringify(input) }),
   casting: () => apiFetch<DirectorCasting>("/director-projects/casting", { cache: "no-store" }),
-  actorRequests: () =>
-    apiFetch<DirectorActorRequest[]>("/director-projects/actor-requests", { cache: "no-store" }),
+  actorRequests: (signal?: AbortSignal) =>
+    directorRead<DirectorActorRequest[]>("/director-projects/actor-requests", signal),
   acceptGrant: (id: string, accept: boolean) =>
     apiFetch<DirectorActorRequest[]>(`/director-projects/actor-requests/${id}`, {
       method: "POST",

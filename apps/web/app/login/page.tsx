@@ -6,6 +6,7 @@ import { Suspense, useState, type FormEvent, type ReactNode } from "react";
 import { Clapperboard, LogIn } from "lucide-react";
 import { Button, Card } from "@actbyme/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+import { consumeAuthReturnTo, rememberAuthReturnTo, safeAuthReturnTo } from "@/lib/auth/return-to";
 
 export default function LoginPage() {
   return (
@@ -47,9 +48,9 @@ function LoginContent() {
     }
 
     const requestedNext = searchParams.get("next");
-    const destination =
-      requestedNext && isSafeInternalPath(requestedNext) ? requestedNext : "/profile";
+    const destination = safeAuthReturnTo(requestedNext);
 
+    consumeAuthReturnTo();
     router.push(destination);
   }
 
@@ -62,10 +63,9 @@ function LoginContent() {
     }
 
     const requestedNext = searchParams.get("next");
-    const redirectTo =
-      requestedNext && isSafeInternalPath(requestedNext)
-        ? `${window.location.origin}${requestedNext}`
-        : `${window.location.origin}/profile`;
+    const destination = safeAuthReturnTo(requestedNext);
+    const remembered = rememberAuthReturnTo(destination);
+    const redirectTo = `${window.location.origin}${remembered ? "/profile" : destination}`;
 
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -75,6 +75,7 @@ function LoginContent() {
     });
 
     if (authError) {
+      consumeAuthReturnTo();
       setError(authError.message);
     }
   }
@@ -153,10 +154,6 @@ function LoginFallback() {
       </div>
     </AuthShell>
   );
-}
-
-function isSafeInternalPath(path: string) {
-  return path.startsWith("/") && !path.startsWith("//");
 }
 
 function AuthShell({

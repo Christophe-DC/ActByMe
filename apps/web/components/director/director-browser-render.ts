@@ -1,5 +1,6 @@
 import {
   renderDirectorPlan,
+  directorDuration,
   directorBrowserExportError,
   type DirectorState,
 } from "@actbyme/shared";
@@ -33,7 +34,18 @@ export async function renderDirectorInBrowser(
     stage = text;
     progress(value, text);
   };
-  ffmpeg.on("progress", () => progress(currentProgress, stage));
+  let encoding: { start: number; end: number; duration: number } | null = null;
+  let shotIndex = 0;
+  ffmpeg.on("progress", ({ time }) => {
+    if (!encoding || !Number.isFinite(time)) return;
+    // FFmpeg reports output time in microseconds. Use the actual trimmed output
+    // duration, since its generic fraction assumes equal input/output lengths.
+    const fraction = Math.min(1, Math.max(0, time / (encoding.duration * 1000000)));
+    notify(
+      Math.max(currentProgress, encoding.start + fraction * (encoding.end - encoding.start)),
+      stage,
+    );
+  });
   try {
     notify(1, stage);
     const base = new URL("/director-media/v1/", window.location.origin);
@@ -79,6 +91,27 @@ export async function renderDirectorInBrowser(
       writeText: (path, content) => ffmpeg.writeFile(path, content),
       run: async (args) => {
         signal.throwIfAborted();
+        if (args.at(-1)?.startsWith("normalized-")) {
+          const shot = state.document.shots[shotIndex]!;
+          encoding = {
+            start: 15 + (shotIndex / state.document.shots.length) * 50,
+            end: 15 + ((shotIndex + 1) / state.document.shots.length) * 50,
+            duration: shot.duration,
+          };
+          notify(
+            encoding.start,
+            `Encodage du plan ${shotIndex + 1}/${state.document.shots.length}`,
+          );
+          shotIndex++;
+        } else {
+          const mixing = args.at(-1) === "advertisement.mp4";
+          encoding = {
+            start: mixing ? 75 : 65,
+            end: mixing ? 84 : 74,
+            duration: directorDuration(state.document),
+          };
+          notify(encoding.start, mixing ? "Mixage audio et finalisation" : "Assemblage des plans");
+        }
         // Single thread: no SharedArrayBuffer, cross-origin isolation or hosted compute.
         const result = await ffmpeg.exec(
           args.map((arg, index) =>
@@ -91,6 +124,7 @@ export async function renderDirectorInBrowser(
           20 * 60000,
           { signal },
         );
+        encoding = null;
         if (result !== 0)
           throw new Error(
             "L’encodage a échoué ou dépassé 20 minutes pour une étape. Vérifiez les clips, fermez les autres onglets et réessayez.",

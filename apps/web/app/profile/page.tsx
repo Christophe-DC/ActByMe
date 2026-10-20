@@ -9,6 +9,7 @@ import { RoleGate } from "../../components/auth/role-gate";
 import { usersApi } from "@/lib/api/client";
 import type { CurrentUserProfile } from "@/lib/api/types";
 import { supabase } from "@/lib/supabase/client";
+import { consumeAuthReturnTo } from "@/lib/auth/return-to";
 
 export default function ProfilePage() {
   return (
@@ -24,12 +25,17 @@ function ProfileContent() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
+    const destination = consumeAuthReturnTo();
+    if (destination !== "/profile") {
+      router.replace(destination);
+      return;
+    }
     async function loadProfile() {
       setProfile(await usersApi.me());
     }
 
     void loadProfile();
-  }, []);
+  }, [router]);
 
   async function signOut() {
     setIsSigningOut(true);

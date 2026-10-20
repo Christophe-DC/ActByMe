@@ -232,6 +232,7 @@ export function AssetLibrary({
       <input
         ref={fileInput}
         type="file"
+        hidden
         className="director-hidden-input"
         accept={Object.values(directorAssetTypes)
           .flat()

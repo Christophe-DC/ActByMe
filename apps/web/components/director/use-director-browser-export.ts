@@ -15,6 +15,8 @@ export function useDirectorBrowserExport(
   );
   const download = useRef<string | null>(null);
   const [status, setStatus] = useState<{ progress: number; stage: string } | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startedAt = useRef(0);
   const [localFile, setLocalFile] = useState<{ url: string; name: string } | null>(null);
   const cancel = () => {
     const task = active.current;
@@ -38,11 +40,18 @@ export function useDirectorBrowserExport(
   const exporting = Boolean(status);
   useEffect(() => {
     if (!exporting) return;
+    const timer = setInterval(
+      () => setElapsedSeconds(Math.floor((Date.now() - startedAt.current) / 1000)),
+      1000,
+    );
     const beforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
     };
     window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
   }, [exporting]);
   const start = async () => {
     if (!id || active.current) return;
@@ -52,6 +61,8 @@ export function useDirectorBrowserExport(
       jobId: undefined as string | undefined,
     };
     active.current = task;
+    startedAt.current = Date.now();
+    setElapsedSeconds(0);
     const signal = task.controller.signal;
     setStatus({ progress: 0, stage: "Enregistrement du montage" });
     try {
@@ -151,5 +162,5 @@ export function useDirectorBrowserExport(
       setStatus(null);
     }
   };
-  return { start, cancel, status, localFile };
+  return { start, cancel, status, localFile, elapsedSeconds };
 }
