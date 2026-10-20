@@ -1,6 +1,6 @@
 # ACTBYME Director — compte rendu de vérification
 
-Date : 19 octobre 2026. Ce compte rendu décrit la validation locale précédant la publication. Le déploiement de production intervenu ensuite est suivi dans [production-release.md](production-release.md). Aucune génération vidéo facturable n’a été effectuée.
+Date : 19 octobre 2026, mise à jour le 20 octobre 2026. Ce compte rendu décrit la validation locale précédant la publication. Le déploiement et les 19 contrôles authentifiés de production sont suivis dans [production-release.md](production-release.md#recette-authentifiée-du-20-octobre-2026). Aucune génération vidéo facturable n’a été effectuée.
 
 ## Intégration livrée
 
@@ -56,9 +56,11 @@ Les nouveaux tests backend vérifient les neuf formats acceptés, les faux MIME,
 
 ## Ce que les tests ne prouvent pas
 
-L’authentification Supabase, le transport des objets et les réponses des fournisseurs sont contrôlés par les fixtures de test. Les tests de contrats HTTP vérifient les endpoints, en-têtes, payloads et réponses documentés, mais n’attestent ni un accès payant, ni les droits régionaux, ni la qualité d’une génération réelle. Aucun substitut de test n’est utilisé dans le module de production.
+Dans la suite locale, l’authentification Supabase, le transport des objets et les réponses des fournisseurs sont contrôlés par les fixtures de test. Les tests de contrats HTTP vérifient les endpoints, en-têtes, payloads et réponses documentés, mais n’attestent ni un accès payant, ni les droits régionaux, ni la qualité d’une génération réelle. Aucun substitut de test n’est utilisé dans le module de production.
 
-L’intégration au bucket Supabase réel, la reconnexion avec un compte réel et le parcours d’acteur restent à recetter sur un compte autorisé de la production existante ; aucun staging n’est configuré. La persistance et les contrôles d’accès ont été exercés sur des bases PostgreSQL réelles, avec des sessions d’authentification de test. La couverture navigateur utilise Chromium ; les contrôles de responsive et le repli WebGL ne remplacent pas une recette Safari/Firefox sur appareils réels.
+Le 20 octobre, une recette distincte autorisée sur la production existante a validé le bucket Supabase réel, la connexion et la reconnexion, les imports inspectés, la sauvegarde et deux véritables exports navigateur privés avec remplacement individuel d’un plan. Le compte, le projet et les sept fichiers temporaires ont été supprimés et leur absence vérifiée. Le [compte rendu de production](production-release.md#recette-authentifiée-du-20-octobre-2026) précise les résultats et les améliorations observées.
+
+Aucun staging n’est configuré. Le parcours de consentement avec un véritable acteur et les fournisseurs payants restent à recetter sur des accès autorisés. La couverture navigateur utilise Chromium ; les contrôles de responsive et le repli WebGL ne remplacent pas une recette Safari/Firefox sur appareils réels. Les projets aux limites de taille et la charge concurrente n’ont pas été exercés en production.
 
 ## Reproduire la recette locale
 
